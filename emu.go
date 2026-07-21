@@ -54,10 +54,15 @@ func normalizeMAC(s string) (string, error) {
 
 // Add validates specs and adds them to the fleet. MACs are normalized before
 // keying, so the same device added twice errors however it was spelled. The
-// first invalid spec aborts the call; earlier specs stay added.
+// first invalid spec aborts the call; earlier specs stay added. Add errors
+// once Start has been called: a running fleet is fixed, and devices added
+// after Start would never be launched.
 func (e *Emu) Add(specs ...DeviceSpec) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if e.started {
+		return fmt.Errorf("unifiemu: cannot Add after Start")
+	}
 	for _, spec := range specs {
 		mac, err := normalizeMAC(spec.MAC)
 		if err != nil {
@@ -77,7 +82,9 @@ func (e *Emu) Add(specs ...DeviceSpec) error {
 	return nil
 }
 
-// Start launches one inform goroutine per device, all tied to ctx.
+// Start launches one inform goroutine per device, all tied to ctx. Start is
+// one-shot: a second Start errors "already started" even after Stop — that is
+// intended, build a fresh fleet with New to restart.
 func (e *Emu) Start(ctx context.Context) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()

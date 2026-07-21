@@ -1,0 +1,16 @@
+# Binaries
+/unifi-emu
+/dist/
+*.exe
+*.test
+*.out
+
+# Go
+/vendor/
+coverage.txt
+coverage.html
+
+# Local runtime / scratch
+*.log
+/tmp/
+.env

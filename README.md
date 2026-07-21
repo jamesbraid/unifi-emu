@@ -1,20 +1,8 @@
 # unifi-emu
 
-```
-        __
-       / o\___
-       \___   \
-           \   \
-        ____ \  \
-       /       \ \
-      |  unifi  | |
-      |   emu   |/
-       \_______/
-         |   |
-         |   |
-        _|   |_
-       |_|   |_|
-```
+<p align="center">
+  <img src="assets/logo.png" alt="unifi-emu — an emu holding a UniFi AP and a switch" width="280">
+</p>
 
 **Fake UniFi devices that speak the inform protocol and get adopted by a real
 controller.** A device simulator/emulator for integration testing — give a UniFi

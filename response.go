@@ -67,7 +67,7 @@ func (d *device) applyCmd(r informResponse) {
 		d.state = StateAdopting
 		d.mu.Unlock()
 		log.Printf("%s: set-adopt received, key rotated, informing %s, now ADOPTING",
-			d.spec.MAC, d.informURL)
+			d.spec.MAC, r.URI)
 	case "setdefault":
 		d.mu.Lock()
 		d.adopted = false
@@ -84,6 +84,7 @@ func (d *device) applyCmd(r informResponse) {
 
 func (d *device) applySetparam(r informResponse) {
 	for _, line := range strings.Split(r.MgmtCfg, "\n") {
+		line = strings.TrimSpace(line)
 		k, v, ok := strings.Cut(line, "=")
 		if !ok {
 			continue

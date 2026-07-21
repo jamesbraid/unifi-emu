@@ -186,7 +186,12 @@ func (d *device) vapTable() []map[string]any {
 	for _, r := range d.profile.Radios {
 		for _, ssid := range ssids {
 			bssid := mac
-			bssid[5] += byte(idx) // per-vap offset on the last octet
+			// Locally administered, so BSSIDs never collide with any
+			// device's base MAC. Offset the second-to-last octet: adjacent
+			// fleet MACs differ in the last octet, so offsetting there
+			// collided vap N of one AP with vap 0 of the next.
+			bssid[0] |= 0x02
+			bssid[4] += byte(idx)
 			table = append(table, map[string]any{
 				"essid":      ssid,
 				"bssid":      net.HardwareAddr(bssid[:]).String(),

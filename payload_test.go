@@ -2,6 +2,7 @@ package unifiemu
 
 import (
 	"encoding/json"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -238,6 +239,62 @@ func TestSSIDsOverride(t *testing.T) {
 		if !got[ssid] {
 			t.Errorf("vap essid %q missing, got %v", ssid, got)
 		}
+	}
+}
+
+func TestVapBSSIDsUniqueAcrossAdjacentMACs(t *testing.T) {
+	d1 := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57"})
+	d2 := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:02", Model: "U7MP", IP: "10.0.0.58"})
+	markAdopted(d1)
+	markAdopted(d2)
+
+	seen := map[string]string{}
+	for name, m := range map[string]map[string]any{
+		"d1": decodePayload(t, d1),
+		"d2": decodePayload(t, d2),
+	} {
+		for _, e := range table(t, m, "vap_table") {
+			bssid, ok := e.(map[string]any)["bssid"].(string)
+			if !ok {
+				t.Fatalf("%s: vap entry missing bssid", name)
+			}
+			hw, err := net.ParseMAC(bssid)
+			if err != nil {
+				t.Fatalf("%s: bssid %q does not parse: %v", name, bssid, err)
+			}
+			if hw[0]&0x02 == 0 {
+				t.Errorf("%s: bssid %q lacks the locally-administered bit", name, bssid)
+			}
+			if other, dup := seen[bssid]; dup {
+				t.Errorf("bssid %q shared by %s and %s", bssid, other, name)
+			}
+			seen[bssid] = name
+		}
+	}
+}
+
+func TestModelRegistryPayloads(t *testing.T) {
+	for model, profile := range modelRegistry {
+		t.Run(model, func(t *testing.T) {
+			d := mustDevice(t, DeviceSpec{MAC: "02:00:00:00:00:01", Model: model, IP: "10.0.0.99"})
+			markAdopted(d)
+			m := decodePayload(t, d)
+			switch profile.Type {
+			case "uap":
+				table(t, m, "radio_table")
+				table(t, m, "vap_table")
+			case "usw":
+				table(t, m, "port_table")
+				table(t, m, "ethernet_table")
+			case "ugw":
+				stats, ok := m["system-stats"].(map[string]any)
+				if !ok || len(stats) == 0 {
+					t.Errorf("system-stats missing or empty for ugw model %s", model)
+				}
+			default:
+				t.Errorf("profile %s has unknown type %q", model, profile.Type)
+			}
+		})
 	}
 }
 

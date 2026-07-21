@@ -91,6 +91,18 @@ func TestSetparamAuthkeyIgnoredWhenAdopted(t *testing.T) {
 	}
 }
 
+func TestSetparamTrimsMgmtCfgLines(t *testing.T) {
+	d := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57"})
+	d.applyResponse([]byte(`{"_type":"setparam","mgmt_cfg":"cfgversion=abc123\r\nauthkey=4c36cd132e0a811601a3e0ca5793b677\r\n"}`))
+
+	if d.cfgvers != "abc123" {
+		t.Errorf("cfgvers = %q, want exactly %q (CRLF must be trimmed)", d.cfgvers, "abc123")
+	}
+	if d.key != DefaultKey {
+		t.Errorf("key = %q, want DefaultKey unchanged (mgmt_cfg.authkey must be ignored)", d.key)
+	}
+}
+
 func TestNoopSetsInterval(t *testing.T) {
 	d := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57"})
 	d.applyResponse([]byte(`{"_type":"noop","interval":30}`))

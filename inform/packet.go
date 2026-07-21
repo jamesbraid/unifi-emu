@@ -81,7 +81,9 @@ func Decode(data []byte, keyHex string) (*Packet, error) {
 	flags := binary.BigEndian.Uint16(data[14:16])
 	iv := data[16:32]
 	n := int(binary.BigEndian.Uint32(data[36:40]))
-	if headerLen+n > len(data) {
+	// n < 0 catches the uint32->int wrap on 32-bit platforms; comparing
+	// against len(data)-headerLen avoids overflowing headerLen+n.
+	if n < 0 || n > len(data)-headerLen {
 		return nil, fmt.Errorf("payload length %d exceeds packet (%d bytes)", n, len(data))
 	}
 	body := data[headerLen : headerLen+n]

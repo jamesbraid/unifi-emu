@@ -45,7 +45,7 @@ func TestDecryptCBCRejectsBadPadding(t *testing.T) {
 	key, _ := ParseKey(DefaultKey)
 	iv := make([]byte, 16)
 	ct, _ := encryptCBC(key, iv, []byte("0123456789abcdef0123456789abcdef"))
-	ct[20] ^= 0xff // corrupt inside final block
+	ct[20] ^= 0xff // block 2 of 3; CBC chaining flips a pad byte in the final plaintext block
 	if _, err := decryptCBC(key, iv, ct); err == nil {
 		t.Fatal("expected padding error")
 	}

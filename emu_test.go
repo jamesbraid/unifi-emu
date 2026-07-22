@@ -1,4 +1,4 @@
-package unifiemu
+package emu
 
 import (
 	"context"

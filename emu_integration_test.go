@@ -1,6 +1,6 @@
 //go:build integration
 
-package unifiemu_test
+package emu_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	unifiemu "github.com/jamesbraid/unifi-emu"
+	"github.com/jamesbraid/unifi-emu"
 )
 
 // Live adoption proof against a real controller. Requires:
@@ -39,8 +39,8 @@ func TestEmuAdoptsUGWLive(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	e := unifiemu.New(informURL)
-	if err := e.Add(unifiemu.DeviceSpec{MAC: mac, Model: "UGW3", IP: "192.168.1.242"}); err != nil {
+	e := emu.New(informURL)
+	if err := e.Add(emu.DeviceSpec{MAC: mac, Model: "UGW3", IP: "192.168.1.242"}); err != nil {
 		t.Fatalf("Add: %v", err)
 	}
 	if err := e.Start(ctx); err != nil {
@@ -48,7 +48,7 @@ func TestEmuAdoptsUGWLive(t *testing.T) {
 	}
 	defer e.Stop()
 
-	c := unifiemu.NewClassicClient(apiURL)
+	c := emu.NewClassicClient(apiURL)
 	if err := c.Login(ctx, "admin", "admin"); err != nil {
 		t.Fatalf("Login: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestEmuAdoptsUGWLive(t *testing.T) {
 
 	waitCtx, stop := context.WithTimeout(ctx, 30*time.Second)
 	defer stop()
-	if err := e.WaitState(waitCtx, mac, unifiemu.StateConnected); err != nil {
+	if err := e.WaitState(waitCtx, mac, emu.StateConnected); err != nil {
 		t.Fatalf("emu-side state: %v", err)
 	}
 }

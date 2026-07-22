@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	unifiemu "github.com/jamesbraid/unifi-emu"
+	"github.com/jamesbraid/unifi-emu"
 )
 
 func main() {
@@ -37,7 +37,7 @@ func main() {
 	// flags would silently drop one of the two definitions, so reject it.
 	set := map[string]bool{}
 	flag.Visit(func(f *flag.Flag) { set[f.Name] = true })
-	var specs []unifiemu.DeviceSpec
+	var specs []emu.DeviceSpec
 	if *devices != "" {
 		for _, f := range []string{"mac", "type", "model", "model-display", "version", "name", "ip"} {
 			if set[f] {
@@ -55,13 +55,13 @@ func main() {
 			log.Fatalf("%s: no devices", *devices)
 		}
 	} else {
-		specs = []unifiemu.DeviceSpec{{
+		specs = []emu.DeviceSpec{{
 			MAC: *mac, Type: *typ, Model: *model, ModelDisplay: *modelDisplay,
 			Version: *version, Name: *name, IP: *ip,
 		}}
 	}
 
-	e := unifiemu.New(*inform)
+	e := emu.New(*inform)
 	if err := e.Add(specs...); err != nil {
 		log.Fatalf("add devices: %v", err)
 	}
@@ -82,7 +82,7 @@ func main() {
 
 // watch logs a line whenever mac's adoption state changes, so long runs
 // show progress without per-inform noise (the device loop logs those).
-func watch(ctx context.Context, e *unifiemu.Emu, mac string) {
+func watch(ctx context.Context, e *emu.Emu, mac string) {
 	last, ok := e.State(mac)
 	if !ok {
 		return

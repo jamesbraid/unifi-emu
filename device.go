@@ -1,6 +1,6 @@
-// Package unifiemu emulates UniFi devices (UAP/USW/UGW) against a real
+// Package emu emulates UniFi devices (UAP/USW/UGW) against a real
 // UniFi controller using the inform protocol.
-package unifiemu
+package emu
 
 import (
 	"encoding/json"

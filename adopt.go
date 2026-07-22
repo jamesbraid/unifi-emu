@@ -1,4 +1,4 @@
-package unifiemu
+package emu
 
 import (
 	"bytes"
@@ -61,7 +61,7 @@ func (c *ClassicClient) postJSON(ctx context.Context, path string, payload any) 
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return fmt.Errorf("unifiemu: POST %s: HTTP %d: %s",
+		return fmt.Errorf("emu: POST %s: HTTP %d: %s",
 			path, resp.StatusCode, strings.TrimSpace(string(errBody)))
 	}
 	_, _ = io.Copy(io.Discard, resp.Body) // drain so the connection is reused
@@ -112,21 +112,21 @@ func (c *ClassicClient) DeviceByMAC(ctx context.Context, site, mac string) (Devi
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return Device{}, fmt.Errorf("unifiemu: GET stat/device: HTTP %d: %s",
+		return Device{}, fmt.Errorf("emu: GET stat/device: HTTP %d: %s",
 			resp.StatusCode, strings.TrimSpace(string(errBody)))
 	}
 	var reply struct {
 		Data []Device `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&reply); err != nil {
-		return Device{}, fmt.Errorf("unifiemu: decode stat/device: %w", err)
+		return Device{}, fmt.Errorf("emu: decode stat/device: %w", err)
 	}
 	for _, d := range reply.Data {
 		if strings.EqualFold(d.MAC, mac) {
 			return d, nil
 		}
 	}
-	return Device{}, fmt.Errorf("unifiemu: device %s not found", mac)
+	return Device{}, fmt.Errorf("emu: device %s not found", mac)
 }
 
 // WaitAdopted polls stat/device every 2s until the device reports state 1
@@ -150,7 +150,7 @@ func (c *ClassicClient) WaitAdopted(ctx context.Context, site, mac string) (Devi
 		}
 		select {
 		case <-ctx.Done():
-			return last, fmt.Errorf("unifiemu: waiting for %s adoption: %w (last device %+v, last error %v)",
+			return last, fmt.Errorf("emu: waiting for %s adoption: %w (last device %+v, last error %v)",
 				mac, ctx.Err(), last, lastErr)
 		case <-tick.C:
 		}

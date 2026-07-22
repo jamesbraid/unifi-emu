@@ -1,4 +1,4 @@
-package unifiemu
+package emu
 
 import (
 	"context"
@@ -61,7 +61,7 @@ func (e *Emu) Add(specs ...DeviceSpec) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.started {
-		return fmt.Errorf("unifiemu: cannot Add after Start")
+		return fmt.Errorf("emu: cannot Add after Start")
 	}
 	for _, spec := range specs {
 		mac, err := normalizeMAC(spec.MAC)
@@ -93,7 +93,7 @@ func (e *Emu) Start(ctx context.Context) error {
 		return fmt.Errorf("Emu already started")
 	}
 	if len(e.devices) == 0 {
-		return fmt.Errorf("unifiemu: no devices added")
+		return fmt.Errorf("emu: no devices added")
 	}
 	e.started = true
 	ctx, e.cancel = context.WithCancel(ctx)

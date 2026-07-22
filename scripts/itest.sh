@@ -197,11 +197,15 @@ fi
 
 log "8/9 capture evidence"
 capture
+# Count only watch()'s "ADOPTING -> CONNECTED" transitions: plain
+# '-> CONNECTED' also matches loop.go's "adoption handshake complete ->
+# CONNECTED" (2 lines per device), which would let the gate pass with
+# half the fleet still adopting.
 for _ in $(seq 1 10); do
-	[ "$(grep -c -- '-> CONNECTED' "$OUT/sim.log" || true)" -ge "${#MACS[@]}" ] && break
+	[ "$(grep -c -- 'ADOPTING -> CONNECTED' "$OUT/sim.log" || true)" -ge "${#MACS[@]}" ] && break
 	sleep 1.5
 done
-[ "$(grep -c -- '-> CONNECTED' "$OUT/sim.log" || true)" -ge "${#MACS[@]}" ] ||
+[ "$(grep -c -- 'ADOPTING -> CONNECTED' "$OUT/sim.log" || true)" -ge "${#MACS[@]}" ] ||
 	fail "controller adopted but sim never reached CONNECTED for all; see $OUT/sim.log"
 
 log "9/9 result"

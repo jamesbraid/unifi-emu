@@ -216,10 +216,30 @@ func TestUpgradeAppliesVersionAndReboots(t *testing.T) {
 		t.Errorf("payload version = %v, want 8.6.11.18870", m["version"])
 	}
 
+	// An upgrade is a firmware swap, not a reset: adoption state must
+	// survive it unchanged, or the device would fall back to pending
+	// after every controller-requested upgrade.
+	if d.key != adoptKey {
+		t.Errorf("key changed across upgrade, want rotated key preserved")
+	}
+	if !d.adopted {
+		t.Error("adopted = false after upgrade, want unchanged")
+	}
+	if d.state != StateAdopting {
+		t.Errorf("state = %v after upgrade, want unchanged ADOPTING", d.state)
+	}
+
 	// A version-less upgrade must not clobber the current version.
 	d.applyResponse([]byte(`{"_type":"upgrade"}`))
 	if d.spec.Version != "8.6.11.18870" {
 		t.Errorf("version = %q after version-less upgrade, want unchanged 8.6.11.18870", d.spec.Version)
+	}
+
+	// A factory reset wipes adoption but not flashed firmware: the
+	// upgraded version survives setdefault.
+	d.applyResponse([]byte(`{"_type":"cmd","cmd":"setdefault"}`))
+	if d.spec.Version != "8.6.11.18870" {
+		t.Errorf("version = %q after setdefault, want no downgrade from 8.6.11.18870", d.spec.Version)
 	}
 }
 

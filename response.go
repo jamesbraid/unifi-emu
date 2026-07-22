@@ -59,12 +59,17 @@ func (d *device) applyResponse(body []byte) {
 		// -sim image: its upgrade cmd for U7PRO carried
 		// {"version":"8.6.11.18870","url":"https://fw-download...bin"}.
 		d.mu.Lock()
-		if r.Version != "" {
+		upgraded := r.Version != ""
+		if upgraded {
 			d.spec.Version = r.Version
 		}
 		d.started = time.Now()
 		d.mu.Unlock()
-		log.Printf("%s: upgrade to %s applied (emulated reboot)", d.spec.MAC, r.Version)
+		if upgraded {
+			log.Printf("%s: upgrade to %s applied (emulated reboot)", d.spec.MAC, r.Version)
+		} else {
+			log.Printf("%s: upgrade requested without a target version (emulated reboot)", d.spec.MAC)
+		}
 	default:
 		log.Printf("%s: ignoring unknown response _type %q", d.spec.MAC, r.Type)
 	}

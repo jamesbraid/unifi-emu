@@ -26,6 +26,12 @@ import (
 // SYSTEM_IP=127.0.0.1 is what makes the post-adopt inform uri reachable
 // from this host; scripts/itest.sh has the details. The fleet test
 // adopts every device in fleetSpecs; the UGW test adopts one gateway.
+//
+// One live test per fresh controller: both tests adopt the same gateway
+// MAC, so a single `go test -tags integration .` run makes the second
+// test die on the fresh-fixture check. Recreate the controller between
+// runs (scripts/itest.sh does this) and select one test with
+// -run TestEmuAdoptsUGWLive or -run TestEmuAdoptsFleetLive.
 func TestEmuAdoptsUGWLive(t *testing.T) {
 	informURL, apiURL := liveEnv(t)
 	mac := os.Getenv("UNIFI_EMU_TEST_MAC")
@@ -64,6 +70,11 @@ var fleetSpecs = []emu.DeviceSpec{
 	{MAC: "00:27:22:e0:00:22", Model: "U7PRO", IP: "192.168.1.246"},
 }
 
+// TestEmuAdoptsFleetLive adopts the whole fleet. One live test per
+// fresh controller: recreate the controller (scripts/itest.sh does
+// this) and run with -run TestEmuAdoptsFleetLive; a combined
+// `go test -tags integration .` run dies on the fresh-fixture check
+// once TestEmuAdoptsUGWLive has adopted the gateway.
 func TestEmuAdoptsFleetLive(t *testing.T) {
 	informURL, apiURL := liveEnv(t)
 

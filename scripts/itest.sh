@@ -8,11 +8,14 @@
 # Requires: docker, go, jq, curl. Usage: itest.sh [MAC] [MODEL]
 #
 # Topology: macOS cannot route to container IPs, so the controller is
-# started with SYSTEM_IP=localhost (entrypoint writes system_ip into
+# started with SYSTEM_IP=127.0.0.1 (entrypoint writes system_ip into
 # system.properties), making the post-adopt inform uri
-# http://localhost:8080/inform — reachable by a sim running on the host.
+# http://127.0.0.1:8080/inform — reachable by a sim running on the host.
 # (The REST mgmt doc on this build has no inform-host knob; inform_host,
-# x_inform_host and override_inform_host are all stripped on write.)
+# x_inform_host and override_inform_host are all stripped on write.
+# localhost itself is rejected: the controller validates the payload's
+# inform_ip as an IP literal — "invalid inform_ip localhost" in
+# server.log — so everything uses 127.0.0.1.)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -22,7 +25,7 @@ CTRL=unifi-itest-ctrl
 NET=unifi-itest
 CTRL_IP=172.30.0.2
 API=https://localhost:8443
-INFORM=http://localhost:8080/inform
+INFORM=http://127.0.0.1:8080/inform
 IMG=ghcr.io/jamesbraid/unifi-network:sim
 OUT=tmp/itest
 SIM_PID=""
@@ -66,11 +69,11 @@ device_doc() { # the stat/device doc for $MAC, empty when absent
 		jq --arg mac "$MAC" '[.data[] | select(.mac | ascii_downcase == ($mac | ascii_downcase))] | .[0] // empty'
 }
 
-log "1/9 recreate controller $CTRL (fresh, SYSTEM_IP=localhost)"
+log "1/9 recreate controller $CTRL (fresh, SYSTEM_IP=127.0.0.1)"
 docker rm -f "$CTRL" >/dev/null 2>&1 || true
 docker network inspect "$NET" >/dev/null 2>&1 || docker network create --subnet 172.30.0.0/24 "$NET" >/dev/null
 docker run -d --name "$CTRL" --network "$NET" --ip "$CTRL_IP" \
-	-e SYSTEM_IP=localhost -p 8443:8443 -p 8080:8080 "$IMG" >/dev/null
+	-e SYSTEM_IP=127.0.0.1 -p 8443:8443 -p 8080:8080 "$IMG" >/dev/null
 healthy=""
 for _ in $(seq 1 60); do
 	healthy=$(docker inspect -f '{{.State.Health.Status}}' "$CTRL" 2>/dev/null || true)
@@ -91,13 +94,13 @@ done
 curl -ks -b "$OUT/cookies" "$API/api/s/default/stat/device" | jq -e '.meta.rc=="ok"' >/dev/null ||
 	fail "login/session not working"
 
-log "3/9 verify inform-host override (adopt_url must be localhost, not $CTRL_IP)"
+log "3/9 verify inform-host override (adopt_url must be $INFORM, not $CTRL_IP)"
 for _ in $(seq 1 30); do
 	urls=$(api GET /api/s/default/stat/device | jq -r '.data[] | select(.adopted==false) | .adopt_url' | sort -u)
 	[ -n "$urls" ] && ! grep -q "$CTRL_IP" <<<"$urls" && break
 	sleep 2
 done
-grep -q 'http://localhost:8080/inform' <<<"$urls" ||
+grep -qx "$INFORM" <<<"$urls" ||
 	fail "adopt_url override not in effect, pending devices advertise: ${urls:-none}"
 
 log "4/9 build + start sim (mac=$MAC model=$MODEL)"

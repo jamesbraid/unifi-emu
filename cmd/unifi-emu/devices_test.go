@@ -146,6 +146,18 @@ func TestLoadDevicesEmpty(t *testing.T) {
 			t.Errorf("err = %v, want no devices", err)
 		}
 	})
+	t.Run("whitespace-only file", func(t *testing.T) {
+		_, err := loadDevices(writeTemp(t, "  \n  \n"), "")
+		if err == nil || !strings.Contains(err.Error(), "no devices") {
+			t.Errorf("err = %v, want no devices", err)
+		}
+	})
+	t.Run("multi-document yaml rejected", func(t *testing.T) {
+		_, err := loadDevices(writeTemp(t, "- {mac: \"00:27:22:e0:00:01\", model: UGW3}\n---\n- {mac: \"00:27:22:e0:00:02\", model: UGW3}\n"), "")
+		if err == nil || !strings.Contains(err.Error(), "multiple YAML documents") {
+			t.Errorf("err = %v, want multiple-documents error", err)
+		}
+	})
 	t.Run("missing file", func(t *testing.T) {
 		_, err := loadDevices(filepath.Join(t.TempDir(), "nope.yaml"), "")
 		if err == nil || !strings.Contains(err.Error(), "read") {

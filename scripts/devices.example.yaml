@@ -1,10 +1,10 @@
 # Example device fleet for `unifi-emu -devices`.
 #
 # YAML or JSON both parse (JSON is a YAML subset); unknown keys are
-# rejected. Keys match emu.DeviceSpec: mac, type, model, modeldisplay,
-# version, name, ip, ports, ssids. type, modeldisplay and version default
-# from the model profile; name defaults to UBNT; ip is what the device
-# reports to the controller.
+# rejected. Keys match emu.DeviceSpec (lowercase, case-sensitive): mac,
+# type, model, modeldisplay, version, name, ip, ports, ssids. type,
+# modeldisplay and version default from the model profile; name defaults
+# to UBNT; ip is what the device reports to the controller.
 #
 # The same list inline is the SIM_DEVICES env contract used by the
 # terraform-provider-unifi compose sidecar:

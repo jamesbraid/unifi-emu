@@ -19,9 +19,9 @@ import (
 var singleFlags = []string{"mac", "type", "model", "model-display", "version", "name", "ip"}
 
 // fleetSpecs resolves the device list from the fleet sources, in
-// precedence order:
+// sources (mutually exclusive):
 //
-//	-devices FILE > SIM_DEVICES env > single-device flags
+//	-devices FILE or SIM_DEVICES env; either beats single-device flags
 //
 // set marks the flags explicitly given on the command line. Both fleet
 // sources at once are ambiguous and an error. Single-device flags
@@ -82,6 +82,14 @@ func loadDevices(filePath, envInline string) ([]emu.DeviceSpec, error) {
 	dec := yaml.NewDecoder(bytes.NewReader(b))
 	dec.KnownFields(true)
 	if err := dec.Decode(&specs); err != nil && !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("parse %s: %w", src, err)
+	}
+	// A second YAML document must not silently vanish.
+	var extra any
+	if err := dec.Decode(&extra); err != io.EOF {
+		if err == nil {
+			return nil, fmt.Errorf("parse %s: multiple YAML documents; want a single device list", src)
+		}
 		return nil, fmt.Errorf("parse %s: %w", src, err)
 	}
 	if len(specs) == 0 {

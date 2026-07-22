@@ -1,6 +1,6 @@
 // Command unifi-emu runs a fleet of emulated UniFi devices informing a
-// real controller until interrupted. Devices come from, in precedence
-// order: -devices FILE (YAML/JSON), SIM_DEVICES env (inline YAML), or the
+// real controller until interrupted. Device sources (mutually exclusive):
+// -devices FILE (YAML/JSON), SIM_DEVICES env (inline YAML), or the
 // single-device flags.
 package main
 
@@ -25,7 +25,7 @@ func main() {
 	inform := flag.String("inform", informDefault, "controller inform URL (default: env SIM_CONTROLLER)")
 	devices := flag.String("devices", "", "YAML/JSON file with an array of DeviceSpec (fleet mode; "+
 		"keys: mac, type, model, modeldisplay, version, name, ip, ports, ssids; unknown keys rejected). "+
-		"Fleet source precedence: -devices > SIM_DEVICES env (inline YAML list) > single-device flags")
+		"Fleet sources (mutually exclusive): -devices FILE (YAML/JSON) or SIM_DEVICES env (inline YAML list); either beats single-device flags")
 	mac := flag.String("mac", "00:27:22:e0:00:01", "device MAC (single-device mode)")
 	typ := flag.String("type", "", "device type ugw/usw/uap (default: from model profile)")
 	model := flag.String("model", "UGW3", "device model")

@@ -196,6 +196,33 @@ func TestNoopSetsInterval(t *testing.T) {
 	}
 }
 
+// The controller holds an upgrading device in state=4 until an inform
+// arrives carrying the target version, so the emulated upgrade must swap
+// the version and restart uptime the way a flash-and-reboot would.
+func TestUpgradeAppliesVersionAndReboots(t *testing.T) {
+	d := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7PRO", IP: "10.0.0.57"})
+	applyAdopt(t, d)
+	before := d.started
+	time.Sleep(time.Millisecond) // make a started-reset observable
+	d.applyResponse([]byte(`{"_type":"upgrade","version":"8.6.11.18870","md5sum":"f300eb4ad0732161949b6cb06b0c6858","url":"https://fw-download.ubnt.com/data/unifi-firmware/1718-U7PRO-8.6.11-94862a62-887a-4433-b148-3dcfc93e672f.bin"}`))
+
+	if d.spec.Version != "8.6.11.18870" {
+		t.Errorf("version = %q, want upgraded 8.6.11.18870", d.spec.Version)
+	}
+	if !d.started.After(before) {
+		t.Error("started not reset; emulated reboot must restart uptime")
+	}
+	if m := decodePayload(t, d); m["version"] != "8.6.11.18870" {
+		t.Errorf("payload version = %v, want 8.6.11.18870", m["version"])
+	}
+
+	// A version-less upgrade must not clobber the current version.
+	d.applyResponse([]byte(`{"_type":"upgrade"}`))
+	if d.spec.Version != "8.6.11.18870" {
+		t.Errorf("version = %q after version-less upgrade, want unchanged 8.6.11.18870", d.spec.Version)
+	}
+}
+
 func TestSetstateEchoesConfig(t *testing.T) {
 	d := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57"})
 	applyAdopt(t, d)

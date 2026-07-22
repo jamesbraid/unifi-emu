@@ -17,6 +17,7 @@ type informResponse struct {
 	Interval   int    `json:"interval"`
 	MgmtCfg    string `json:"mgmt_cfg"`
 	Cfgversion string `json:"cfgversion"`
+	Version    string `json:"version"` // upgrade target firmware version
 }
 
 // applyResponse applies one decoded controller response to the device.
@@ -50,7 +51,20 @@ func (d *device) applyResponse(body []byte) {
 			d.mu.Unlock()
 		}
 	case "upgrade":
-		log.Printf("%s: upgrade requested (no-op)", d.spec.MAC)
+		// Real firmware downloads, flashes and reboots into the new
+		// version; the controller holds the device in state=4 (upgrading)
+		// until an inform arrives carrying that version. Emulate the
+		// reboot: adopt the target version and restart uptime, so the
+		// next inform completes the "upgrade". Verified live against the
+		// -sim image: its upgrade cmd for U7PRO carried
+		// {"version":"8.6.11.18870","url":"https://fw-download...bin"}.
+		d.mu.Lock()
+		if r.Version != "" {
+			d.spec.Version = r.Version
+		}
+		d.started = time.Now()
+		d.mu.Unlock()
+		log.Printf("%s: upgrade to %s applied (emulated reboot)", d.spec.MAC, r.Version)
 	default:
 		log.Printf("%s: ignoring unknown response _type %q", d.spec.MAC, r.Type)
 	}

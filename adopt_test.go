@@ -35,9 +35,20 @@ func newFakeClassic(t *testing.T, mac string) *fakeClassic {
 	return f
 }
 
-func writeRC(w http.ResponseWriter) {
+// writeOK mirrors the real controller's success envelope.
+func writeOK(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write([]byte(`{"meta":{"rc":"ok"}}`))
+	_, _ = w.Write([]byte(`{"meta":{"rc":"ok"},"data":[]}`))
+}
+
+// writeErr mirrors the real controller's error envelope: the msg field
+// carries the api.err.* reason the client needs for live debugging.
+func writeErr(w http.ResponseWriter, status int, msg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"meta": map[string]any{"rc": "error", "msg": msg},
+	})
 }
 
 func (f *fakeClassic) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -50,16 +61,16 @@ func (f *fakeClassic) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if creds.Username != "admin" || creds.Password != "admin" {
-		http.Error(w, "invalid credentials", http.StatusUnauthorized)
+		writeErr(w, http.StatusUnauthorized, "api.err.InvalidCredential")
 		return
 	}
 	http.SetCookie(w, &http.Cookie{Name: "unifises", Value: "test-session", Path: "/"})
-	writeRC(w)
+	writeOK(w)
 }
 
 func (f *fakeClassic) handleDevmgr(w http.ResponseWriter, r *http.Request) {
 	if _, err := r.Cookie("unifises"); err != nil {
-		http.Error(w, "no session", http.StatusUnauthorized)
+		writeErr(w, http.StatusUnauthorized, "api.err.Unauthorized")
 		return
 	}
 	var cmd struct {
@@ -80,10 +91,14 @@ func (f *fakeClassic) handleDevmgr(w http.ResponseWriter, r *http.Request) {
 		f.adopted = true
 	}
 	f.mu.Unlock()
-	writeRC(w)
+	writeOK(w)
 }
 
 func (f *fakeClassic) handleStatDevice(w http.ResponseWriter, r *http.Request) {
+	if _, err := r.Cookie("unifises"); err != nil {
+		writeErr(w, http.StatusUnauthorized, "api.err.Unauthorized")
+		return
+	}
 	f.mu.Lock()
 	state, adopted := 2, false
 	if f.adopted {
@@ -148,16 +163,28 @@ func TestClassicAdoptFlow(t *testing.T) {
 }
 
 func TestClassicLoginFailure(t *testing.T) {
-	f := newFakeClassic(t, "00:15:6d:00:00:01")
+	const mac = "00:15:6d:00:00:01"
+	f := newFakeClassic(t, mac)
 	c := NewClassicClient(f.server.URL)
 	ctx := waitCtx(t, 5*time.Second)
 
-	if err := c.Login(ctx, "admin", "wrong"); err == nil {
+	// The controller puts the real reason in the body's msg field; the
+	// client error must surface it for live debugging.
+	err := c.Login(ctx, "admin", "wrong")
+	if err == nil {
 		t.Fatal("Login with bad password: want error, got nil")
 	}
-	// Without a session cookie the controller rejects the adopt call too.
-	if err := c.Adopt(ctx, "default", "00:15:6d:00:00:01"); err == nil {
-		t.Error("Adopt without login: want error, got nil")
+	if !strings.Contains(err.Error(), "api.err.InvalidCredential") {
+		t.Errorf("Login error %q does not carry the body's msg", err)
+	}
+	// Without a session cookie the controller rejects API calls too.
+	if err := c.Adopt(ctx, "default", mac); err == nil ||
+		!strings.Contains(err.Error(), "api.err.Unauthorized") {
+		t.Errorf("Adopt without login = %v, want api.err.Unauthorized", err)
+	}
+	if _, err := c.DeviceByMAC(ctx, "default", mac); err == nil ||
+		!strings.Contains(err.Error(), "api.err.Unauthorized") {
+		t.Errorf("DeviceByMAC without login = %v, want api.err.Unauthorized", err)
 	}
 }
 

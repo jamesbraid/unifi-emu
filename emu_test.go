@@ -52,26 +52,49 @@ func TestStateUnknownMAC(t *testing.T) {
 	}
 }
 
+func TestStartEmptyFleetErrors(t *testing.T) {
+	e := New("http://unifi:8080/inform")
+	if err := e.Start(context.Background()); err == nil {
+		t.Fatal("Start with no devices: want error, got nil")
+	} else if !strings.Contains(err.Error(), "no devices") {
+		t.Errorf("Start error %q does not mention missing devices", err)
+	}
+	// A rejected Start must not weld the fleet shut.
+	if err := e.Add(uapSpec()); err != nil {
+		t.Fatalf("Add after rejected Start: %v", err)
+	}
+	if err := e.Start(context.Background()); err != nil {
+		t.Fatalf("Start after Add: %v", err)
+	}
+	defer e.Stop()
+}
+
 func TestAddAfterStartRejected(t *testing.T) {
 	e := New("http://unifi:8080/inform")
+	if err := e.Add(uapSpec()); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
 	if err := e.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	defer e.Stop()
-	if err := e.Add(uapSpec()); err == nil {
+	if err := e.Add(uswSpec()); err == nil {
 		t.Error("Add after Start: want error, got nil")
 	} else if !strings.Contains(err.Error(), "after Start") {
 		t.Errorf("Add after Start error %q does not mention Start", err)
 	}
 	// Start is one-shot, so Add stays rejected even after Stop.
 	e.Stop()
-	if err := e.Add(uapSpec()); err == nil {
+	if err := e.Add(uswSpec()); err == nil {
 		t.Error("Add after Stop: want error, got nil")
 	}
 }
 
 func TestStartTwiceErrors(t *testing.T) {
 	e := New("http://unifi:8080/inform")
+	if err := e.Add(uapSpec()); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
 	if err := e.Start(context.Background()); err != nil {
 		t.Fatalf("first Start: %v", err)
 	}

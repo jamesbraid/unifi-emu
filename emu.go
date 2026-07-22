@@ -84,12 +84,16 @@ func (e *Emu) Add(specs ...DeviceSpec) error {
 
 // Start launches one inform goroutine per device, all tied to ctx. Start is
 // one-shot: a second Start errors "already started" even after Stop — that is
-// intended, build a fresh fleet with New to restart.
+// intended, build a fresh fleet with New to restart. Starting an empty fleet
+// errors rather than welding it shut: once started, Add rejects new devices.
 func (e *Emu) Start(ctx context.Context) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.started {
 		return fmt.Errorf("Emu already started")
+	}
+	if len(e.devices) == 0 {
+		return fmt.Errorf("unifiemu: no devices added")
 	}
 	e.started = true
 	ctx, e.cancel = context.WithCancel(ctx)

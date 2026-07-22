@@ -40,7 +40,10 @@ func NewClassicClient(baseURL string) *ClassicClient {
 	}
 }
 
-// postJSON sends payload to path and errors on a non-200 status.
+// postJSON sends payload to path and errors on a non-200 status. The error
+// carries the response body (capped at 512 bytes): the controller puts the
+// real failure reason there (api.err.*), and without it a failed adopt is
+// undebuggable against a live controller.
 func (c *ClassicClient) postJSON(ctx context.Context, path string, payload any) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -56,10 +59,12 @@ func (c *ClassicClient) postJSON(ctx context.Context, path string, payload any) 
 		return err
 	}
 	defer resp.Body.Close()
-	_, _ = io.Copy(io.Discard, resp.Body) // drain so the connection is reused
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unifiemu: POST %s: %s", path, resp.Status)
+		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return fmt.Errorf("unifiemu: POST %s: HTTP %d: %s",
+			path, resp.StatusCode, strings.TrimSpace(string(errBody)))
 	}
+	_, _ = io.Copy(io.Discard, resp.Body) // drain so the connection is reused
 	return nil
 }
 
@@ -106,8 +111,9 @@ func (c *ClassicClient) DeviceByMAC(ctx context.Context, site, mac string) (Devi
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		_, _ = io.Copy(io.Discard, resp.Body)
-		return Device{}, fmt.Errorf("unifiemu: GET stat/device: %s", resp.Status)
+		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return Device{}, fmt.Errorf("unifiemu: GET stat/device: HTTP %d: %s",
+			resp.StatusCode, strings.TrimSpace(string(errBody)))
 	}
 	var reply struct {
 		Data []Device `json:"data"`

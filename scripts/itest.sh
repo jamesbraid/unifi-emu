@@ -146,5 +146,5 @@ grep -q CONNECTED "$OUT/sim.log" || fail "controller adopted but sim never reach
 
 log "9/9 result"
 jq -r '"state=\(.state) adopted=\(.adopted) model=\(.model) ip=\(.ip) version=\(.version)"' "$OUT/device-final.json"
-grep -E 'inform: HTTP (404|200)|set-adopt|-> (ADOPTING|CONNECTED)' "$OUT/sim.log" | head -10
+grep -m 10 -E 'inform: HTTP (404|200)|set-adopt|-> (ADOPTING|CONNECTED)' "$OUT/sim.log"
 echo "CONNECTED ✔ (evidence in $OUT/)"

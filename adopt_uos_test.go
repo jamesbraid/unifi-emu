@@ -11,19 +11,28 @@ import (
 	"time"
 )
 
+// Token values the fake issues: ucore hands out one at login, then rotates
+// it mid-session and returns the replacement on an ordinary response.
+const (
+	uosTokenV1 = "csrf-test-token"
+	uosTokenV2 = "csrf-rotated-token"
+)
+
 // fakeUOS is an in-memory UniFi OS controller front end: /api/auth/login
 // hands out a session cookie plus a CSRF token in the
 // x-updated-csrf-token response header, and the /proxy/network API 403s any
 // call that lacks either — the way ucore guards the proxied Network App.
-// stat/device flips the configured device to state 1 / adopted once an
-// adopt command for its MAC has been seen.
+// The adopt command rotates the token (the response carries the
+// replacement), mirroring ucore's mid-session rotation. stat/device flips
+// the configured device to state 1 / adopted once an adopt command for its
+// MAC has been seen.
 type fakeUOS struct {
 	server   *httptest.Server
 	mac      string
-	csrf     string
 	omitCSRF bool // simulate a controller that never sends the token header
 
 	mu       sync.Mutex
+	csrf     string // currently valid token; rotated by the adopt command
 	adopted  bool
 	sawAdopt []string
 	sawCSRF  []string // X-CSRF-Token value on every authed-endpoint hit
@@ -31,7 +40,7 @@ type fakeUOS struct {
 
 func newFakeUOS(t *testing.T, mac string) *fakeUOS {
 	t.Helper()
-	f := &fakeUOS{mac: mac, csrf: "csrf-test-token"}
+	f := &fakeUOS{mac: mac, csrf: uosTokenV1}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/auth/login", f.handleLogin)
 	mux.HandleFunc("POST /proxy/network/api/s/{site}/cmd/devmgr", f.handleDevmgr)
@@ -61,23 +70,27 @@ func (f *fakeUOS) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, &http.Cookie{Name: "uos_session", Value: "test-session", Path: "/"})
 	if !f.omitCSRF {
-		w.Header().Set("x-updated-csrf-token", f.csrf)
+		f.mu.Lock()
+		tok := f.csrf
+		f.mu.Unlock()
+		w.Header().Set("x-updated-csrf-token", tok)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"id":"uos-user"}`))
 }
 
-// authed reports whether r carries the session cookie and the right CSRF
-// token; ucore 403s anything else under /proxy/network.
+// authed reports whether r carries the session cookie and the currently
+// valid CSRF token; ucore 403s anything else under /proxy/network.
 func (f *fakeUOS) authed(w http.ResponseWriter, r *http.Request) bool {
 	f.mu.Lock()
 	f.sawCSRF = append(f.sawCSRF, r.Header.Get("X-CSRF-Token"))
+	valid := f.csrf
 	f.mu.Unlock()
 	if _, err := r.Cookie("uos_session"); err != nil {
 		http.Error(w, `{"message":"forbidden"}`, http.StatusForbidden)
 		return false
 	}
-	if r.Header.Get("X-CSRF-Token") != f.csrf {
+	if r.Header.Get("X-CSRF-Token") != valid {
 		http.Error(w, `{"message":"invalid csrf token"}`, http.StatusForbidden)
 		return false
 	}
@@ -102,10 +115,19 @@ func (f *fakeUOS) handleDevmgr(w http.ResponseWriter, r *http.Request) {
 	}
 	f.mu.Lock()
 	f.sawAdopt = append(f.sawAdopt, cmd.MAC)
+	rotated := ""
 	if cmd.MAC == f.mac {
 		f.adopted = true
+		// ucore rotates the token mid-session and returns the
+		// replacement in a response header; the old token 403s from
+		// here on.
+		f.csrf = uosTokenV2
+		rotated = uosTokenV2
 	}
 	f.mu.Unlock()
+	if rotated != "" {
+		w.Header().Set("x-updated-csrf-token", rotated)
+	}
 	writeOK(w)
 }
 
@@ -179,16 +201,21 @@ func TestUOSAdoptFlow(t *testing.T) {
 	if saw := f.sawAdopts(); len(saw) != 1 || saw[0] != mac {
 		t.Errorf("fake saw adopt MACs %v, want [%s]", saw, mac)
 	}
-	// Every authed call must have carried the token issued at login;
-	// anything else would have been a 403 from ucore.
+	// Every authed call must have carried a token the fake had issued —
+	// anything else would have been a 403 from ucore — and the calls after
+	// the adopt must carry the rotated token: the client had to follow the
+	// rotation, or WaitAdopted above would have 403d until it timed out.
 	tokens := f.sawTokens()
 	if len(tokens) == 0 {
 		t.Fatal("fake saw no authed calls")
 	}
 	for _, tok := range tokens {
-		if tok != f.csrf {
-			t.Errorf("authed call carried X-CSRF-Token %q, want %q", tok, f.csrf)
+		if tok != uosTokenV1 && tok != uosTokenV2 {
+			t.Errorf("authed call carried X-CSRF-Token %q, want an issued token", tok)
 		}
+	}
+	if last := tokens[len(tokens)-1]; last != uosTokenV2 {
+		t.Errorf("last authed call carried X-CSRF-Token %q, want rotated %q", last, uosTokenV2)
 	}
 }
 
@@ -213,7 +240,7 @@ func TestUOSLoginMissingToken(t *testing.T) {
 	f.omitCSRF = true // 200 but no x-updated-csrf-token header
 	c := NewUOSClient(f.server.URL)
 
-	err := c.Login(context.Background(), "admin", "admin")
+	err := c.Login(waitCtx(t, 5*time.Second), "admin", "admin")
 	if err == nil {
 		t.Fatal("Login with no CSRF token header: want error, got nil")
 	}

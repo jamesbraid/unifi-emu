@@ -95,8 +95,9 @@ func (c *ClassicClient) Adopt(ctx context.Context, site, mac string) error {
 	})
 }
 
-// Device is the subset of a classic stat/device document the adoption flow
-// reads. The documents carry many more fields; they are ignored.
+// Device is the subset of a stat/device document the adoption flow reads;
+// both ClassicClient and UOSClient decode it. The documents carry many
+// more fields; they are ignored.
 type Device struct {
 	MAC     string `json:"mac"`
 	State   int    `json:"state"` // 1=connected, 2=pending, 7=adopt-failed

@@ -37,11 +37,37 @@ func (d *device) run(ctx context.Context) {
 	}
 }
 
+// noteStatus records the inform's HTTP status and logs only transitions,
+// never repeats: a pending device 404s every interval, and logging each
+// one would bury the log lines that matter. The first 404 announces
+// "pending, nothing queued"; the first 200 after a run of 404s reports
+// the run length, which is the evidence that 404 meant "nothing queued"
+// rather than a protocol mismatch.
+func (d *device) noteStatus(status int) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if status == d.lastStatus {
+		d.statusRun++
+		return
+	}
+	prev, run := d.lastStatus, d.statusRun
+	d.lastStatus, d.statusRun = status, 1
+	switch {
+	case status == http.StatusNotFound:
+		log.Printf("[%s] inform: HTTP %d (nothing queued)", d.spec.MAC, status)
+	case prev == 0:
+		log.Printf("[%s] inform: HTTP %d", d.spec.MAC, status)
+	default:
+		log.Printf("[%s] inform: HTTP %d after %d x %d", d.spec.MAC, status, run, prev)
+	}
+}
+
 // informOnce sends one inform packet and applies the controller's reply.
 //
 // HTTP 404 is the expected answer while the device is pending — the
 // controller has nothing queued for a device nobody adopted — so it is
-// neither an error nor worth a log line.
+// not an error; noteStatus logs only the transitions into and out of a
+// 404 run, keeping the run itself silent.
 //
 // The ADOPTING -> CONNECTED transition happens only when a reply arrives to
 // an inform that was sent adopted: the state is sampled before applyResponse,
@@ -78,6 +104,7 @@ func (d *device) informOnce(ctx context.Context) {
 		log.Printf("[%s] read inform response: %v", d.spec.MAC, err)
 		return
 	}
+	d.noteStatus(resp.StatusCode)
 	switch {
 	case resp.StatusCode == http.StatusNotFound:
 		return // pending, nothing queued: expected and silent

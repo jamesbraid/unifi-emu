@@ -64,6 +64,12 @@ type device struct {
 	cfgvers   string
 	interval  time.Duration
 	setstate  map[string]json.RawMessage
+
+	// Inform HTTP-status tracking for transition logging: lastStatus is
+	// the previous inform's status (0 = none yet), statusRun the count of
+	// consecutive informs answered with it.
+	lastStatus int
+	statusRun  int
 }
 
 func newDevice(spec DeviceSpec, informURL string) (*device, error) {

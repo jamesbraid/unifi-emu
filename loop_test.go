@@ -1,11 +1,16 @@
 package unifiemu
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -203,5 +208,94 @@ func TestDeviceLoopStopsOnContextCancel(t *testing.T) {
 	case <-done:
 	case <-time.After(2 * time.Second):
 		t.Fatal("run did not return within 2s of cancel")
+	}
+}
+
+// lockedBuffer is a bytes.Buffer safe for concurrent log writes and test
+// reads; the log package serializes each Write, the test reads in parallel.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+// The 404 verdict needs per-device evidence of the inform HTTP-status
+// flow: the first 404 must speak up (pending is normal), repeats must
+// stay silent, and the first 200 must say how many 404s preceded it.
+func TestInformStatusTransitionsLogged(t *testing.T) {
+	var logs lockedBuffer
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+
+	var calls atomic.Int64
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if calls.Add(1) <= 2 { // two "pending, nothing queued" replies, then 200s
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		body, _ := io.ReadAll(r.Body)
+		pkt, err := inform.Decode(body, inform.DefaultKey)
+		if err != nil {
+			http.Error(w, "undecryptable", http.StatusBadRequest)
+			return
+		}
+		enc, err := (&inform.Packet{MAC: pkt.MAC, Payload: []byte(`{"_type":"noop","interval":1}`)}).Encode(inform.DefaultKey)
+		if err != nil {
+			http.Error(w, "encode reply", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/x-binary")
+		_, _ = w.Write(enc)
+	}))
+	t.Cleanup(srv.Close)
+
+	d, err := newDevice(ugwSpec(), srv.URL+"/inform")
+	if err != nil {
+		t.Fatalf("newDevice: %v", err)
+	}
+	d.interval = 10 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go d.run(ctx)
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		out := logs.String()
+		if strings.Contains(out, "inform: HTTP 200 after 2 x 404") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("missing 404->200 transition logs, got:\n%s", out)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	out := logs.String()
+	mac := "dc:9f:db:00:00:01"
+	first404 := "[" + mac + "] inform: HTTP 404 (nothing queued)"
+	if !strings.Contains(out, first404) {
+		t.Errorf("missing first-404 log %q, got:\n%s", first404, out)
+	}
+	if n := strings.Count(out, "HTTP 404"); n != 1 {
+		t.Errorf("404 logged %d times, want exactly 1 (repeats stay silent):\n%s", n, out)
+	}
+	if !strings.Contains(out, "["+mac+"] inform: HTTP 200 after 2 x 404") {
+		t.Errorf("missing 200-after-404s transition, got:\n%s", out)
+	}
+	time.Sleep(50 * time.Millisecond) // several more 200 informs must stay silent
+	if n := strings.Count(logs.String(), "HTTP 200"); n != 1 {
+		t.Errorf("200 logged %d times, want exactly 1 (repeats stay silent)", n)
 	}
 }

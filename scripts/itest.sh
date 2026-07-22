@@ -2,10 +2,12 @@
 # itest.sh — live adoption proof against a real controller.
 #
 # Recreates unifi-itest-ctrl fresh (demo devices re-seed PENDING), informs
-# one emulated device from the host, adopts it, and asserts the controller
-# reports state=1 adopted=true. All evidence lands in tmp/itest/.
+# emulated device(s) from the host, adopts them, and asserts the controller
+# reports state=1 adopted=true for each. All evidence lands in tmp/itest/.
 #
-# Requires: docker, go, jq, curl. Usage: itest.sh [MAC] [MODEL]
+# Requires: docker, go, jq, curl.
+# Usage: itest.sh [MAC] [MODEL]   — one device (default UGW3 00:27:22:e0:00:01)
+#        itest.sh fleet           — every device in scripts/devices.fleet.json
 #
 # Topology: macOS cannot route to container IPs, so the controller is
 # started with SYSTEM_IP=127.0.0.1 (entrypoint writes system_ip into
@@ -19,8 +21,6 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-MAC="${1:-00:27:22:e0:00:01}"
-MODEL="${2:-UGW3}"
 CTRL=unifi-itest-ctrl
 NET=unifi-itest
 CTRL_IP=172.30.0.2
@@ -31,7 +31,22 @@ OUT=tmp/itest
 SIM_PID=""
 mkdir -p "$OUT"
 
+if [ "${1:-}" = fleet ]; then
+	FLEET=scripts/devices.fleet.json
+	MACS=()
+	while IFS= read -r m; do MACS+=("$m"); done < <(jq -r '.[].mac' "$FLEET")
+	[ ${#MACS[@]} -gt 0 ] || { echo "no devices in $FLEET" >&2; exit 1; }
+	SIM_ARGS=(-devices "$FLEET")
+else
+	MAC="${1:-00:27:22:e0:00:01}"
+	MODEL="${2:-UGW3}"
+	MACS=("$MAC")
+	SIM_ARGS=(-mac "$MAC" -model "$MODEL")
+fi
+
 log() { printf '\n==> %s\n' "$*"; }
+
+macf() { tr -d ':' <<<"$1"; } # filename-safe form of a MAC
 
 capture() { # best-effort evidence capture, safe to run any time
 	docker logs "$CTRL" >"$OUT/controller.log" 2>&1 || true
@@ -64,9 +79,9 @@ api() { # api METHOD PATH [BODY] — authenticated curl, response on stdout
 	fi
 }
 
-device_doc() { # the stat/device doc for $MAC, empty when absent
+device_doc() { # the stat/device doc for $1 (a MAC), empty when absent
 	api GET /api/s/default/stat/device |
-		jq --arg mac "$MAC" '[.data[] | select(.mac | ascii_downcase == ($mac | ascii_downcase))] | .[0] // empty'
+		jq --arg mac "$1" '[.data[] | select(.mac | ascii_downcase == ($mac | ascii_downcase))] | .[0] // empty'
 }
 
 log "1/9 recreate controller $CTRL (fresh, SYSTEM_IP=127.0.0.1)"
@@ -103,48 +118,96 @@ done
 grep -qx "$INFORM" <<<"$urls" ||
 	fail "adopt_url override not in effect, pending devices advertise: ${urls:-none}"
 
-log "4/9 build + start sim (mac=$MAC model=$MODEL)"
+log "4/9 build + start sim (${#MACS[@]} device(s): ${MACS[*]})"
 go build -o "$OUT/unifi-emu" ./cmd/unifi-emu
-"$OUT/unifi-emu" -inform "$INFORM" -mac "$MAC" -model "$MODEL" >"$OUT/sim.log" 2>&1 &
+"$OUT/unifi-emu" -inform "$INFORM" "${SIM_ARGS[@]}" >"$OUT/sim.log" 2>&1 &
 SIM_PID=$!
 
-log "5/9 wait for $MAC to appear pending (state=2)"
-doc=""
-for _ in $(seq 1 60); do
-	doc=$(device_doc)
-	[ -n "$doc" ] && [ "$(jq -r .state <<<"$doc")" = 2 ] && break
+log "5/9 wait for all ${#MACS[@]} device(s) pending (state=2)"
+deadline=$((SECONDS + 120))
+waiting="x"
+while [ $SECONDS -lt $deadline ]; do
+	waiting=""
+	for mac in "${MACS[@]}"; do
+		doc=$(device_doc "$mac")
+		if [ -n "$doc" ] && [ "$(jq -r .state <<<"$doc")" = 2 ]; then
+			echo "$doc" | jq . >"$OUT/device-pending-$(macf "$mac").json"
+		else
+			waiting="$waiting $mac"
+		fi
+	done
+	[ -z "$waiting" ] && break
 	kill -0 "$SIM_PID" 2>/dev/null || fail "sim died; see $OUT/sim.log"
 	sleep 2
 done
-[ -n "$doc" ] && [ "$(jq -r .state <<<"$doc")" = 2 ] || fail "device never appeared pending; last doc: ${doc:-absent}"
-echo "$doc" | jq . >"$OUT/device-pending.json"
+[ -z "$waiting" ] || fail "never pending:$waiting"
 
-log "6/9 adopt $MAC"
-api POST /api/s/default/cmd/devmgr "{\"cmd\":\"adopt\",\"mac\":\"$MAC\"}" | tee "$OUT/adopt.json" | jq -e '.meta.rc=="ok"' >/dev/null ||
-	fail "adopt rejected: $(cat "$OUT/adopt.json")"
-
-log "7/9 wait for state=1 adopted=true (up to 3min)"
-final=""
-for _ in $(seq 1 90); do
-	final=$(device_doc)
-	if [ -n "$final" ] && [ "$(jq -r .state <<<"$final")" = 1 ] && [ "$(jq -r .adopted <<<"$final")" = true ]; then
-		break
-	fi
-	sleep 2
+# Adopts are serialized, one device fully connected before the next, and
+# rejections are retried: this controller build answers devmgr adopt with
+# api.err.CannotAdopt / api.err.CanNotAdoptUnknownDevice when the device
+# doc is too fresh (a pending doc sighted 2s after the first inform is
+# not adoptable yet; minutes later the same adopt succeeds) and a failed
+# adopt can reap the doc entirely, in which case the sim's next inform
+# re-creates it. A human clicks Adopt once per device and re-clicks on
+# failure; do the same for about two minutes.
+log "6/9 adopt each of ${#MACS[@]} device(s), waiting for state=1 adopted=true"
+for mac in "${MACS[@]}"; do
+	adopted=""
+	for _ in $(seq 1 12); do
+		resp=$(api POST /api/s/default/cmd/devmgr "{\"cmd\":\"adopt\",\"mac\":\"$mac\"}")
+		if jq -e '.meta.rc=="ok"' <<<"$resp" >/dev/null; then
+			adopted=1
+			break
+		fi
+		grep -qi 'cannotadopt' <<<"$resp" || fail "adopt $mac rejected: $resp"
+		# CanNotAdoptUnknownDevice means the doc was reaped; the sim's
+		# next inform re-creates it. CannotAdopt can also mean "already
+		# adopting" (an earlier attempt landed controller-side); the doc
+		# is the source of truth.
+		doc=$(device_doc "$mac")
+		if [ -n "$doc" ] && [ "$(jq -r .adopted <<<"$doc")" = true ]; then
+			adopted=1
+			break
+		fi
+		sleep 10
+	done
+	[ -n "$adopted" ] || fail "adopt $mac rejected with CannotAdopt 12 times: $resp"
+	echo "$resp" >"$OUT/adopt-$(macf "$mac").json"
+	deadline=$((SECONDS + 90))
+	final=""
+	while [ $SECONDS -lt $deadline ]; do
+		final=$(device_doc "$mac")
+		[ -n "$final" ] && [ "$(jq -r .state <<<"$final")" = 1 ] && [ "$(jq -r .adopted <<<"$final")" = true ] && break
+		sleep 2
+	done
+	[ -n "$final" ] && [ "$(jq -r .state <<<"$final")" = 1 ] && [ "$(jq -r .adopted <<<"$final")" = true ] ||
+		fail "$mac never connected; last doc: ${final:-absent}"
+	echo "$final" | jq . >"$OUT/device-final-$(macf "$mac").json"
+	echo "    $mac connected ($(jq -r .model <<<"$final"))"
 done
-[ -n "$final" ] && [ "$(jq -r .state <<<"$final")" = 1 ] && [ "$(jq -r .adopted <<<"$final")" = true ] ||
-	fail "device never connected; last doc: ${final:-absent}"
-echo "$final" | jq . >"$OUT/device-final.json"
+
+log "7/9 all ${#MACS[@]} device(s) connected"
+if [ ${#MACS[@]} -eq 1 ]; then
+	cp "$OUT/device-final-$(macf "${MACS[0]}").json" "$OUT/device-final.json"
+else
+	files=()
+	for mac in "${MACS[@]}"; do files+=("$OUT/device-final-$(macf "$mac").json"); done
+	jq -s '.' "${files[@]}" >"$OUT/device-final.json"
+fi
 
 log "8/9 capture evidence"
 capture
 for _ in $(seq 1 10); do
-	grep -q CONNECTED "$OUT/sim.log" && break
+	[ "$(grep -c -- '-> CONNECTED' "$OUT/sim.log" || true)" -ge "${#MACS[@]}" ] && break
 	sleep 1.5
 done
-grep -q CONNECTED "$OUT/sim.log" || fail "controller adopted but sim never reached CONNECTED; see $OUT/sim.log"
+[ "$(grep -c -- '-> CONNECTED' "$OUT/sim.log" || true)" -ge "${#MACS[@]}" ] ||
+	fail "controller adopted but sim never reached CONNECTED for all; see $OUT/sim.log"
 
 log "9/9 result"
-jq -r '"state=\(.state) adopted=\(.adopted) model=\(.model) ip=\(.ip) version=\(.version)"' "$OUT/device-final.json"
-grep -m 10 -E 'inform: HTTP (404|200)|set-adopt|-> (ADOPTING|CONNECTED)' "$OUT/sim.log"
-echo "CONNECTED ✔ (evidence in $OUT/)"
+for mac in "${MACS[@]}"; do
+	jq -r '"\(.mac) state=\(.state) adopted=\(.adopted) model=\(.model) ip=\(.ip) version=\(.version)"' \
+		"$OUT/device-final-$(macf "$mac").json"
+done
+grep -m 20 -E 'inform: HTTP (404|200)|set-adopt|-> (ADOPTING|CONNECTED)' "$OUT/sim.log"
+echo "CONNECTED ✔ (${#MACS[@]} device(s), evidence in $OUT/)"

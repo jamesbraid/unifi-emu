@@ -160,15 +160,39 @@ func TestAdoptedPayloadUAP(t *testing.T) {
 		}
 		requireFields(t, "radio_table", entry, "name", "radio", "channel", "ht", "nss", "radio_caps")
 	}
+	// Default vaps: present but empty. This controller build rejects
+	// default vaps (their id is not a valid wlanconf ObjectId) with
+	// ERROR noise on every inform and drops them, so an AP informs with
+	// no vaps until a setstate provisions real WLAN config — the same
+	// empty vap_table the accepted oracle AP carries (tmp/oracle-uap.json).
+	vaps, ok := m["vap_table"].([]any)
+	if !ok {
+		t.Fatalf("vap_table missing or not an array in payload")
+	}
+	if len(vaps) != 0 {
+		t.Fatalf("default vap_table has %d entries, want 0 (empty until provisioned)", len(vaps))
+	}
+	if _, ok := m["sys_stats"].(map[string]any); !ok {
+		t.Errorf("sys_stats missing (common adopted field)")
+	}
+}
+
+// DeviceSpec.SSIDs is the opt-in escape hatch for vaps: explicitly
+// listed SSIDs are emitted even though the default payload stays empty.
+func TestAdoptedPayloadUAPWithSSIDs(t *testing.T) {
+	d := mustDevice(t, DeviceSpec{
+		MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57",
+		SSIDs: []string{"CorpWiFi"},
+	})
+	markAdopted(d)
+	m := decodePayload(t, d)
+
 	for _, e := range table(t, m, "vap_table") {
 		entry, ok := e.(map[string]any)
 		if !ok {
 			t.Fatalf("vap_table entry not an object: %v", e)
 		}
 		requireFields(t, "vap_table", entry, "essid", "bssid", "radio", "up", "num_sta")
-	}
-	if _, ok := m["sys_stats"].(map[string]any); !ok {
-		t.Errorf("sys_stats missing (common adopted field)")
 	}
 }
 
@@ -257,8 +281,8 @@ func TestSSIDsOverride(t *testing.T) {
 }
 
 func TestVapBSSIDsUniqueAcrossAdjacentMACs(t *testing.T) {
-	d1 := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57"})
-	d2 := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:02", Model: "U7MP", IP: "10.0.0.58"})
+	d1 := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57", SSIDs: []string{"CorpWiFi"}})
+	d2 := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:02", Model: "U7MP", IP: "10.0.0.58", SSIDs: []string{"CorpWiFi"}})
 	markAdopted(d1)
 	markAdopted(d2)
 
@@ -296,7 +320,11 @@ func TestModelRegistryPayloads(t *testing.T) {
 			switch profile.Type {
 			case "uap":
 				table(t, m, "radio_table")
-				table(t, m, "vap_table")
+				// vaps default to empty until provisioned (see
+				// TestAdoptedPayloadUAP); the key must still be present.
+				if _, ok := m["vap_table"].([]any); !ok {
+					t.Errorf("vap_table missing or not an array for uap model %s", model)
+				}
 			case "usw":
 				table(t, m, "port_table")
 				table(t, m, "ethernet_table")

@@ -273,10 +273,11 @@ func TestSetdefaultResetsToPending(t *testing.T) {
 	}
 
 	// Re-adopt and confirm the cleared setstate no longer echoes: the
-	// vap_table must be the profile default again, not the pushed config.
+	// vap_table must be back to the empty default, not the pushed config.
 	markAdopted(d)
 	m = decodePayload(t, d)
-	for _, e := range table(t, m, "vap_table") {
+	vaps, _ := m["vap_table"].([]any)
+	for _, e := range vaps {
 		if e.(map[string]any)["essid"] == "CorpWiFi" {
 			t.Error("stale setstate vap_table still echoed after setdefault")
 		}

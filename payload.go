@@ -175,13 +175,17 @@ func (d *device) radioTableStats() []map[string]any {
 	return table
 }
 
+// vapTable renders the AP's virtual access points. Empty by default:
+// this controller build rejects default vaps (their id is not a valid
+// wlanconf ObjectId) with ERROR noise on every inform and drops them —
+// the accepted oracle AP (tmp/oracle-uap.json) carries an empty
+// vap_table. Vaps appear only when the caller opts in via
+// DeviceSpec.SSIDs, or when the controller provisions real WLAN config
+// via setstate (echoed over the defaults by buildPayload).
 func (d *device) vapTable() []map[string]any {
 	ssids := d.spec.SSIDs
-	if len(ssids) == 0 {
-		ssids = d.profile.SSIDs
-	}
 	mac := d.macHeader()
-	var table []map[string]any
+	table := make([]map[string]any, 0, len(ssids)*len(d.profile.Radios))
 	idx := 0
 	for _, r := range d.profile.Radios {
 		for _, ssid := range ssids {

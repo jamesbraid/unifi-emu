@@ -49,8 +49,12 @@ type DeviceSpec struct {
 	Version      string
 	Name         string
 	IP           string
-	Ports        int      // overrides the profile port layout when > 0
-	SSIDs        []string // overrides the profile default vaps when non-empty
+	Ports        int // overrides the profile port layout when > 0
+	// SSIDs opts the AP into emitting vaps. Empty by default: this
+	// controller build rejects default vaps with log noise until a
+	// setstate provisions real WLAN config (the setstate echo path
+	// overlays vap_table), so devices inform with an empty vap_table.
+	SSIDs []string
 }
 
 // device is the mutable runtime state of one emulated device.

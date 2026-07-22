@@ -34,7 +34,6 @@ type ModelProfile struct {
 	Version      string
 	Ports        []PortSpec  // usw + ugw + uap (eth port)
 	Radios       []RadioSpec // uap only
-	SSIDs        []string    // uap default vaps
 }
 
 // switchPorts lays out geCount GE ports followed by sfpCount SFP+ ports,
@@ -116,20 +115,17 @@ var modelRegistry = map[string]ModelProfile{
 		Version: "4.0.21.9965",
 		Ports:   uapPorts(),
 		Radios:  uapRadios(),
-		SSIDs:   []string{"UBNT"},
 	},
 	"U7PRO": {
 		Model: "U7PRO", ModelDisplay: "UniFi AP 7 Pro", Type: "uap",
 		Version: "4.0.21.9965",
 		Ports:   uapPorts(),
 		Radios:  uapRadios(),
-		SSIDs:   []string{"UBNT"},
 	},
 	"UAPA6B0": {
 		Model: "UAPA6B0", ModelDisplay: "UniFi AP 6 B0", Type: "uap",
 		Version: "4.0.21.9965",
 		Ports:   uapPorts(),
 		Radios:  uapRadios(),
-		SSIDs:   []string{"UBNT"},
 	},
 }

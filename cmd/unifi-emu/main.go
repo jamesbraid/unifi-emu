@@ -29,7 +29,7 @@ func main() {
 	typ := flag.String("type", "", "device type ugw/usw/uap (default: from model profile)")
 	model := flag.String("model", "UGW3", "device model")
 	modelDisplay := flag.String("model-display", "", "model display name (default: from model profile)")
-	version := flag.String("version", "4.4.36.5146617", "firmware version")
+	version := flag.String("version", "", "firmware version (default: from model profile)")
 	name := flag.String("name", "", "device hostname (default: UBNT)")
 	ip := flag.String("ip", "192.168.1.242", "device IP reported to the controller")
 	flag.Parse()

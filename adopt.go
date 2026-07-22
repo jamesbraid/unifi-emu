@@ -22,39 +22,48 @@ type ClassicClient struct {
 	hc   *http.Client
 }
 
-// NewClassicClient returns a client for the controller at baseURL. TLS
-// verification is off because controllers ship self-signed certs; plain
+// newSessionClient returns an http.Client with a cookie jar and TLS
+// verification off because controllers ship self-signed certs; plain
 // http:// URLs work too. The 15s timeout keeps a dead controller from
 // hanging an adoption wait.
-func NewClassicClient(baseURL string) *ClassicClient {
+func newSessionClient() *http.Client {
 	jar, _ := cookiejar.New(nil) // nil options never error
-	return &ClassicClient{
-		base: strings.TrimRight(baseURL, "/"),
-		hc: &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			},
-			Jar:     jar,
-			Timeout: 15 * time.Second,
+	return &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
+		Jar:     jar,
+		Timeout: 15 * time.Second,
 	}
 }
 
-// postJSON sends payload to path and errors on a non-200 status. The error
-// carries the response body (capped at 512 bytes): the controller puts the
-// real failure reason there (api.err.*), and without it a failed adopt is
-// undebuggable against a live controller.
-func (c *ClassicClient) postJSON(ctx context.Context, path string, payload any) error {
+// NewClassicClient returns a client for the controller at baseURL.
+func NewClassicClient(baseURL string) *ClassicClient {
+	return &ClassicClient{
+		base: strings.TrimRight(baseURL, "/"),
+		hc:   newSessionClient(),
+	}
+}
+
+// postJSON sends payload to base+path and errors on a non-200 status; hdr
+// carries extra request headers (UOS sends its CSRF token on every authed
+// call). The error carries the response body (capped at 512 bytes): the
+// controller puts the real failure reason there (api.err.*), and without it
+// a failed adopt is undebuggable against a live controller.
+func postJSON(ctx context.Context, hc *http.Client, base, path string, hdr http.Header, payload any) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+path, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+path, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.hc.Do(req)
+	for k, vs := range hdr {
+		req.Header[k] = vs
+	}
+	resp, err := hc.Do(req)
 	if err != nil {
 		return err
 	}
@@ -71,7 +80,7 @@ func (c *ClassicClient) postJSON(ctx context.Context, path string, payload any) 
 // Login authenticates against /api/login; the session cookie rides in the
 // jar from then on. Non-200 (bad credentials) is an error.
 func (c *ClassicClient) Login(ctx context.Context, user, pass string) error {
-	return c.postJSON(ctx, "/api/login", map[string]string{
+	return postJSON(ctx, c.hc, c.base, "/api/login", nil, map[string]string{
 		"username": user,
 		"password": pass,
 	})
@@ -80,7 +89,7 @@ func (c *ClassicClient) Login(ctx context.Context, user, pass string) error {
 // Adopt issues the devmgr adopt command for mac in site, the same call the
 // controller UI makes when the user clicks Adopt.
 func (c *ClassicClient) Adopt(ctx context.Context, site, mac string) error {
-	return c.postJSON(ctx, "/api/s/"+site+"/cmd/devmgr", map[string]string{
+	return postJSON(ctx, c.hc, c.base, "/api/s/"+site+"/cmd/devmgr", nil, map[string]string{
 		"cmd": "adopt",
 		"mac": mac,
 	})
@@ -100,12 +109,21 @@ type Device struct {
 // DeviceByMAC returns the stat/device doc for mac in site, or a "device not
 // found" error when the controller does not list it.
 func (c *ClassicClient) DeviceByMAC(ctx context.Context, site, mac string) (Device, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		c.base+"/api/s/"+site+"/stat/device", nil)
+	return deviceByMAC(ctx, c.hc, c.base+"/api/s/"+site+"/stat/device", nil, mac)
+}
+
+// deviceByMAC GETs url (a stat/device endpoint) and returns the doc for
+// mac, or a "device not found" error when the controller does not list it;
+// hdr carries extra request headers (see postJSON).
+func deviceByMAC(ctx context.Context, hc *http.Client, url string, hdr http.Header, mac string) (Device, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return Device{}, err
 	}
-	resp, err := c.hc.Do(req)
+	for k, vs := range hdr {
+		req.Header[k] = vs
+	}
+	resp, err := hc.Do(req)
 	if err != nil {
 		return Device{}, err
 	}
@@ -134,12 +152,22 @@ func (c *ClassicClient) DeviceByMAC(ctx context.Context, site, mac string) (Devi
 // naming it plus the last poll error, so a stalled adoption says where it
 // stalled.
 func (c *ClassicClient) WaitAdopted(ctx context.Context, site, mac string) (Device, error) {
+	return waitAdopted(ctx, c, site, mac)
+}
+
+// deviceFinder is the piece of ClassicClient and UOSClient that waitAdopted
+// needs: fetch one device's doc by MAC.
+type deviceFinder interface {
+	DeviceByMAC(ctx context.Context, site, mac string) (Device, error)
+}
+
+func waitAdopted(ctx context.Context, f deviceFinder, site, mac string) (Device, error) {
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
 	var last Device
 	var lastErr error
 	for {
-		d, err := c.DeviceByMAC(ctx, site, mac)
+		d, err := f.DeviceByMAC(ctx, site, mac)
 		if err != nil {
 			lastErr = err
 		} else {

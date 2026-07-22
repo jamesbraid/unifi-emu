@@ -41,20 +41,24 @@ func (s DeviceState) String() string {
 // An explicit Type must equal the profile's: the profile drives the
 // payload shape, so a mismatched Type would describe an incoherent
 // device and is an error, not an override.
+//
+// The json/yaml tags are the fleet-file contract (unifi-emu -devices,
+// SIM_DEVICES); keep the two families identical so either format names
+// the same keys.
 type DeviceSpec struct {
-	MAC          string
-	Type         string
-	Model        string
-	ModelDisplay string
-	Version      string
-	Name         string
-	IP           string
-	Ports        int // overrides the profile port layout when > 0
+	MAC          string `json:"mac" yaml:"mac"`
+	Type         string `json:"type" yaml:"type"`
+	Model        string `json:"model" yaml:"model"`
+	ModelDisplay string `json:"modeldisplay" yaml:"modeldisplay"`
+	Version      string `json:"version" yaml:"version"`
+	Name         string `json:"name" yaml:"name"`
+	IP           string `json:"ip" yaml:"ip"`
+	Ports        int    `json:"ports" yaml:"ports"` // overrides the profile port layout when > 0
 	// SSIDs opts the AP into emitting vaps. Empty by default: this
 	// controller build rejects default vaps with log noise until a
 	// setstate provisions real WLAN config (the setstate echo path
 	// overlays vap_table), so devices inform with an empty vap_table.
-	SSIDs []string
+	SSIDs []string `json:"ssids" yaml:"ssids"`
 }
 
 // device is the mutable runtime state of one emulated device.

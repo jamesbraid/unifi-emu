@@ -1,16 +1,16 @@
 // Command unifi-emu runs a fleet of emulated UniFi devices informing a
-// real controller, either a single device from flags or a fleet from a
-// JSON file, until interrupted.
+// real controller until interrupted. Devices come from, in precedence
+// order: -devices FILE (YAML/JSON), SIM_DEVICES env (inline YAML), or the
+// single-device flags.
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"flag"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -23,8 +23,9 @@ func main() {
 		informDefault = "http://localhost:8080/inform"
 	}
 	inform := flag.String("inform", informDefault, "controller inform URL (default: env SIM_CONTROLLER)")
-	devices := flag.String("devices", "", "JSON file with an array of DeviceSpec (fleet mode; "+
-		"keys match DeviceSpec field names case-insensitively: mac, type, model, modeldisplay, version, name, ip, ports, ssids; unknown keys rejected)")
+	devices := flag.String("devices", "", "YAML/JSON file with an array of DeviceSpec (fleet mode; "+
+		"keys: mac, type, model, modeldisplay, version, name, ip, ports, ssids; unknown keys rejected). "+
+		"Fleet source precedence: -devices > SIM_DEVICES env (inline YAML list) > single-device flags")
 	mac := flag.String("mac", "00:27:22:e0:00:01", "device MAC (single-device mode)")
 	typ := flag.String("type", "", "device type ugw/usw/uap (default: from model profile)")
 	model := flag.String("model", "UGW3", "device model")
@@ -34,37 +35,19 @@ func main() {
 	ip := flag.String("ip", "192.168.1.242", "device IP reported to the controller")
 	flag.Parse()
 
-	// -devices is a complete device list; mixing it with single-device
-	// flags would silently drop one of the two definitions, so reject it.
 	set := map[string]bool{}
 	flag.Visit(func(f *flag.Flag) { set[f.Name] = true })
-	var specs []emu.DeviceSpec
-	if *devices != "" {
-		for _, f := range []string{"mac", "type", "model", "model-display", "version", "name", "ip"} {
-			if set[f] {
-				log.Fatalf("-devices cannot be combined with -%s", f)
-			}
-		}
-		b, err := os.ReadFile(*devices)
-		if err != nil {
-			log.Fatalf("read %s: %v", *devices, err)
-		}
-		// Unknown keys are rejected: a misspelled DeviceSpec field
-		// (model_display vs modeldisplay) must fail loudly, not
-		// silently drop to the profile default.
-		dec := json.NewDecoder(bytes.NewReader(b))
-		dec.DisallowUnknownFields()
-		if err := dec.Decode(&specs); err != nil {
-			log.Fatalf("parse %s: %v", *devices, err)
-		}
-		if len(specs) == 0 {
-			log.Fatalf("%s: no devices", *devices)
-		}
-	} else {
+	specs, ignored, err := fleetSpecs(*devices, os.Getenv("SIM_DEVICES"), set)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if specs == nil {
 		specs = []emu.DeviceSpec{{
 			MAC: *mac, Type: *typ, Model: *model, ModelDisplay: *modelDisplay,
 			Version: *version, Name: *name, IP: *ip,
 		}}
+	} else if len(ignored) > 0 {
+		log.Printf("SIM_DEVICES set: ignoring single-device flags -%s", strings.Join(ignored, ", -"))
 	}
 
 	e := emu.New(*inform)

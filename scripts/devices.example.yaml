@@ -1,0 +1,36 @@
+# Example device fleet for `unifi-emu -devices`.
+#
+# YAML or JSON both parse (JSON is a YAML subset); unknown keys are
+# rejected. Keys match emu.DeviceSpec: mac, type, model, modeldisplay,
+# version, name, ip, ports, ssids. type, modeldisplay and version default
+# from the model profile; name defaults to UBNT; ip is what the device
+# reports to the controller.
+#
+# The same list inline is the SIM_DEVICES env contract used by the
+# terraform-provider-unifi compose sidecar:
+#
+#   environment:
+#     SIM_CONTROLLER: http://unifi:8080/inform
+#     SIM_DEVICES: |
+#       - {mac: "00:27:22:e0:00:11", model: USWED74, ip: "192.168.1.243"}
+#       - {mac: "00:27:22:e0:00:21", model: U7MP, ip: "192.168.1.245"}
+
+- mac: "00:27:22:e0:00:01"
+  model: UGW3 # UniFi Gateway 3P
+  ip: 192.168.1.242
+
+- mac: "00:27:22:e0:00:11"
+  model: USWED74 # UniFi Switch Edge 74
+  ip: 192.168.1.243
+
+- mac: "00:27:22:e0:00:12"
+  model: USM8P # UniFi Switch 8 PoE
+  ip: 192.168.1.244
+
+- mac: "00:27:22:e0:00:21"
+  model: U7MP # UniFi AP 7 Mesh Pro
+  ip: 192.168.1.245
+
+- mac: "00:27:22:e0:00:22"
+  model: U7PRO # UniFi AP 7 Pro
+  ip: 192.168.1.246

@@ -22,11 +22,14 @@ type informResponse struct {
 // applyResponse applies one decoded controller response to the device.
 //
 // Key-rotation rule (the OpenUniFi ADOPTION_FIX.md stuck-loop bug this
-// project must not repeat): the ONLY source of a new authkey is the
-// set-adopt command. mgmt_cfg.authkey is controller bookkeeping — the
-// managed key, distinct from both the default key and the set-adopt
-// key — and saving it strands the device in an adopt loop. It is
-// ignored here on purpose; only cfgversion is taken from mgmt_cfg.
+// project must not repeat): a new authkey is adopted exactly once, while
+// the device is still on the default key. It can arrive two ways —
+// the set-adopt command, or mgmt_cfg.authkey, which is the ONLY channel
+// on controller builds that never send set-adopt (verified live against
+// the -sim image: its mgmt_cfg authkey equals the device doc's
+// x_authkey). Once the device holds a real key, later mgmt_cfg authkeys
+// are controller bookkeeping and must not clobber it — saving them is
+// what strands a device in an adopt loop.
 func (d *device) applyResponse(body []byte) {
 	var r informResponse
 	if err := json.Unmarshal(body, &r); err != nil {
@@ -83,6 +86,17 @@ func (d *device) applyCmd(r informResponse) {
 }
 
 func (d *device) applySetparam(r informResponse) {
+	// mgmt_cfg can arrive on every inform; log it only when it changes so
+	// the provisioning handshake stays visible without per-inform spam.
+	d.mu.Lock()
+	changed := r.MgmtCfg != d.lastMgmt
+	d.lastMgmt = r.MgmtCfg
+	d.mu.Unlock()
+	if changed {
+		log.Printf("%s: mgmt_cfg: %q", d.spec.MAC, r.MgmtCfg)
+	}
+
+	var cfgvers, authkey string
 	for _, line := range strings.Split(r.MgmtCfg, "\n") {
 		line = strings.TrimSpace(line)
 		k, v, ok := strings.Cut(line, "=")
@@ -91,12 +105,24 @@ func (d *device) applySetparam(r informResponse) {
 		}
 		switch k {
 		case "cfgversion":
-			d.mu.Lock()
-			d.cfgvers = v
-			d.mu.Unlock()
+			cfgvers = v
 		case "authkey":
-			// Ignored on purpose: see the key-rotation rule on applyResponse.
+			authkey = v
 		}
+	}
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if cfgvers != "" {
+		d.cfgvers = cfgvers
+	}
+	// Rotate to the mgmt_cfg authkey only while still on the default key
+	// — see the key-rotation rule on applyResponse.
+	if authkey != "" && authkey != DefaultKey && d.key == DefaultKey {
+		d.key = authkey
+		d.adopted = true
+		d.state = StateAdopting
+		log.Printf("%s: authkey adopted from mgmt_cfg, now ADOPTING", d.spec.MAC)
 	}
 }
 

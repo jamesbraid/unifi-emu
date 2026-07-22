@@ -1,6 +1,9 @@
 package unifiemu
 
 import (
+	"log"
+	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -52,29 +55,61 @@ func TestSetAdoptRotatesKeyAndURL(t *testing.T) {
 	}
 }
 
-func TestSetparamIgnoresMgmtCfgAuthkey(t *testing.T) {
+// On the live -sim controller this is the ONLY key-delivery channel:
+// set-adopt never arrives, the controller answers the first post-adopt
+// inform with mgmt_cfg whose authkey equals the device doc's x_authkey
+// (verified 2026-07-22: server.log "initial mgmt_cfg sent" on every
+// inform, no set-adopt anywhere; tmp/itest/sim.log vs stat/device doc).
+// A device still on the default key must therefore adopt the mgmt_cfg
+// authkey, exactly as if set-adopt had arrived.
+func TestSetparamAdoptsAuthkeyFromMgmtCfg(t *testing.T) {
 	d := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57"})
 	d.applyResponse([]byte(`{"_type":"setparam","mgmt_cfg":"cfgversion=abc123\nauthkey=4c36cd132e0a811601a3e0ca5793b677\n"}`))
 
-	if d.key != DefaultKey {
-		t.Errorf("key = %q, want DefaultKey unchanged (mgmt_cfg.authkey must be ignored)", d.key)
+	if d.key != "4c36cd132e0a811601a3e0ca5793b677" {
+		t.Errorf("key = %q, want rotated to mgmt_cfg authkey", d.key)
+	}
+	if !d.adopted {
+		t.Error("adopted = false after mgmt_cfg authkey rotation")
+	}
+	if d.state != StateAdopting {
+		t.Errorf("state = %v, want ADOPTING", d.state)
 	}
 	if d.cfgvers != "abc123" {
 		t.Errorf("cfgvers = %q, want abc123 from mgmt_cfg", d.cfgvers)
 	}
+
+	m := decodePayload(t, d)
+	if m["x_authkey"] != "4c36cd132e0a811601a3e0ca5793b677" {
+		t.Errorf("payload x_authkey = %v, want mgmt_cfg authkey", m["x_authkey"])
+	}
+	if m["default"] != false || m["_default_key"] != false {
+		t.Errorf("payload default flags = %v/%v, want false/false", m["default"], m["_default_key"])
+	}
+	if m["cfgversion"] != "abc123" {
+		t.Errorf("payload cfgversion = %v, want abc123", m["cfgversion"])
+	}
+}
+
+// A pending device can see mgmt_cfg that still names the default key
+// (unadopted provisioning). That is not adoption: no rotation, no state
+// change — otherwise ordinary pre-adopt traffic would flip the device
+// to ADOPTING and lie to the controller with default=false.
+func TestSetparamDefaultAuthkeyKeepsPending(t *testing.T) {
+	d := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57"})
+	d.applyResponse([]byte(`{"_type":"setparam","mgmt_cfg":"cfgversion=abc123\nauthkey=` + DefaultKey + `\n"}`))
+
+	if d.key != DefaultKey {
+		t.Errorf("key = %q, want DefaultKey unchanged", d.key)
+	}
 	if d.adopted {
-		t.Error("adopted = true after setparam on a pending device")
+		t.Error("adopted = true after default-key mgmt_cfg on a pending device")
 	}
 	if d.state != StatePending {
 		t.Errorf("state = %v, want PENDING", d.state)
 	}
-
-	m := decodePayload(t, d)
-	if m["x_authkey"] != DefaultKey {
-		t.Errorf("payload x_authkey = %v, want DefaultKey", m["x_authkey"])
-	}
-	if m["cfgversion"] != "abc123" {
-		t.Errorf("payload cfgversion = %v, want abc123", m["cfgversion"])
+	if d.cfgvers != "abc123" {
+		t.Errorf("cfgvers = %q, want abc123 from mgmt_cfg", d.cfgvers)
 	}
 }
 
@@ -93,13 +128,33 @@ func TestSetparamAuthkeyIgnoredWhenAdopted(t *testing.T) {
 
 func TestSetparamTrimsMgmtCfgLines(t *testing.T) {
 	d := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57"})
-	d.applyResponse([]byte(`{"_type":"setparam","mgmt_cfg":"cfgversion=abc123\r\nauthkey=4c36cd132e0a811601a3e0ca5793b677\r\n"}`))
+	d.applyResponse([]byte(`{"_type":"setparam","mgmt_cfg":"cfgversion=abc123\r\nauthkey=` + DefaultKey + `\r\n"}`))
 
 	if d.cfgvers != "abc123" {
 		t.Errorf("cfgvers = %q, want exactly %q (CRLF must be trimmed)", d.cfgvers, "abc123")
 	}
 	if d.key != DefaultKey {
-		t.Errorf("key = %q, want DefaultKey unchanged (mgmt_cfg.authkey must be ignored)", d.key)
+		t.Errorf("key = %q, want DefaultKey unchanged", d.key)
+	}
+}
+
+// The controller resends the same mgmt_cfg on every inform until the
+// device acknowledges provisioning. Once the authkey is adopted, repeats
+// must be inert: re-rotating would flap the state back to ADOPTING after
+// the device already reached CONNECTED.
+func TestSetparamSameAuthkeyDoesNotReadopt(t *testing.T) {
+	d := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57"})
+	cfg := `{"_type":"setparam","mgmt_cfg":"cfgversion=abc123\nauthkey=4c36cd132e0a811601a3e0ca5793b677\n"}`
+	d.applyResponse([]byte(cfg))
+	d.state = StateConnected // the inform loop flips this after the handshake
+	d.applyResponse([]byte(cfg))
+	d.applyResponse([]byte(cfg))
+
+	if d.key != "4c36cd132e0a811601a3e0ca5793b677" {
+		t.Errorf("key = %q, want unchanged mgmt_cfg authkey", d.key)
+	}
+	if d.state != StateConnected {
+		t.Errorf("state = %v, want CONNECTED undisturbed by mgmt_cfg repeats", d.state)
 	}
 }
 
@@ -172,6 +227,31 @@ func TestSetdefaultResetsToPending(t *testing.T) {
 		if e.(map[string]any)["essid"] == "CorpWiFi" {
 			t.Error("stale setstate vap_table still echoed after setdefault")
 		}
+	}
+}
+
+// mgmt_cfg carries the controller's provisioning handshake (authkey,
+// cfgversion), and on some controller builds it is the only adoption
+// delivery channel — but it can arrive on every inform, so log it only
+// when its content changes: first sight and every change, never repeats.
+func TestSetparamLogsMgmtCfgTransitions(t *testing.T) {
+	var logs lockedBuffer
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+
+	d := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57"})
+	cfg := `{"_type":"setparam","mgmt_cfg":"cfgversion=abc123\nauthkey=4c36cd132e0a811601a3e0ca5793b677\n"}`
+	d.applyResponse([]byte(cfg))
+	if !strings.Contains(logs.String(), "authkey=4c36cd132e0a811601a3e0ca5793b677") {
+		t.Fatalf("first mgmt_cfg not logged, got %q", logs.String())
+	}
+	d.applyResponse([]byte(cfg)) // identical repeat: must stay silent
+	if n := strings.Count(logs.String(), ": mgmt_cfg: "); n != 1 {
+		t.Fatalf("identical mgmt_cfg logged %d times, want 1: %q", n, logs.String())
+	}
+	d.applyResponse([]byte(`{"_type":"setparam","mgmt_cfg":"cfgversion=def456\nauthkey=4c36cd132e0a811601a3e0ca5793b677\n"}`))
+	if n := strings.Count(logs.String(), ": mgmt_cfg: "); n != 2 {
+		t.Fatalf("changed mgmt_cfg logged %d times total, want 2: %q", n, logs.String())
 	}
 }
 

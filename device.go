@@ -70,6 +70,9 @@ type device struct {
 	// consecutive informs answered with it.
 	lastStatus int
 	statusRun  int
+
+	// lastMgmt is the previous mgmt_cfg body, so repeats are not relogged.
+	lastMgmt string
 }
 
 func newDevice(spec DeviceSpec, informURL string) (*device, error) {

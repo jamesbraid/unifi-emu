@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -23,7 +24,7 @@ func main() {
 	}
 	inform := flag.String("inform", informDefault, "controller inform URL (default: env SIM_CONTROLLER)")
 	devices := flag.String("devices", "", "JSON file with an array of DeviceSpec (fleet mode; "+
-		"keys match DeviceSpec field names case-insensitively: mac, type, model, modeldisplay, version, name, ip, ports, ssids)")
+		"keys match DeviceSpec field names case-insensitively: mac, type, model, modeldisplay, version, name, ip, ports, ssids; unknown keys rejected)")
 	mac := flag.String("mac", "00:27:22:e0:00:01", "device MAC (single-device mode)")
 	typ := flag.String("type", "", "device type ugw/usw/uap (default: from model profile)")
 	model := flag.String("model", "UGW3", "device model")
@@ -48,7 +49,12 @@ func main() {
 		if err != nil {
 			log.Fatalf("read %s: %v", *devices, err)
 		}
-		if err := json.Unmarshal(b, &specs); err != nil {
+		// Unknown keys are rejected: a misspelled DeviceSpec field
+		// (model_display vs modeldisplay) must fail loudly, not
+		// silently drop to the profile default.
+		dec := json.NewDecoder(bytes.NewReader(b))
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&specs); err != nil {
 			log.Fatalf("parse %s: %v", *devices, err)
 		}
 		if len(specs) == 0 {

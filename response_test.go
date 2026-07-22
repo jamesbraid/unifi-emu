@@ -138,6 +138,32 @@ func TestSetparamTrimsMgmtCfgLines(t *testing.T) {
 	}
 }
 
+// The two key-delivery paths are intentionally asymmetric: mgmt_cfg
+// authkeys are gated (default key only, never clobber), but a set-adopt
+// command is always authoritative and rotates unconditionally, even over
+// a key adopted from mgmt_cfg. The -sim build never sends set-adopt, so
+// this ordering is untested live; pin it so a future "gate set-adopt
+// too" change is a deliberate decision, not an accident.
+func TestSetAdoptOverridesMgmtCfgAdoptedKey(t *testing.T) {
+	d := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57"})
+	d.applyResponse([]byte(`{"_type":"setparam","mgmt_cfg":"cfgversion=abc123\nauthkey=4c36cd132e0a811601a3e0ca5793b677\n"}`))
+	if d.key != "4c36cd132e0a811601a3e0ca5793b677" || d.state != StateAdopting {
+		t.Fatalf("mgmt_cfg adoption did not happen: key=%q state=%v", d.key, d.state)
+	}
+
+	d.applyResponse([]byte(`{"_type":"cmd","cmd":"set-adopt","key":"` + adoptKey + `","uri":"` + adoptURI + `"}`))
+
+	if d.key != adoptKey {
+		t.Errorf("key = %q, want set-adopt key %q (set-adopt is unconditional)", d.key, adoptKey)
+	}
+	if d.informURL != adoptURI {
+		t.Errorf("informURL = %q, want %q", d.informURL, adoptURI)
+	}
+	if !d.adopted || d.state != StateAdopting {
+		t.Errorf("adopted=%v state=%v, want adopted and ADOPTING", d.adopted, d.state)
+	}
+}
+
 // The controller resends the same mgmt_cfg on every inform until the
 // device acknowledges provisioning. Once the authkey is adopted, repeats
 // must be inert: re-rotating would flap the state back to ADOPTING after

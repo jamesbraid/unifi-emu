@@ -38,6 +38,9 @@ func (s DeviceState) String() string {
 
 // DeviceSpec describes one emulated device. Type, ModelDisplay and Version
 // default from the model profile when empty; Name defaults to "UBNT".
+// An explicit Type must equal the profile's: the profile drives the
+// payload shape, so a mismatched Type would describe an incoherent
+// device and is an error, not an override.
 type DeviceSpec struct {
 	MAC          string
 	Type         string
@@ -85,6 +88,12 @@ func newDevice(spec DeviceSpec, informURL string) (*device, error) {
 	}
 	if spec.Type == "" {
 		spec.Type = profile.Type
+	} else if spec.Type != profile.Type {
+		// An explicit type that contradicts the profile builds an
+		// incoherent device: model identity says one thing, the payload
+		// tables another. Fail loudly instead of informing nonsense.
+		return nil, fmt.Errorf("type %q does not match model %q (profile type %q)",
+			spec.Type, spec.Model, profile.Type)
 	}
 	if spec.ModelDisplay == "" {
 		spec.ModelDisplay = profile.ModelDisplay

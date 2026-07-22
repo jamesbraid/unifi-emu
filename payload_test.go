@@ -178,6 +178,18 @@ func TestNewDeviceRejectsUnknownModel(t *testing.T) {
 	}
 }
 
+// An explicit Type that contradicts the model profile builds an
+// incoherent device (ugw identity with usw payload tables); reject it
+// instead of letting a typo'd -type flag inform nonsense.
+func TestNewDeviceRejectsMismatchedType(t *testing.T) {
+	if _, err := newDevice(DeviceSpec{MAC: "00:15:6d:00:00:09", Model: "UGW3", Type: "usw"}, testInformURL); err == nil {
+		t.Fatal("newDevice with Type usw on a ugw model: want error, got nil")
+	}
+	if _, err := newDevice(DeviceSpec{MAC: "00:15:6d:00:00:09", Model: "UGW3", Type: "ugw"}, testInformURL); err != nil {
+		t.Fatalf("newDevice with matching explicit Type: %v", err)
+	}
+}
+
 func TestDeviceSpecDefaults(t *testing.T) {
 	d := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57"})
 	if d.spec.Type != "uap" {
@@ -208,11 +220,13 @@ func TestDeviceSpecDefaults(t *testing.T) {
 		t.Errorf("informURL = %q, want %q", d.informURL, testInformURL)
 	}
 
+	// Type can only ever repeat the profile's (mismatches are rejected),
+	// so the explicit-wins probe uses the other overridable fields.
 	d2 := mustDevice(t, DeviceSpec{
 		MAC: "00:15:6d:00:00:02", Model: "U7MP", IP: "10.0.0.58",
-		Type: "custom", ModelDisplay: "Custom Display", Version: "9.9.9", Name: "ap1",
+		Type: "uap", ModelDisplay: "Custom Display", Version: "9.9.9", Name: "ap1",
 	})
-	if d2.spec.Type != "custom" || d2.spec.ModelDisplay != "Custom Display" ||
+	if d2.spec.Type != "uap" || d2.spec.ModelDisplay != "Custom Display" ||
 		d2.spec.Version != "9.9.9" || d2.spec.Name != "ap1" {
 		t.Errorf("explicit spec values did not win over profile defaults: %+v", d2.spec)
 	}

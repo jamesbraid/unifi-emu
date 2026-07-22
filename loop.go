@@ -45,13 +45,16 @@ func (d *device) run(ctx context.Context) {
 // rather than a protocol mismatch.
 func (d *device) noteStatus(status int) {
 	d.mu.Lock()
-	defer d.mu.Unlock()
+	prev, run := d.lastStatus, d.statusRun
 	if status == d.lastStatus {
 		d.statusRun++
+		d.mu.Unlock()
 		return
 	}
-	prev, run := d.lastStatus, d.statusRun
 	d.lastStatus, d.statusRun = status, 1
+	d.mu.Unlock()
+	// Logging after the unlock: log writes can block on I/O and must not
+	// stall State readers (same pattern as applyCmd).
 	switch {
 	case status == http.StatusNotFound:
 		log.Printf("[%s] inform: HTTP %d (nothing queued)", d.spec.MAC, status)

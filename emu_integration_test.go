@@ -57,9 +57,12 @@ func TestEmuAdoptsUGWLive(t *testing.T) {
 	// anything; the first inform lands within one interval of Start.
 	pendingCtx, stop := context.WithTimeout(ctx, 2*time.Minute)
 	defer stop()
+	var last emu.Device
+	seen := false
 	for {
 		d, err := c.DeviceByMAC(pendingCtx, site, mac)
 		if err == nil {
+			last, seen = d, true
 			if d.State == 1 && d.Adopted {
 				t.Fatalf("device already adopted before the test ran; recreate the controller fresh")
 			}
@@ -69,7 +72,11 @@ func TestEmuAdoptsUGWLive(t *testing.T) {
 		}
 		select {
 		case <-pendingCtx.Done():
-			t.Fatalf("device never appeared pending: %v (last error %v)", pendingCtx.Err(), err)
+			if seen {
+				t.Fatalf("device never appeared pending: %v (last state %d adopted=%v)",
+					pendingCtx.Err(), last.State, last.Adopted)
+			}
+			t.Fatalf("device never appeared pending: %v (never listed, last error %v)", pendingCtx.Err(), err)
 		case <-time.After(2 * time.Second):
 		}
 	}

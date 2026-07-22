@@ -112,16 +112,20 @@ func (d *device) applySetparam(r informResponse) {
 	}
 
 	d.mu.Lock()
-	defer d.mu.Unlock()
 	if cfgvers != "" {
 		d.cfgvers = cfgvers
 	}
 	// Rotate to the mgmt_cfg authkey only while still on the default key
 	// — see the key-rotation rule on applyResponse.
+	rotated := false
 	if authkey != "" && authkey != DefaultKey && d.key == DefaultKey {
 		d.key = authkey
 		d.adopted = true
 		d.state = StateAdopting
+		rotated = true
+	}
+	d.mu.Unlock()
+	if rotated {
 		log.Printf("%s: authkey adopted from mgmt_cfg, now ADOPTING", d.spec.MAC)
 	}
 }

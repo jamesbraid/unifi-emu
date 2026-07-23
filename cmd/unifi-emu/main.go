@@ -94,6 +94,10 @@ func resolveInformURL(raw string) string {
 	}
 	ips, err := net.DefaultResolver.LookupIP(context.Background(), "ip4", host)
 	if err != nil || len(ips) == 0 {
+		// Pass through unresolved: per-inform dials re-resolve lazily,
+		// but say so — a persistent failure shows up as the controller
+		// rejecting a hostname inform_ip post-adoption.
+		log.Printf("could not resolve inform host %q to IPv4 (%v); using it as-is", host, err)
 		return raw
 	}
 	if port := u.Port(); port != "" {

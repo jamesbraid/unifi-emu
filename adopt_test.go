@@ -222,3 +222,25 @@ func TestClassicWaitAdoptedTimeout(t *testing.T) {
 		t.Errorf("timeout error %q does not include the last seen device state", err)
 	}
 }
+
+func TestClassicRejectsHTTP200ErrorEnvelopes(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeErr(w, http.StatusOK, "api.err.InvalidTarget")
+	}))
+	t.Cleanup(s.Close)
+	c := NewClassicClient(s.URL)
+	ctx := waitCtx(t, 5*time.Second)
+
+	if err := c.Login(ctx, "admin", "admin"); err == nil ||
+		!strings.Contains(err.Error(), "api.err.InvalidTarget") {
+		t.Errorf("Login 200 error envelope = %v, want InvalidTarget", err)
+	}
+	if err := c.Adopt(ctx, "default", "00:15:6d:00:00:01"); err == nil ||
+		!strings.Contains(err.Error(), "api.err.InvalidTarget") {
+		t.Errorf("Adopt 200 error envelope = %v, want InvalidTarget", err)
+	}
+	if _, err := c.DeviceByMAC(ctx, "default", "00:15:6d:00:00:01"); err == nil ||
+		!strings.Contains(err.Error(), "api.err.InvalidTarget") {
+		t.Errorf("DeviceByMAC 200 error envelope = %v, want InvalidTarget", err)
+	}
+}

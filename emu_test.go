@@ -19,6 +19,9 @@ func TestAddValidatesMAC(t *testing.T) {
 	if err := e.Add(DeviceSpec{MAC: "not-a-mac", Model: "U7MP"}); err == nil {
 		t.Error("Add with unparseable MAC: want error, got nil")
 	}
+	if err := e.Add(DeviceSpec{MAC: "00:15:6d:ff:fe:00:00:01", Model: "U7MP"}); err == nil {
+		t.Error("Add with EUI-64 address: want six-byte MAC error, got nil")
+	}
 	good := DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57"}
 	if err := e.Add(good); err != nil {
 		t.Fatalf("Add valid spec: %v", err)
@@ -33,6 +36,20 @@ func TestAddValidatesMAC(t *testing.T) {
 	}
 	if err := e.Add(DeviceSpec{MAC: "00:15:6d:00:00:02", Model: "NOPE"}); err == nil {
 		t.Error("Add unknown model: want error, got nil")
+	}
+}
+
+func TestStartRejectsNonPositiveInformInterval(t *testing.T) {
+	for _, interval := range []time.Duration{0, -time.Second} {
+		e := New("http://unifi:8080/inform", WithInformInterval(interval))
+		if err := e.Add(uapSpec()); err != nil {
+			t.Fatalf("Add with interval %v: %v", interval, err)
+		}
+		if err := e.Start(context.Background()); err == nil {
+			t.Errorf("Start with interval %v: want error, got nil", interval)
+		} else if !strings.Contains(err.Error(), "inform interval") {
+			t.Errorf("Start with interval %v error %q does not name interval", interval, err)
+		}
 	}
 }
 

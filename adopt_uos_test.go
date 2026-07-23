@@ -27,9 +27,10 @@ const (
 // the configured device to state 1 / adopted once an adopt command for its
 // MAC has been seen.
 type fakeUOS struct {
-	server   *httptest.Server
-	mac      string
-	omitCSRF bool // simulate a controller that never sends the token header
+	server     *httptest.Server
+	mac        string
+	omitCSRF   bool // simulate a controller that never sends the token header
+	legacyCSRF bool // send X-Csrf-Token instead of X-Updated-Csrf-Token
 
 	mu       sync.Mutex
 	csrf     string // currently valid token; rotated by the adopt command
@@ -73,7 +74,11 @@ func (f *fakeUOS) handleLogin(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		tok := f.csrf
 		f.mu.Unlock()
-		w.Header().Set("x-updated-csrf-token", tok)
+		header := "x-updated-csrf-token"
+		if f.legacyCSRF {
+			header = "x-csrf-token"
+		}
+		w.Header().Set(header, tok)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"id":"uos-user"}`))
@@ -244,8 +249,20 @@ func TestUOSLoginMissingToken(t *testing.T) {
 	if err == nil {
 		t.Fatal("Login with no CSRF token header: want error, got nil")
 	}
-	if !strings.Contains(err.Error(), "x-updated-csrf-token") {
+	if !strings.Contains(strings.ToLower(err.Error()), "x-updated-csrf-token") {
 		t.Errorf("Login error %q does not name the missing header", err)
+	}
+}
+
+func TestUOSLoginAcceptsLegacyCSRFHeader(t *testing.T) {
+	f := newFakeUOS(t, "00:15:6d:00:00:01")
+	f.legacyCSRF = true
+	c := NewUOSClient(f.server.URL)
+	if err := c.Login(waitCtx(t, 5*time.Second), "admin", "admin"); err != nil {
+		t.Fatalf("Login with X-Csrf-Token: %v", err)
+	}
+	if got := c.csrf.get(); got != uosTokenV1 {
+		t.Fatalf("stored CSRF token = %q, want %q", got, uosTokenV1)
 	}
 }
 

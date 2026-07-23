@@ -66,6 +66,38 @@ go test -tags integration -run TestEmuAdoptsFleetLive -v .
 | U7PRO | access point | 4.0.21.9965 |
 | UAPA6B0 | access point | 4.0.21.9965 |
 
+The registry is generated, not hand-shaped. [`model_profiles.json`](model_profiles.json)
+is the checked-in reduced fixture and `go generate ./...` renders
+`models_generated.go` from it. The fixture records the source controller
+version and keeps the complete expanded port and radio layouts so review diffs
+show every hardware change.
+
+To refresh it from a controller build, save:
+
+- `GET /api/s/default/stat/device` for model IDs, names, types, and firmware;
+- the controller UI's `swai.*.js` bundle, which contains its hardware database.
+
+Then run:
+
+```sh
+go run ./cmd/modelgen \
+  -input stat-device.json \
+  -device-db-bundle swai.js \
+  -controller-version 10.4.57
+go test ./...
+```
+
+The reducer rejects missing models, duplicate IDs or ports, type mismatches,
+unknown port encodings, empty layouts, and incomplete AP radio data. The
+controller also exposes `GET /v2/api/site/default/models`; that endpoint is
+useful for identity/image metadata but does not include port or radio layouts.
+The few facts absent from both dumps (AP Ethernet speed/count and radio spatial
+streams) follow Ubiquiti's Tech Specs for
+[AC Mesh Pro](https://techspecs.ui.com/unifi/wifi/uap-ac-mesh-pro),
+[U7 Pro](https://techspecs.ui.com/unifi/wifi/u7-pro),
+[U7 Pro Outdoor](https://techspecs.ui.com/unifi/wifi/u7-pro-outdoor-us), and
+[Ultra](https://techspecs.ui.com/unifi/switching/usw-ultra).
+
 ## More
 
 - [`docs/DESIGN.md`](docs/DESIGN.md) — what it is, the verified inform-protocol

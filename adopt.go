@@ -73,7 +73,35 @@ func postJSON(ctx context.Context, hc *http.Client, base, path string, hdr http.
 		return fmt.Errorf("emu: POST %s: HTTP %d: %s",
 			path, resp.StatusCode, strings.TrimSpace(string(errBody)))
 	}
-	_, _ = io.Copy(io.Discard, resp.Body) // drain so the connection is reused
+	reply, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return fmt.Errorf("emu: POST %s: read response: %w", path, err)
+	}
+	return checkAPIEnvelope("POST "+path, reply)
+}
+
+type apiEnvelope struct {
+	Meta struct {
+		RC  string `json:"rc"`
+		Msg string `json:"msg"`
+	} `json:"meta"`
+}
+
+func checkAPIEnvelope(operation string, body []byte) error {
+	if len(bytes.TrimSpace(body)) == 0 {
+		return nil
+	}
+	var reply apiEnvelope
+	if err := json.Unmarshal(body, &reply); err != nil {
+		return fmt.Errorf("emu: %s: decode response: %w", operation, err)
+	}
+	if reply.Meta.RC != "" && reply.Meta.RC != "ok" {
+		msg := reply.Meta.Msg
+		if msg == "" {
+			msg = "controller returned meta.rc=" + reply.Meta.RC
+		}
+		return fmt.Errorf("emu: %s: %s", operation, msg)
+	}
 	return nil
 }
 
@@ -135,10 +163,18 @@ func deviceByMAC(ctx context.Context, hc *http.Client, url string, hdr http.Head
 			resp.StatusCode, strings.TrimSpace(string(errBody)))
 	}
 	var reply struct {
+		apiEnvelope
 		Data []Device `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&reply); err != nil {
 		return Device{}, fmt.Errorf("emu: decode stat/device: %w", err)
+	}
+	if reply.Meta.RC != "" && reply.Meta.RC != "ok" {
+		msg := reply.Meta.Msg
+		if msg == "" {
+			msg = "controller returned meta.rc=" + reply.Meta.RC
+		}
+		return Device{}, fmt.Errorf("emu: GET stat/device: %s", msg)
 	}
 	for _, d := range reply.Data {
 		if strings.EqualFold(d.MAC, mac) {

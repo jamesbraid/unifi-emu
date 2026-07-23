@@ -99,6 +99,9 @@ func TestAdoptedPayloadUGW(t *testing.T) {
 	d := mustDevice(t, DeviceSpec{MAC: "dc:9f:db:00:00:01", Model: "UGW3", IP: "10.0.0.1"})
 	markAdopted(d)
 	m := decodePayload(t, d)
+	if _, ok := m["required_version"]; ok {
+		t.Errorf("adopted payload advertises a global required_version: %v", m["required_version"])
+	}
 
 	if m["state"] != float64(2) {
 		t.Errorf("state = %v, want 2", m["state"])

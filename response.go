@@ -100,6 +100,11 @@ func (d *device) applyCmd(r informResponse) {
 		d.setstate = nil
 		d.mu.Unlock()
 		log.Printf("%s: setdefault received, factory reset, back to PENDING", d.spec.MAC)
+	case "reboot":
+		d.mu.Lock()
+		d.started = time.Now()
+		d.mu.Unlock()
+		log.Printf("%s: reboot requested (emulated reboot)", d.spec.MAC)
 	default:
 		log.Printf("%s: ignoring cmd %q", d.spec.MAC, r.Cmd)
 	}

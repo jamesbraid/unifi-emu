@@ -110,10 +110,10 @@ func (c *UOSClient) Login(ctx context.Context, user, pass string) error {
 		return fmt.Errorf("emu: POST /api/auth/login: HTTP %d: %s",
 			resp.StatusCode, strings.TrimSpace(string(errBody)))
 	}
-	tok := resp.Header.Get("x-updated-csrf-token")
 	_, _ = io.Copy(io.Discard, resp.Body) // drain so the connection is reused
+	tok := c.csrf.get()
 	if tok == "" {
-		return fmt.Errorf("emu: login 200 but no x-updated-csrf-token header")
+		return fmt.Errorf("emu: login 200 but no X-Updated-Csrf-Token or X-Csrf-Token header")
 	}
 	c.csrf.set(tok)
 	return nil

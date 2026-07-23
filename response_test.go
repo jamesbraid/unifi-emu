@@ -333,7 +333,6 @@ func TestUnknownResponseIgnored(t *testing.T) {
 	d := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57"})
 	for _, body := range []string{
 		`{"_type":"wibble","interval":99,"key":"zzz"}`,
-		`{"_type":"cmd","cmd":"reboot"}`,
 		`this is not json`,
 		``,
 	} {
@@ -343,5 +342,14 @@ func TestUnknownResponseIgnored(t *testing.T) {
 		d.state != StatePending || d.interval != 10*time.Second {
 		t.Errorf("unknown responses mutated device state: adopted=%v key=%q cfgvers=%q state=%v interval=%v",
 			d.adopted, d.key, d.cfgvers, d.state, d.interval)
+	}
+}
+
+func TestRebootCommandRestartsUptime(t *testing.T) {
+	d := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57"})
+	d.started = time.Now().Add(-time.Hour)
+	d.applyResponse([]byte(`{"_type":"cmd","cmd":"reboot"}`))
+	if elapsed := time.Since(d.started); elapsed < 0 || elapsed > time.Second {
+		t.Fatalf("reboot left started %v ago, want a fresh uptime", elapsed)
 	}
 }

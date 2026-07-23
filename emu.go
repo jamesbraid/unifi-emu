@@ -49,6 +49,9 @@ func normalizeMAC(s string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("bad MAC %q: %w", s, err)
 	}
+	if len(hw) != 6 {
+		return "", fmt.Errorf("bad MAC %q: want a 6-byte address, got %d bytes", s, len(hw))
+	}
 	return hw.String(), nil
 }
 
@@ -94,6 +97,9 @@ func (e *Emu) Start(ctx context.Context) error {
 	}
 	if len(e.devices) == 0 {
 		return fmt.Errorf("emu: no devices added")
+	}
+	if e.interval <= 0 {
+		return fmt.Errorf("emu: inform interval must be positive, got %s", e.interval)
 	}
 	e.started = true
 	ctx, e.cancel = context.WithCancel(ctx)

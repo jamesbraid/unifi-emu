@@ -43,7 +43,6 @@ func (d *device) buildPayload() []byte {
 		// point, the OpenUniFi convention is to fall back to state 4; healthy
 		// firmware reports 2, so stick with it unless an oracle says otherwise.
 		m["state"] = 2
-		m["required_version"] = "4.0.0"
 		m["bootrom_version"] = "unknown"
 		m["sys_stats"] = map[string]any{
 			"cpu":        1.5,

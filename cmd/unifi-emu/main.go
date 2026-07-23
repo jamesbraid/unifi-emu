@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -54,7 +55,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if resolved := resolveInformURL(*inform); resolved != *inform {
+	resolved, err := resolveInformURL(*inform)
+	if err != nil {
+		log.Fatalf("resolve inform URL: %v", err)
+	}
+	if resolved != *inform {
 		log.Printf("inform URL %s resolved to %s for the reported inform_url", *inform, resolved)
 		*inform = resolved
 	}
@@ -92,37 +97,46 @@ func main() {
 // ("invalid inform_ip <host>"), which deadlocks adoption when the sim
 // dials a compose DNS name such as http://unifi:8080/inform. Dialing the
 // resolved IP is equivalent and reports an inform_url the controller
-// accepts. IPs and unresolvable hosts are returned unchanged.
-func resolveInformURL(raw string) string {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return raw
-	}
-	host := u.Hostname()
-	if host == "" || net.ParseIP(host) != nil {
-		return raw
-	}
-	// Bound the lookup: a hanging resolver must not stall startup.
+// accepts. IP literals pass through; malformed or unresolvable hostnames
+// fail before any inform loops are launched.
+func resolveInformURL(raw string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	ips, err := net.DefaultResolver.LookupIP(ctx, "ip4", host)
+	return resolveInformURLWith(ctx, raw, net.DefaultResolver.LookupIP)
+}
+
+func resolveInformURLWith(
+	ctx context.Context,
+	raw string,
+	lookup func(context.Context, string, string) ([]net.IP, error),
+) (string, error) {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		if err == nil {
+			err = errors.New("missing scheme or host")
+		}
+		return "", fmt.Errorf("not a valid inform URL %q: %w", raw, err)
+	}
+	host := u.Hostname()
+	if host == "" {
+		return "", fmt.Errorf("inform URL %q has no host", raw)
+	}
+	if net.ParseIP(host) != nil {
+		return raw, nil
+	}
+	ips, err := lookup(ctx, "ip4", host)
 	if err != nil {
-		// Pass through unresolved: per-inform dials re-resolve lazily,
-		// but say so — a persistent failure shows up as the controller
-		// rejecting a hostname inform_ip post-adoption.
-		log.Printf("could not resolve inform host %q to IPv4: %v; using it as-is", host, err)
-		return raw
+		return "", fmt.Errorf("resolve inform host %q to IPv4: %w", host, err)
 	}
 	if len(ips) == 0 {
-		log.Printf("inform host %q has no IPv4 address; using it as-is", host)
-		return raw
+		return "", fmt.Errorf("inform host %q has no IPv4 address", host)
 	}
 	if port := u.Port(); port != "" {
 		u.Host = net.JoinHostPort(ips[0].String(), port)
 	} else {
 		u.Host = ips[0].String()
 	}
-	return u.String()
+	return u.String(), nil
 }
 
 // watch logs a line whenever mac's adoption state changes, so long runs

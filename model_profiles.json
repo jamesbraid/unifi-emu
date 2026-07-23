@@ -1,0 +1,950 @@
+{
+  "controller_version": "10.4.57",
+  "identity_source": "GET /api/s/default/stat/device",
+  "hardware_source": "controller UI device database bundle",
+  "models": [
+    {
+      "model": "U7MP",
+      "model_display": "UAP-AC-M-Pro",
+      "type": "uap",
+      "version": "4.0.21.9965",
+      "ports": [
+        {
+          "ifname": "eth0",
+          "name": "eth0",
+          "port_idx": 1,
+          "media": "GE",
+          "is_uplink": true
+        },
+        {
+          "ifname": "eth1",
+          "name": "eth1",
+          "port_idx": 2,
+          "media": "GE"
+        }
+      ],
+      "radios": [
+        {
+          "name": "wifi-ng",
+          "radio": "ng",
+          "ht": "20",
+          "min_txpower": 5,
+          "max_txpower": 22,
+          "nss": 3,
+          "radio_caps": 0,
+          "antenna_gain": 8
+        },
+        {
+          "name": "wifi-na",
+          "radio": "na",
+          "ht": "40",
+          "min_txpower": 5,
+          "max_txpower": 22,
+          "nss": 3,
+          "radio_caps": 0,
+          "antenna_gain": 8
+        }
+      ]
+    },
+    {
+      "model": "U7PRO",
+      "model_display": "U7 Pro",
+      "type": "uap",
+      "version": "4.0.21.9965",
+      "ports": [
+        {
+          "ifname": "eth0",
+          "name": "eth0",
+          "port_idx": 1,
+          "media": "2.5GbE",
+          "is_uplink": true
+        }
+      ],
+      "radios": [
+        {
+          "name": "wifi-ng",
+          "radio": "ng",
+          "ht": "20",
+          "min_txpower": 5,
+          "max_txpower": 22,
+          "nss": 2,
+          "radio_caps": 0,
+          "antenna_gain": 5
+        },
+        {
+          "name": "wifi-na",
+          "radio": "na",
+          "ht": "40",
+          "min_txpower": 5,
+          "max_txpower": 26,
+          "nss": 2,
+          "radio_caps": 0,
+          "antenna_gain": 3
+        },
+        {
+          "name": "wifi-6e",
+          "radio": "6e",
+          "ht": "80",
+          "min_txpower": 5,
+          "max_txpower": 26,
+          "nss": 2,
+          "radio_caps": 0,
+          "antenna_gain": 6
+        }
+      ]
+    },
+    {
+      "model": "UAPA6B0",
+      "model_display": "U7 Pro Outdoor",
+      "type": "uap",
+      "version": "4.0.21.9965",
+      "ports": [
+        {
+          "ifname": "eth0",
+          "name": "eth0",
+          "port_idx": 1,
+          "media": "2.5GbE",
+          "is_uplink": true
+        }
+      ],
+      "radios": [
+        {
+          "name": "wifi-ng",
+          "radio": "ng",
+          "ht": "20",
+          "min_txpower": 5,
+          "max_txpower": 22,
+          "nss": 2,
+          "radio_caps": 0,
+          "antenna_gain": 0
+        },
+        {
+          "name": "wifi-na",
+          "radio": "na",
+          "ht": "40",
+          "min_txpower": 5,
+          "max_txpower": 29,
+          "nss": 2,
+          "radio_caps": 0,
+          "antenna_gain": 0
+        }
+      ]
+    },
+    {
+      "model": "UGW3",
+      "model_display": "USG 3P",
+      "type": "ugw",
+      "version": "4.4.36.5146617",
+      "ports": [
+        {
+          "ifname": "eth0",
+          "name": "WAN",
+          "port_idx": 1,
+          "media": "GE",
+          "is_uplink": true
+        },
+        {
+          "ifname": "eth1",
+          "name": "LAN",
+          "port_idx": 2,
+          "media": "GE"
+        },
+        {
+          "ifname": "eth2",
+          "name": "WAN2/LAN2",
+          "port_idx": 3,
+          "media": "GE"
+        }
+      ]
+    },
+    {
+      "model": "US48P750",
+      "model_display": "US 48 PoE 750W",
+      "type": "usw",
+      "version": "4.0.21.9965",
+      "ports": [
+        {
+          "ifname": "eth0",
+          "name": "Port 1",
+          "port_idx": 1,
+          "media": "GE",
+          "poe_caps": 7,
+          "is_uplink": true
+        },
+        {
+          "ifname": "eth1",
+          "name": "Port 2",
+          "port_idx": 2,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth2",
+          "name": "Port 3",
+          "port_idx": 3,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth3",
+          "name": "Port 4",
+          "port_idx": 4,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth4",
+          "name": "Port 5",
+          "port_idx": 5,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth5",
+          "name": "Port 6",
+          "port_idx": 6,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth6",
+          "name": "Port 7",
+          "port_idx": 7,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth7",
+          "name": "Port 8",
+          "port_idx": 8,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth8",
+          "name": "Port 9",
+          "port_idx": 9,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth9",
+          "name": "Port 10",
+          "port_idx": 10,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth10",
+          "name": "Port 11",
+          "port_idx": 11,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth11",
+          "name": "Port 12",
+          "port_idx": 12,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth12",
+          "name": "Port 13",
+          "port_idx": 13,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth13",
+          "name": "Port 14",
+          "port_idx": 14,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth14",
+          "name": "Port 15",
+          "port_idx": 15,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth15",
+          "name": "Port 16",
+          "port_idx": 16,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth16",
+          "name": "Port 17",
+          "port_idx": 17,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth17",
+          "name": "Port 18",
+          "port_idx": 18,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth18",
+          "name": "Port 19",
+          "port_idx": 19,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth19",
+          "name": "Port 20",
+          "port_idx": 20,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth20",
+          "name": "Port 21",
+          "port_idx": 21,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth21",
+          "name": "Port 22",
+          "port_idx": 22,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth22",
+          "name": "Port 23",
+          "port_idx": 23,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth23",
+          "name": "Port 24",
+          "port_idx": 24,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth24",
+          "name": "Port 25",
+          "port_idx": 25,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth25",
+          "name": "Port 26",
+          "port_idx": 26,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth26",
+          "name": "Port 27",
+          "port_idx": 27,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth27",
+          "name": "Port 28",
+          "port_idx": 28,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth28",
+          "name": "Port 29",
+          "port_idx": 29,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth29",
+          "name": "Port 30",
+          "port_idx": 30,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth30",
+          "name": "Port 31",
+          "port_idx": 31,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth31",
+          "name": "Port 32",
+          "port_idx": 32,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth32",
+          "name": "Port 33",
+          "port_idx": 33,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth33",
+          "name": "Port 34",
+          "port_idx": 34,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth34",
+          "name": "Port 35",
+          "port_idx": 35,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth35",
+          "name": "Port 36",
+          "port_idx": 36,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth36",
+          "name": "Port 37",
+          "port_idx": 37,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth37",
+          "name": "Port 38",
+          "port_idx": 38,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth38",
+          "name": "Port 39",
+          "port_idx": 39,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth39",
+          "name": "Port 40",
+          "port_idx": 40,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth40",
+          "name": "Port 41",
+          "port_idx": 41,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth41",
+          "name": "Port 42",
+          "port_idx": 42,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth42",
+          "name": "Port 43",
+          "port_idx": 43,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth43",
+          "name": "Port 44",
+          "port_idx": 44,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth44",
+          "name": "Port 45",
+          "port_idx": 45,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth45",
+          "name": "Port 46",
+          "port_idx": 46,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth46",
+          "name": "Port 47",
+          "port_idx": 47,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth47",
+          "name": "Port 48",
+          "port_idx": 48,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth48",
+          "name": "Port 49",
+          "port_idx": 49,
+          "media": "SFP+"
+        },
+        {
+          "ifname": "eth49",
+          "name": "Port 50",
+          "port_idx": 50,
+          "media": "SFP+"
+        },
+        {
+          "ifname": "eth50",
+          "name": "Port 51",
+          "port_idx": 51,
+          "media": "SFP"
+        },
+        {
+          "ifname": "eth51",
+          "name": "Port 52",
+          "port_idx": 52,
+          "media": "SFP"
+        }
+      ]
+    },
+    {
+      "model": "USM8P",
+      "model_display": "USW Ultra",
+      "type": "usw",
+      "version": "4.0.21.9965",
+      "ports": [
+        {
+          "ifname": "eth0",
+          "name": "Port 1",
+          "port_idx": 1,
+          "media": "GE",
+          "poe_caps": 7,
+          "is_uplink": true
+        },
+        {
+          "ifname": "eth1",
+          "name": "Port 2",
+          "port_idx": 2,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth2",
+          "name": "Port 3",
+          "port_idx": 3,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth3",
+          "name": "Port 4",
+          "port_idx": 4,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth4",
+          "name": "Port 5",
+          "port_idx": 5,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth5",
+          "name": "Port 6",
+          "port_idx": 6,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth6",
+          "name": "Port 7",
+          "port_idx": 7,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth7",
+          "name": "Port 8",
+          "port_idx": 8,
+          "media": "GE",
+          "poe_caps": 7
+        }
+      ]
+    },
+    {
+      "model": "USWED06",
+      "model_display": "USW Lite 16 PoE",
+      "type": "usw",
+      "version": "4.0.21.9965",
+      "ports": [
+        {
+          "ifname": "eth0",
+          "name": "Port 1",
+          "port_idx": 1,
+          "media": "GE",
+          "poe_caps": 7,
+          "is_uplink": true
+        },
+        {
+          "ifname": "eth1",
+          "name": "Port 2",
+          "port_idx": 2,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth2",
+          "name": "Port 3",
+          "port_idx": 3,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth3",
+          "name": "Port 4",
+          "port_idx": 4,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth4",
+          "name": "Port 5",
+          "port_idx": 5,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth5",
+          "name": "Port 6",
+          "port_idx": 6,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth6",
+          "name": "Port 7",
+          "port_idx": 7,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth7",
+          "name": "Port 8",
+          "port_idx": 8,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth8",
+          "name": "Port 9",
+          "port_idx": 9,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth9",
+          "name": "Port 10",
+          "port_idx": 10,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth10",
+          "name": "Port 11",
+          "port_idx": 11,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth11",
+          "name": "Port 12",
+          "port_idx": 12,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth12",
+          "name": "Port 13",
+          "port_idx": 13,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth13",
+          "name": "Port 14",
+          "port_idx": 14,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth14",
+          "name": "Port 15",
+          "port_idx": 15,
+          "media": "GE",
+          "poe_caps": 7
+        },
+        {
+          "ifname": "eth15",
+          "name": "Port 16",
+          "port_idx": 16,
+          "media": "GE",
+          "poe_caps": 7
+        }
+      ]
+    },
+    {
+      "model": "USWED74",
+      "model_display": "USW WAN",
+      "type": "usw",
+      "version": "4.0.21.9965",
+      "ports": [
+        {
+          "ifname": "eth0",
+          "name": "Port 1",
+          "port_idx": 1,
+          "media": "SFP+",
+          "is_uplink": true
+        },
+        {
+          "ifname": "eth1",
+          "name": "Port 2",
+          "port_idx": 2,
+          "media": "SFP+"
+        },
+        {
+          "ifname": "eth2",
+          "name": "Port 3",
+          "port_idx": 3,
+          "media": "SFP+"
+        },
+        {
+          "ifname": "eth3",
+          "name": "Port 4",
+          "port_idx": 4,
+          "media": "GE"
+        }
+      ]
+    },
+    {
+      "model": "USWF07D",
+      "model_display": "USWF07D",
+      "type": "usw",
+      "version": "4.0.21.9965",
+      "ports": [
+        {
+          "ifname": "eth0",
+          "name": "Port 1",
+          "port_idx": 1,
+          "media": "QSFP28",
+          "is_uplink": true
+        },
+        {
+          "ifname": "eth1",
+          "name": "Port 2",
+          "port_idx": 2,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth2",
+          "name": "Port 3",
+          "port_idx": 3,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth3",
+          "name": "Port 4",
+          "port_idx": 4,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth4",
+          "name": "Port 5",
+          "port_idx": 5,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth5",
+          "name": "Port 6",
+          "port_idx": 6,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth6",
+          "name": "Port 7",
+          "port_idx": 7,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth7",
+          "name": "Port 8",
+          "port_idx": 8,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth8",
+          "name": "Port 9",
+          "port_idx": 9,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth9",
+          "name": "Port 10",
+          "port_idx": 10,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth10",
+          "name": "Port 11",
+          "port_idx": 11,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth11",
+          "name": "Port 12",
+          "port_idx": 12,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth12",
+          "name": "Port 13",
+          "port_idx": 13,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth13",
+          "name": "Port 14",
+          "port_idx": 14,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth14",
+          "name": "Port 15",
+          "port_idx": 15,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth15",
+          "name": "Port 16",
+          "port_idx": 16,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth16",
+          "name": "Port 17",
+          "port_idx": 17,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth17",
+          "name": "Port 18",
+          "port_idx": 18,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth18",
+          "name": "Port 19",
+          "port_idx": 19,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth19",
+          "name": "Port 20",
+          "port_idx": 20,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth20",
+          "name": "Port 21",
+          "port_idx": 21,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth21",
+          "name": "Port 22",
+          "port_idx": 22,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth22",
+          "name": "Port 23",
+          "port_idx": 23,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth23",
+          "name": "Port 24",
+          "port_idx": 24,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth24",
+          "name": "Port 25",
+          "port_idx": 25,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth25",
+          "name": "Port 26",
+          "port_idx": 26,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth26",
+          "name": "Port 27",
+          "port_idx": 27,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth27",
+          "name": "Port 28",
+          "port_idx": 28,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth28",
+          "name": "Port 29",
+          "port_idx": 29,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth29",
+          "name": "Port 30",
+          "port_idx": 30,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth30",
+          "name": "Port 31",
+          "port_idx": 31,
+          "media": "QSFP28"
+        },
+        {
+          "ifname": "eth31",
+          "name": "Port 32",
+          "port_idx": 32,
+          "media": "QSFP28"
+        }
+      ]
+    }
+  ]
+}

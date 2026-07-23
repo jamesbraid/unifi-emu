@@ -91,8 +91,12 @@ func newDevice(spec DeviceSpec, informURL string) (*device, error) {
 	if !ok {
 		return nil, fmt.Errorf("unknown model %q", spec.Model)
 	}
-	if _, err := net.ParseMAC(spec.MAC); err != nil {
+	hw, err := net.ParseMAC(spec.MAC)
+	if err != nil {
 		return nil, fmt.Errorf("bad MAC %q: %w", spec.MAC, err)
+	}
+	if len(hw) != 6 {
+		return nil, fmt.Errorf("bad MAC %q: want a 6-byte address, got %d bytes", spec.MAC, len(hw))
 	}
 	if spec.Type == "" {
 		spec.Type = profile.Type

@@ -381,9 +381,10 @@ func metadataRadios(model string, meta deviceDBModel) []catalogRadio {
 	radios := make([]catalogRadio, 0, len(meta.Radios))
 	for band, facts := range meta.Radios {
 		ht := "40"
-		if band == "ng" {
+		switch band {
+		case "ng":
 			ht = "20"
-		} else if band == "6e" {
+		case "6e":
 			ht = "80"
 		}
 		radios = append(radios, catalogRadio{

@@ -59,7 +59,7 @@ func TestSetAdoptRotatesKeyAndURL(t *testing.T) {
 // set-adopt never arrives, the controller answers the first post-adopt
 // inform with mgmt_cfg whose authkey equals the device doc's x_authkey
 // (verified 2026-07-22: server.log "initial mgmt_cfg sent" on every
-// inform, no set-adopt anywhere; tmp/itest/sim.log vs stat/device doc).
+// inform, no set-adopt anywhere; tmp/itest/sim.log vs stat/device doc — gitignored live evidence).
 // A device still on the default key must therefore adopt the mgmt_cfg
 // authkey, exactly as if set-adopt had arrived.
 func TestSetparamAdoptsAuthkeyFromMgmtCfg(t *testing.T) {

@@ -75,7 +75,8 @@ func uapPorts() []PortSpec {
 }
 
 // modelRegistry holds the models this controller build knows, version-matched
-// to the oracle captures in tmp/. Keyed by model ID.
+// to oracle captures (live -sim controller dumps kept in tmp/, gitignored).
+// Keyed by model ID.
 var modelRegistry = map[string]ModelProfile{
 	"UGW3": {
 		Model: "UGW3", ModelDisplay: "UniFi Gateway 3P", Type: "ugw",

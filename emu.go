@@ -69,7 +69,7 @@ func (e *Emu) Add(specs ...DeviceSpec) error {
 			return err
 		}
 		if _, dup := e.devices[mac]; dup {
-			return fmt.Errorf("duplicate MAC %q", mac)
+			return fmt.Errorf("emu: duplicate MAC %q", mac)
 		}
 		spec.MAC = mac
 		d, err := newDevice(spec, e.informURL)
@@ -83,14 +83,14 @@ func (e *Emu) Add(specs ...DeviceSpec) error {
 }
 
 // Start launches one inform goroutine per device, all tied to ctx. Start is
-// one-shot: a second Start errors "already started" even after Stop — that is
+// one-shot: a second Start errors "emu: already started" even after Stop — that is
 // intended, build a fresh fleet with New to restart. Starting an empty fleet
 // errors rather than welding it shut: once started, Add rejects new devices.
 func (e *Emu) Start(ctx context.Context) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.started {
-		return fmt.Errorf("Emu already started")
+		return fmt.Errorf("emu: already started")
 	}
 	if len(e.devices) == 0 {
 		return fmt.Errorf("emu: no devices added")

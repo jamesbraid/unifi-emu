@@ -23,14 +23,15 @@ type informResponse struct {
 // applyResponse applies one decoded controller response to the device.
 //
 // Key-rotation rule (the OpenUniFi ADOPTION_FIX.md stuck-loop bug this
-// project must not repeat): a new authkey is adopted exactly once, while
-// the device is still on the default key. It can arrive two ways —
-// the set-adopt command, or mgmt_cfg.authkey, which is the ONLY channel
-// on controller builds that never send set-adopt (verified live against
-// the -sim image: its mgmt_cfg authkey equals the device doc's
-// x_authkey). Once the device holds a real key, later mgmt_cfg authkeys
-// are controller bookkeeping and must not clobber it — saving them is
-// what strands a device in an adopt loop.
+// project must not repeat): a new authkey can arrive two ways — the
+// set-adopt command (unconditional; it is the authority on builds that
+// send it), or mgmt_cfg.authkey, which is adopted only while the device
+// is still on the default key and is the ONLY channel on controller
+// builds that never send set-adopt (verified live against the -sim
+// image: its mgmt_cfg authkey equals the device doc's x_authkey). Once
+// the device holds a real key, later mgmt_cfg authkeys are controller
+// bookkeeping and must not clobber it — saving them is what strands a
+// device in an adopt loop.
 func (d *device) applyResponse(body []byte) {
 	var r informResponse
 	if err := json.Unmarshal(body, &r); err != nil {

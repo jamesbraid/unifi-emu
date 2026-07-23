@@ -164,7 +164,7 @@ func TestAdoptedPayloadUAP(t *testing.T) {
 	// default vaps (their id is not a valid wlanconf ObjectId) with
 	// ERROR noise on every inform and drops them, so an AP informs with
 	// no vaps until a setstate provisions real WLAN config — the same
-	// empty vap_table the accepted oracle AP carries (tmp/oracle-uap.json).
+	// empty vap_table the accepted oracle AP carries (tmp/oracle-uap.json, gitignored live evidence).
 	vaps, ok := m["vap_table"].([]any)
 	if !ok {
 		t.Fatalf("vap_table missing or not an array in payload")

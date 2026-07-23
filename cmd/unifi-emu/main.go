@@ -68,7 +68,7 @@ func main() {
 	}
 	for _, s := range specs {
 		m, _ := e.State(s.MAC)
-		log.Printf("[%s] %s %s at %s informing %s (%s)", s.MAC, s.Model, s.Version, s.IP, *inform, m)
+		log.Printf("[%s] %s at %s informing %s (%s)", s.MAC, s.Model, s.IP, *inform, m)
 		go watch(ctx, e, s.MAC)
 	}
 	<-ctx.Done()

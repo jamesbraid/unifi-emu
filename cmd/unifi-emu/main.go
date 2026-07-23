@@ -8,6 +8,8 @@ import (
 	"context"
 	"flag"
 	"log"
+	"net"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -41,6 +43,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	if resolved := resolveInformURL(*inform); resolved != *inform {
+		log.Printf("inform URL %s resolved to %s for the reported inform_url", *inform, resolved)
+		*inform = resolved
+	}
 	if specs == nil {
 		specs = []emu.DeviceSpec{{
 			MAC: *mac, Type: *typ, Model: *model, ModelDisplay: *modelDisplay,
@@ -67,6 +74,34 @@ func main() {
 	<-ctx.Done()
 	log.Print("signal received, stopping")
 	e.Stop()
+}
+
+// resolveInformURL rewrites raw's host to its resolved IPv4 address.
+// Controllers validate the inform_url a device reports and recent
+// versions reject informs whose host is not an IP they recognize
+// ("invalid inform_ip <host>"), which deadlocks adoption when the sim
+// dials a compose DNS name such as http://unifi:8080/inform. Dialing the
+// resolved IP is equivalent and reports an inform_url the controller
+// accepts. IPs and unresolvable hosts are returned unchanged.
+func resolveInformURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	host := u.Hostname()
+	if host == "" || net.ParseIP(host) != nil {
+		return raw
+	}
+	ips, err := net.DefaultResolver.LookupIP(context.Background(), "ip4", host)
+	if err != nil || len(ips) == 0 {
+		return raw
+	}
+	if port := u.Port(); port != "" {
+		u.Host = net.JoinHostPort(ips[0].String(), port)
+	} else {
+		u.Host = ips[0].String()
+	}
+	return u.String()
 }
 
 // watch logs a line whenever mac's adoption state changes, so long runs

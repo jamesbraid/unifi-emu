@@ -1,5 +1,8 @@
 # Build kickoff prompt — Phase A
 
+> **Historical (2026-07-22): the build is complete** — this prompt did its
+> job. Kept for the record; [`DESIGN.md`](DESIGN.md) tracks as-built reality.
+
 Paste this to a fresh build agent working in this repo. Read
 [`DESIGN.md`](DESIGN.md) first — it's the source of truth; this prompt is the
 Phase-A marching orders.

@@ -13,14 +13,25 @@ without any hardware.
 
 ## Status
 
-🐓 **Phase A+B complete.** The emu struts: a live-proven fleet — 1 gateway,
-2 switches, 2 APs — adopts all the way to CONNECTED against a real controller
+🐓 **Fully fledged.** A live-proven fleet — 1 gateway, 2 switches, 2 APs —
+adopts all the way to CONNECTED against a real controller
 (`ghcr.io/jamesbraid/unifi-network:sim`), including a controller-requested
-firmware "upgrade" survived with an emulated reboot.
+firmware "upgrade" survived with an emulated reboot. Shipped:
 
-Still on the nest: container image packaging, the UOS-native (`-seeded`,
-`:443`) adopt path, and the `go-unifi` / `terraform-provider-unifi`
-integrations.
+- **Library** (`package emu`) — fleet API: `New/Add/Start/State/WaitState/Stop`.
+- **CLI** (`cmd/unifi-emu`) — single-device flags, `-devices` file, or
+  `SIM_DEVICES` env (YAML/JSON).
+- **Container image** — `docker build -t unifi-emu:dev .` (static, scratch,
+  ~9MB). In-container adoption proven on a pinned docker network.
+- **Adopt helpers** — classic Network App (`ClassicClient`) and UniFi OS
+  ucore/CSRF (`UOSClient`; unit-tested — no seeded UOS image exists locally
+  yet, so that path is unproven live).
+- **Consumer integrations** — `AdoptDevice` + `StartDeviceSim` in go-unifi's
+  controllertest (jamesbraid/go-unifi#16) and a compose sidecar in
+  terraform-provider-unifi (jamesbraid/terraform-provider-unifi#11).
+
+Not yet: the module/image aren't published anywhere (both PRs note it), and
+the seeded-UOS live run is blocked on a `unifi-os-server:seeded` image.
 
 ### Quick start
 
@@ -28,6 +39,8 @@ integrations.
 go test ./...            # unit tests, no controller needed
 bash scripts/itest.sh    # live proof: one gateway adopts to CONNECTED (docker)
 bash scripts/itest.sh fleet   # live proof: the whole 5-device fleet
+bash scripts/itest.sh docker  # live proof: sim runs inside a container
+docker build -t unifi-emu:dev . && docker run --rm unifi-emu:dev -h
 ```
 
 The Go-level live tests sit behind the `integration` build tag and two env

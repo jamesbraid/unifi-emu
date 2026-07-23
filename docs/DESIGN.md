@@ -42,16 +42,35 @@ device* (the controller's demo seeder vs. this emulator).
      adopted=0`, every ~5–10 s. Controller lists it as pending (`stat/device`
      `state=2`).
   2. An admin issues `adopt` (controller-side API call).
-  3. Controller replies to the device's *next* inform with
-     `{_type:"cmd", cmd:"set-adopt", key:<new>, uri:<inform-url>}`.
+  3. The controller delivers a NEW authkey to the device's *next* inform —
+     **two channels exist**: the documented `{_type:"cmd", cmd:"set-adopt",
+     key, uri}`, or `mgmt_cfg.authkey` inside a `setparam`. Verified live
+     (2026-07-22, `unifi-network:10.4.57-sim`): that build **never sends
+     set-adopt** — mgmt_cfg.authkey is the only channel, and it equals the
+     device doc's `x_authkey`. The emu supports both; the mgmt_cfg key is
+     adopted only while the device is still on the default key.
   4. Device switches to the new key + uri, keeps informing → controller sends
      `setparam`/`mgmt_cfg` → device becomes managed (`state=1, adopted=true`).
 - **Two things the reference implementations get wrong — do not repeat:**
-  - `mgmt_cfg.authkey` is the *managed* key, DISTINCT from the DEFAULT key and the
-    `set-adopt` key. Saving it while `adopted=0` is the classic stuck-loop bug.
+  - `mgmt_cfg.authkey` must not be saved *unconditionally* — that is the
+    classic stuck-loop bug (OpenUniFi ADOPTION_FIX.md). Gate it on still
+    holding the default key; never let a later mgmt_cfg clobber a real key.
   - The device must inform **continuously** through the whole handshake. A
-    one-shot "inform once then idle" design never completes adoption (times out
-    to `state=7`, adopt-failed).
+    one-shot "inform once then idle" design never completes adoption (times
+    out to `state=7`, adopt-failed).
+- **HTTP 404 on unadopted informs is benign** (resolved, was Phase A's open
+  question): it means "nothing queued for this device". Verified: a pending
+    device logs 404s until the moment adoption is queued, then flips to 200
+    carrying the adoption mgmt_cfg — same packet format throughout.
+- **The inform URL host must be an IP literal.** The controller validates the
+  device-reported `inform_url` and rejects hostnames post-adoption
+  (`invalid inform_ip unifi` → HTTP 400). Two mechanisms matter:
+  - Host-run sim on macOS (container IPs unroutable): boot the controller
+    with `SYSTEM_IP=127.0.0.1` (jacobalberty entrypoint maps it to
+    `system_ip`) and publish 8080 fixed, so the advertised inform URL is
+    host-reachable.
+  - Sim in docker networks with DNS names (`http://unifi:8080/inform`):
+    the CLI resolves the inform host to IPv4 once at startup.
 - Device MAC must be a fixed, caller-supplied value carried in the payload — NOT
   derived from a container interface (docker reassigns container MACs on restart).
 - **One gateway per site:** adopting a 2nd UGW fails with `api.err.NoSecondGateway`.
@@ -75,9 +94,9 @@ type DeviceSpec struct {
 }
 
 func New(informURL string, opts ...Option) *Emu   // informURL = http://controller:8080/inform
-func (e *Emu) Add(specs ...DeviceSpec)
+func (e *Emu) Add(specs ...DeviceSpec) error
 func (e *Emu) Start(ctx context.Context) error     // continuous inform loops
-func (e *Emu) State(mac string) DeviceState         // PENDING | ADOPTING | CONNECTED
+func (e *Emu) State(mac string) (DeviceState, bool) // PENDING | ADOPTING | CONNECTED
 func (e *Emu) WaitState(ctx context.Context, mac string, want DeviceState) error
 func (e *Emu) Stop()
 ```
@@ -136,20 +155,23 @@ Add an `unifi-device-sim` service to `docker-compose.yaml` on the same network
 `allow_adoption` does the adopt. Needed only when the harness swaps to the seeded
 UOS image (which has no demo devices).
 
-## Build phasing
+## Build phasing — DONE (2026-07-22)
 
-- **A — engine to CONNECTED (gateway).** Port crypto/wire, add the continuous
-  inform loop + adoption state machine + fixed MAC. Drive a UGW to `state=1`.
-  Resolve the spike's open question: unadopted informs returned HTTP 404 —
-  confirm it's "nothing queued until adopt" vs. a response-parse mismatch (a
-  continuously-informing device + a mid-stream adopt settles it).
-- **B — switch + AP payloads.** `usw` (`port_table`), `uap`
-  (`radio_table`+`vap_table`), templated from `-sim` device docs.
-- **C — library + adopt helper + container image + CLI.**
-- **D — go-unifi PRs** (`AdoptDevice`, then `StartDeviceSim` + expose 8080).
-- **E — provider PR** (compose sidecar; document the seeded-target swap).
+All phases landed; see the README status section. Historical record:
 
-A–C live here. D/E are small PRs into the consumer repos.
+- **A — engine to CONNECTED (gateway).** Live-proven; the 404 question is
+  resolved (benign "nothing queued" — see the protocol facts above).
+- **B — switch + AP payloads.** Live-proven fleet: 1 UGW + 2 USW + 2 UAP, all
+  `state=1 adopted=true` (host-mode and in-container).
+- **C — library + adopt helpers + container image + CLI.** Shipped; UOS
+  helper unit-tested (no seeded image exists locally for a live run).
+- **D — go-unifi PR** (`AdoptDevice` + `StartDeviceSim` + inform port):
+  jamesbraid/go-unifi#16.
+- **E — provider PR** (compose sidecar, profile-gated):
+  jamesbraid/terraform-provider-unifi#11.
+
+Remaining: publish the module + image (both PRs note it); live-validate the
+UOS helper once a `unifi-os-server:seeded` image is available.
 
 ## References
 

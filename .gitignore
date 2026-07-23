@@ -14,3 +14,6 @@ coverage.html
 *.log
 /tmp/
 .env
+
+# Agent working notes — never commit
+docs/superpowers/

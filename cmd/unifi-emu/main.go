@@ -92,12 +92,19 @@ func resolveInformURL(raw string) string {
 	if host == "" || net.ParseIP(host) != nil {
 		return raw
 	}
-	ips, err := net.DefaultResolver.LookupIP(context.Background(), "ip4", host)
-	if err != nil || len(ips) == 0 {
+	// Bound the lookup: a hanging resolver must not stall startup.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	ips, err := net.DefaultResolver.LookupIP(ctx, "ip4", host)
+	if err != nil {
 		// Pass through unresolved: per-inform dials re-resolve lazily,
 		// but say so — a persistent failure shows up as the controller
 		// rejecting a hostname inform_ip post-adoption.
-		log.Printf("could not resolve inform host %q to IPv4 (%v); using it as-is", host, err)
+		log.Printf("could not resolve inform host %q to IPv4: %v; using it as-is", host, err)
+		return raw
+	}
+	if len(ips) == 0 {
+		log.Printf("inform host %q has no IPv4 address; using it as-is", host)
 		return raw
 	}
 	if port := u.Port(); port != "" {

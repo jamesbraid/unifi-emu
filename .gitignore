@@ -17,3 +17,4 @@ coverage.html
 
 # Agent working notes — never commit
 docs/superpowers/
+.opencode/

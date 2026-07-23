@@ -1,0 +1,73 @@
+# GoReleaser owns the CLI binaries, archives, checksums and the GitHub
+# Release + changelog. The container image is built separately in
+# .github/workflows/release.yaml from the repo's own Dockerfile, so the
+# published image stays byte-for-byte what scripts/itest.sh docker tests.
+version: 2
+project_name: unifi-emu
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: unifi-emu
+    main: ./cmd/unifi-emu
+    binary: unifi-emu
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.buildVersion={{ .Version }}
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: unifi-emu
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+# unifi-emu uses kernel/Go-style component-prefixed commits (cli:, emu:,
+# image:, inform:, docs:), not Conventional Commits — so no feat/fix
+# grouping. Let GitHub render the changelog; just drop the noise.
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - '^Merge '
+      - '^docs:'
+      - '^gitignore:'
+
+release:
+  github:
+    owner: jamesbraid
+    name: unifi-emu
+  prerelease: auto
+  draft: false
+  header: |
+    ## unifi-emu {{ .Tag }}
+  footer: |
+    ### Install
+
+    Library:
+    ```
+    go get github.com/jamesbraid/unifi-emu@{{ .Tag }}
+    ```
+
+    CLI:
+    ```
+    go install github.com/jamesbraid/unifi-emu/cmd/unifi-emu@{{ .Tag }}
+    ```
+
+    Container image:
+    ```
+    docker pull ghcr.io/jamesbraid/unifi-emu:{{ trimprefix .Tag "v" }}
+    ```

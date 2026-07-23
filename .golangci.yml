@@ -1,0 +1,11 @@
+version: "2"
+
+# Default linters (errcheck, govet, ineffassign, staticcheck, unused).
+# Unchecked deferred Close() on an io.Closer is idiomatic here (HTTP
+# response bodies, decompression readers) — exclude that class so errcheck
+# still catches meaningful unchecked errors elsewhere.
+linters:
+  settings:
+    errcheck:
+      exclude-functions:
+        - (io.Closer).Close

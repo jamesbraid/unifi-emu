@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/url"
@@ -18,6 +19,10 @@ import (
 
 	"github.com/jamesbraid/unifi-emu"
 )
+
+// buildVersion is the CLI build version, stamped at release time via
+// -ldflags "-X main.buildVersion=<ver>"; "dev" for local/unstamped builds.
+var buildVersion = "dev"
 
 func main() {
 	informDefault := os.Getenv("SIM_CONTROLLER")
@@ -35,7 +40,12 @@ func main() {
 	version := flag.String("version", "", "firmware version (default: from model profile)")
 	name := flag.String("name", "", "device hostname (default: UBNT)")
 	ip := flag.String("ip", "192.168.1.242", "device IP reported to the controller")
+	showVersion := flag.Bool("V", false, "print unifi-emu build version and exit")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println(buildVersion)
+		return
+	}
 
 	set := map[string]bool{}
 	flag.Visit(func(f *flag.Flag) { set[f.Name] = true })

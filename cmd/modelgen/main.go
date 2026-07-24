@@ -724,6 +724,9 @@ func run(args []string) error {
 
 	var catalog catalogFile
 	if *harvestBundlePath != "" {
+		if strings.TrimSpace(*version) == "" {
+			return errors.New("controller version is required (-controller-version)")
+		}
 		bundleBytes, err := os.ReadFile(*harvestBundlePath)
 		if err != nil {
 			return err

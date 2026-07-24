@@ -1,18 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"strings"
 	"testing"
 )
 
 func TestParseFirmware(t *testing.T) {
-	f, err := os.Open("testdata/firmware-latest.json")
+	b, err := os.ReadFile("testdata/firmware-latest.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
-	idx, err := parseFirmware(f)
+	idx, err := parseFirmware(bytes.NewReader(b))
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}

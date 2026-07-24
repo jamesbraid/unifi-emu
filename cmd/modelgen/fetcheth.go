@@ -108,14 +108,6 @@ func buildFingerprintIndex(fingerprint []byte) (fingerprintIndex, error) {
 	return idx, nil
 }
 
-// skuToSlug turns a Tech Specs SKU ("U7-Pro-Max", "U7 Pro") into its URL slug.
-func skuToSlug(sku string) string {
-	s := strings.ToLower(strings.TrimSpace(sku))
-	s = strings.ReplaceAll(s, "/", "-")
-	s = strings.Join(strings.Fields(s), "-")
-	return s
-}
-
 // apCandidate is one AP model and its hardware sysid (from the bundle), the two
 // keys used to join it to the fingerprint DB.
 type apCandidate struct {
@@ -149,7 +141,7 @@ func fetchAPEthernet(ctx context.Context, aps []apCandidate, idx fingerprintInde
 			continue
 		}
 		model := ap.code
-		url := fmt.Sprintf(techSpecsDataFmt, buildID, skuToSlug(sku))
+		url := fmt.Sprintf(techSpecsDataFmt, buildID, modelSlug(sku))
 		body, err := httpGet(ctx, url)
 		if err != nil {
 			unresolved++

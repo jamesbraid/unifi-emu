@@ -96,7 +96,7 @@ func findNetworkingInterface(node any) (string, bool) {
 	return "", false
 }
 
-// modelSlug derives a techspecs URL slug from a fingerprint product name,
+// modelSlug derives a techspecs URL slug from a fingerprint SKU or product name,
 // e.g. "U7 Pro" -> "u7-pro". Unresolved slugs 404 and the AP falls back to
 // the GE default (logged) in the refresh step.
 func modelSlug(productName string) string {

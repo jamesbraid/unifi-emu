@@ -20,7 +20,7 @@ func TestClassicUGWLive(t *testing.T) {
 	}
 	h.startEmulator([]emu.DeviceSpec{spec})
 
-	client := emu.NewClassicClient(h.apiURL)
+	client := newControllerClient(h.apiURL, classic)
 	if err := client.Login(h.ctx, "admin", "admin"); err != nil {
 		t.Fatalf("login: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestClassicFleetLive(t *testing.T) {
 	h := startClassicHarness(t)
 	h.startEmulator(fleetSpecs)
 
-	client := emu.NewClassicClient(h.apiURL)
+	client := newControllerClient(h.apiURL, classic)
 	if err := client.Login(h.ctx, "admin", "admin"); err != nil {
 		t.Fatalf("login: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestUOSAPUpgradeLive(t *testing.T) {
 	}
 	h.startEmulator([]emu.DeviceSpec{spec})
 
-	client := emu.NewUOSClient(h.apiURL)
+	client := newControllerClient(h.apiURL, unifiOS)
 	if err := client.Login(h.ctx, "admin", "admin"); err != nil {
 		t.Fatalf("login: %v", err)
 	}
@@ -81,8 +81,8 @@ func TestUOSAPUpgradeLive(t *testing.T) {
 // application and UniFi OS clients.
 type adopter interface {
 	Adopt(ctx context.Context, site, mac string) error
-	DeviceByMAC(ctx context.Context, site, mac string) (emu.Device, error)
-	WaitAdopted(ctx context.Context, site, mac string) (emu.Device, error)
+	DeviceByMAC(ctx context.Context, site, mac string) (Device, error)
+	WaitAdopted(ctx context.Context, site, mac string) (Device, error)
 }
 
 // adoptAndWaitConnected drives one device through the complete live flow:
@@ -95,13 +95,13 @@ func adoptAndWaitConnected(
 	h *itestHarness,
 	client adopter,
 	mac string,
-) emu.Device {
+) Device {
 	t.Helper()
 	const site = "default"
 
 	pendingCtx, stop := context.WithTimeout(ctx, 2*time.Minute)
 	defer stop()
-	var last emu.Device
+	var last Device
 	seen := false
 	for {
 		device, err := client.DeviceByMAC(pendingCtx, site, mac)

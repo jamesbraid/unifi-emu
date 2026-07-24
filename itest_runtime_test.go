@@ -27,8 +27,8 @@ type itestHarness struct {
 	evidence     string
 	apiURL       string
 	controllerIP string
-	pending      []emu.Device
-	final        []emu.Device
+	pending      []Device
+	final        []Device
 }
 
 func startClassicHarness(t *testing.T) *itestHarness {
@@ -144,14 +144,14 @@ func (h *itestHarness) startEmulator(specs []emu.DeviceSpec) {
 	}
 }
 
-func (h *itestHarness) recordPending(device emu.Device) {
+func (h *itestHarness) recordPending(device Device) {
 	h.pending = append(h.pending, device)
 	if err := writeJSON(filepath.Join(h.evidence, "pending-devices.json"), h.pending); err != nil {
 		h.t.Errorf("write pending device evidence: %v", err)
 	}
 }
 
-func (h *itestHarness) recordFinal(device emu.Device) {
+func (h *itestHarness) recordFinal(device Device) {
 	h.final = append(h.final, device)
 	if err := writeJSON(filepath.Join(h.evidence, "final-devices.json"), h.final); err != nil {
 		h.t.Errorf("write final device evidence: %v", err)

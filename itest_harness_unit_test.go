@@ -20,7 +20,7 @@ func TestEvidenceDirUsesSafeTestName(t *testing.T) {
 
 func TestWriteJSONPreservesDeviceDocument(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "pending-devices.json")
-	devices := []emu.Device{{
+	devices := []Device{{
 		MAC:     "00:27:22:e0:00:01",
 		State:   2,
 		Adopted: false,

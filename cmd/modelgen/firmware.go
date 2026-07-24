@@ -1,17 +1,11 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"strings"
-	"time"
 )
-
-const firmwareLatestURL = "https://fw-update.ubnt.com/api/firmware-latest" +
-	"?filter=eq~~product~~unifi-firmware&filter=eq~~channel~~release&limit=1000"
 
 // firmwareIndex maps a model code to a device-format firmware version.
 type firmwareIndex map[string]string
@@ -63,20 +57,4 @@ func firmwareVersion(idx firmwareIndex, model, typ string) string {
 		return v
 	}
 	return perTypeFirmwareDefault[typ]
-}
-
-// fetchFirmware GETs the live firmware-latest index (only under -fetch-firmware).
-func fetchFirmware(ctx context.Context) (firmwareIndex, error) {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, firmwareLatestURL, nil)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("GET firmware-latest: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("firmware-latest: HTTP %d", resp.StatusCode)
-	}
-	return parseFirmware(resp.Body)
 }

@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -161,6 +162,132 @@ func reduceDeviceDatabase(identity, bundle io.Reader, controllerVersion string) 
 	sort.Slice(out.Models, func(i, j int) bool {
 		return out.Models[i].Model < out.Models[j].Model
 	})
+	return out, nil
+}
+
+// modelKeyPattern matches a quoted, uppercase model-code key that opens an
+// object: `"USW48POE": {`. Whitespace between the key, colon, and brace is
+// tolerated because the hardware DB bundle is hand-formatted JavaScript.
+var modelKeyPattern = regexp.MustCompile(`"([A-Z0-9][A-Z0-9-]{2,12})"\s*:\s*\{`)
+
+// allModelKeys returns every quoted model-code key in the bundle whose object
+// carries a top-level "type" field, sorted and de-duplicated. The regexp only
+// finds candidates; extractModelJSON confirms the object shape and the type
+// probe rejects container objects (e.g. "models", "features") that merely look
+// like model keys.
+func allModelKeys(bundle []byte) []string {
+	seen := map[string]bool{}
+	var keys []string
+	for _, match := range modelKeyPattern.FindAllSubmatch(bundle, -1) {
+		key := string(match[1])
+		if seen[key] {
+			continue
+		}
+		obj, err := extractModelJSON(bundle, key)
+		if err != nil {
+			continue
+		}
+		var probe struct {
+			Type string `json:"type"`
+		}
+		if json.Unmarshal(obj, &probe) != nil || probe.Type == "" {
+			continue
+		}
+		seen[key] = true
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// displayFor returns the human-facing model name from the display map, falling
+// back to the bare model code when the bundle offers no friendly name.
+func displayFor(model string, display map[string]string) string {
+	if name, ok := display[model]; ok && name != "" {
+		return name
+	}
+	return model
+}
+
+// deriveLayout fills in ports (and radios for APs) from the hardware DB
+// metadata using the existing generic derivation helpers. m.Model and m.Type
+// must already be set.
+func deriveLayout(m *catalogModel, meta deviceDBModel) error {
+	var err error
+	switch m.Type {
+	case "ugw":
+		m.Ports, err = gatewayPorts(meta)
+	case "usw":
+		m.Ports, err = switchMetadataPorts(m.Model, meta)
+	case "uap":
+		m.Ports = accessPointPorts(m.Model)
+		m.Radios = metadataRadios(m.Model, meta)
+	default:
+		err = fmt.Errorf("unsupported type %q", m.Type)
+	}
+	return err
+}
+
+// harvestBundle builds the full-lineup catalog from every in-scope model in the
+// controller hardware DB bundle. Unlike reduceDeviceDatabase, which is gated on
+// an adopted stat/device dump, this walks every quoted model key with a
+// top-level type of uap/usw/ugw. Ports and radios are derived generically; the
+// firmware index supplies versions, the display map supplies friendly names,
+// and overrides patch the AP ethernet layout and per-band spatial streams that
+// the bundle cannot express.
+func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, ov overrides, ver string) (catalogFile, error) {
+	out := catalogFile{
+		ControllerVersion: ver,
+		IdentitySource:    "controller hardware DB bundle (swai.js)",
+		HardwareSource:    "controller hardware DB bundle + fw-update API + tech specs",
+	}
+	seen := map[string]bool{}
+	for _, model := range allModelKeys(bundle) {
+		metaJSON, err := extractModelJSON(bundle, model)
+		if err != nil {
+			continue
+		}
+		var meta deviceDBModel
+		if err := json.Unmarshal(metaJSON, &meta); err != nil {
+			continue
+		}
+		switch meta.Type {
+		case "uap", "usw", "ugw":
+		default:
+			continue // out of scope: udm, unvr, etc.
+		}
+		seen[model] = true
+
+		m := catalogModel{
+			Model:        model,
+			ModelDisplay: displayFor(model, display),
+			Type:         meta.Type,
+			Version:      firmwareVersion(fw, model, meta.Type),
+		}
+		if err := deriveLayout(&m, meta); err != nil {
+			return catalogFile{}, fmt.Errorf("model %s: %w", model, err)
+		}
+		o, hasOverride := ov.Models[model]
+		if hasOverride {
+			applyOverride(&m, o)
+		}
+		// accessPointPorts always yields a valid layout, so an AP without an
+		// eth override keeps its derived ports; just flag that it fell back.
+		if meta.Type == "uap" && (!hasOverride || o.Eth == nil) {
+			fmt.Fprintf(os.Stderr, "modelgen: %s using default ethernet (no eth override)\n", model)
+		}
+		if err := validateModel(&m); err != nil {
+			return catalogFile{}, err
+		}
+		sort.Slice(m.Ports, func(i, j int) bool { return m.Ports[i].PortIdx < m.Ports[j].PortIdx })
+		out.Models = append(out.Models, m)
+	}
+	sort.Slice(out.Models, func(i, j int) bool {
+		return out.Models[i].Model < out.Models[j].Model
+	})
+	if err := checkStaleOverrides(ov, seen); err != nil {
+		return catalogFile{}, err
+	}
 	return out, nil
 }
 

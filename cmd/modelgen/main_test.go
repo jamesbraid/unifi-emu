@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -184,6 +185,53 @@ func TestReduceDeviceDatabaseRejectsMissingOrMismatchedModels(t *testing.T) {
 				t.Fatal("reducer accepted incomplete controller metadata")
 			}
 		})
+	}
+}
+
+func TestHarvestBundleFiltersAndDerives(t *testing.T) {
+	bundle, err := os.ReadFile("testdata/bundle.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fw := firmwareIndex{"USTEST": "7.0.0.1", "UAPTEST": "8.0.0.1", "UGWTEST": "4.4.0.1"}
+	ov := overrides{Models: map[string]modelOverride{
+		"UAPTEST": {Eth: &ethOverride{Count: 1, Media: "2.5GbE"}},
+	}}
+	cat, err := harvestBundle(bundle, map[string]string{"USTEST": "Test Switch"}, fw, ov, "10.4.57")
+	if err != nil {
+		t.Fatalf("harvest: %v", err)
+	}
+	got := map[string]catalogModel{}
+	for _, m := range cat.Models {
+		got[m.Model] = m
+	}
+	if _, ok := got["UNVRX"]; ok {
+		t.Fatal("out-of-scope type unvr was not filtered out")
+	}
+	if len(got) != 3 {
+		t.Fatalf("got %d models, want 3 (usw/uap/ugw)", len(got))
+	}
+	if got["USTEST"].Version != "7.0.0.1" {
+		t.Fatalf("firmware not applied: %q", got["USTEST"].Version)
+	}
+	if len(got["UAPTEST"].Ports) != 1 || got["UAPTEST"].Ports[0].Media != "2.5GbE" {
+		t.Fatalf("ap eth override not applied: %+v", got["UAPTEST"].Ports)
+	}
+}
+
+func TestHarvestBundleAPWithoutEthDefaultsGE(t *testing.T) {
+	bundle, _ := os.ReadFile("testdata/bundle.js")
+	fw := firmwareIndex{}
+	cat, err := harvestBundle(bundle, nil, fw, overrides{}, "10.4.57")
+	if err != nil {
+		t.Fatalf("harvest: %v", err)
+	}
+	for _, m := range cat.Models {
+		if m.Model == "UAPTEST" {
+			if len(m.Ports) != 1 || m.Ports[0].Media != "GE" {
+				t.Fatalf("AP without eth override should default 1xGE, got %+v", m.Ports)
+			}
+		}
 	}
 }
 

@@ -22,7 +22,7 @@ firmware "upgrade" survived with an emulated reboot. Shipped:
 - **CLI** (`cmd/unifi-emu`) — single-device flags, `-devices` file, or
   `SIM_DEVICES` env (YAML/JSON).
 - **Container image** — `docker build -t unifi-emu:dev .` (static, scratch,
-  ~9MB). In-container adoption proven on a pinned docker network.
+  ~9MB). The live suite builds this image from the checkout.
 - **Adopt helpers** — classic Network App (`ClassicClient`) and UniFi OS
   ucore/CSRF (`UOSClient`), live-proven against the published seeded UOS
   image through its controller-requested AP firmware upgrade.
@@ -35,33 +35,26 @@ Not yet: the module/image aren't published anywhere (both PRs note it).
 ### Quick start
 
 ```sh
-go test ./...            # unit tests, no controller needed
-bash scripts/itest.sh    # live proof: one gateway adopts to CONNECTED (docker)
-bash scripts/itest.sh fleet   # live proof: the whole 5-device fleet
-bash scripts/itest.sh docker  # live proof: sim runs inside a container
+go test ./... # unit tests, no container runtime needed
+go test -tags integration -run TestClassicUGWLive -v -count=1 .
+go test -tags integration -run TestClassicFleetLive -v -count=1 .
+go test -tags integration -run TestUOSAPUpgradeLive -v -count=1 .
 docker build -t unifi-emu:dev . && docker run --rm unifi-emu:dev -h
 ```
 
-The Go-level live tests sit behind the `integration` build tag and two env
-vars (one live test per fresh controller — recreate between runs):
+The live tests use `testcontainers-go`. Each test creates an isolated network,
+a fresh controller, and an emulator container built from the checkout.
+Controller APIs use random host ports. Inform traffic stays on the container
+network. Logs and device documents remain under `tmp/itest/<test-name>/`.
 
-```sh
-UNIFI_EMU_TEST_INFORM_URL=http://127.0.0.1:8080/inform \
-UNIFI_EMU_TEST_API_URL=https://localhost:8443 \
-go test -tags integration -run TestEmuAdoptsFleetLive -v .
-```
+Set `UNIFI_EMU_ITEST_EMULATOR_IMAGE` to test a prebuilt emulator instead.
+`UNIFI_EMU_ITEST_CLASSIC_IMAGE` and `UNIFI_EMU_ITEST_UOS_IMAGE` select
+controller images. Defaults are `ghcr.io/jamesbraid/unifi-network:sim` and
+`ghcr.io/jamesbraid/unifi-os-server:seeded`.
 
 The newer UOS path uses a fresh seeded controller and proves the negotiated
-CBC-to-AES-GCM transition as well as the AP firmware upgrade:
-
-```sh
-run-uos.sh uos-seeded-reverse ghcr.io/jamesbraid/unifi-os-server:seeded \
-  --no-healthcheck -p 12443:443 -p 19080:8080
-
-UNIFI_EMU_TEST_UOS_INFORM_URL=http://127.0.0.1:19080/inform \
-UNIFI_EMU_TEST_UOS_API_URL=https://localhost:12443 \
-go test -tags integration -run TestEmuAdoptsUOSLive -v .
-```
+CBC-to-AES-GCM transition and AP firmware upgrade. Its controller healthcheck
+stays enabled. The harness also waits for seeded-owner and API readiness.
 
 ### Model registry
 

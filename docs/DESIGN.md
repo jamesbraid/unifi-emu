@@ -34,8 +34,9 @@ device* (the controller's demo seeder vs. this emulator).
 - Inform endpoint: HTTP **POST** to `http://<controller>:8080/inform`.
 - Packet header: magic `TNBU`, then version, device MAC, flags, IV,
   payload-version, payload-length, payload. Flag bits: `0x01` encrypted, `0x02`
-  zlib, `0x04` snappy, `0x08` AES-GCM. Encryption AES-128-CBC (start here; GCM
-  optional). Compression zlib or snappy.
+  zlib, `0x04` snappy, `0x08` AES-GCM. Devices begin with AES-128-CBC and switch
+  later informs to AES-GCM when `mgmt_cfg.use_aes_gcm=true`. Compression is zlib
+  or snappy.
 - Default adoption key (unadopted devices): `ba86f2bbe107c7c57eb5f2690775c712`.
 - **Adoption handshake:**
   1. Device informs with the DEFAULT key: payload `state=1, default=true,
@@ -64,13 +65,10 @@ device* (the controller's demo seeder vs. this emulator).
     carrying the adoption mgmt_cfg — same packet format throughout.
 - **The inform URL host must be an IP literal.** The controller validates the
   device-reported `inform_url` and rejects hostnames post-adoption
-  (`invalid inform_ip unifi` → HTTP 400). Two mechanisms matter:
-  - Host-run sim on macOS (container IPs unroutable): boot the controller
-    with `SYSTEM_IP=127.0.0.1` (jacobalberty entrypoint maps it to
-    `system_ip`) and publish 8080 fixed, so the advertised inform URL is
-    host-reachable.
-  - Sim in docker networks with DNS names (`http://unifi:8080/inform`):
-    the CLI resolves the inform host to IPv4 once at startup.
+  (`invalid inform_ip unifi` → HTTP 400). The integration harness puts the
+  controller and emulator on one isolated Testcontainers network and passes the
+  controller's container IPv4 address. The CLI also resolves DNS names to IPv4
+  once at startup for other container-network consumers.
 - Device MAC must be a fixed, caller-supplied value carried in the payload — NOT
   derived from a container interface (docker reassigns container MACs on restart).
 - **One gateway per site:** adopting a 2nd UGW fails with `api.err.NoSecondGateway`.
@@ -131,6 +129,20 @@ gets a one-call "give me an adopted device":
 (`go-unifi` already abstracts both login styles; the helper can reuse it.)
 
 ## Integration
+
+### Repository live tests
+
+The `integration`-tagged suite owns every resource through
+`testcontainers-go`. Each test creates a network, fresh controller, and
+checkout-built emulator container. The host reaches the controller API through
+a random mapped port. Device informs stay on the shared network.
+
+`TestClassicUGWLive` proves one gateway, `TestClassicFleetLive` serially adopts
+the five-device fleet, and `TestUOSAPUpgradeLive` proves the seeded-UOS
+login/CSRF/adoption/AES-GCM/firmware-upgrade cycle. The UOS request reproduces
+the host cgroup namespace, cgroup bind, capabilities, and tmpfs contract used by
+`run-uos.sh`. Every test writes full logs and pending/final device documents
+under `tmp/itest/<test-name>/` before removing its containers and network.
 
 ### go-unifi (`internal/controllertest`)
 

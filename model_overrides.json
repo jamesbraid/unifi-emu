@@ -1,0 +1,7 @@
+{
+  "_source_note": "facts absent from the hardware DB bundle; eth entries are populated by `modelgen -fetch-eth`, others hand-curated.",
+  "models": {
+    "U7MP":  { "radios": { "ng": { "nss": 3 }, "na": { "nss": 3 } }, "source": "https://techspecs.ui.com/unifi/wifi/uap-ac-mesh-pro" },
+    "USM8P": { "ports": { "plus": { "media": "GE" } }, "source": "USW-Ultra PoE++ input is 1GbE RJ45, not SFP+" }
+  }
+}

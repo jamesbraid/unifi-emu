@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 // csrfToken holds the ucore CSRF token. ucore rotates it mid-session and
@@ -71,21 +73,33 @@ type UOSClient struct {
 
 // NewUOSClient returns a client for the UniFi OS controller at baseURL; see
 // newSessionClient for the TLS and timeout rationale.
+//
+// UniFi OS globally rate-limits login (HTTP 429), so requests run through a
+// retrying client: go-retryablehttp's default policy retries 429 (and 5xx)
+// and honors the Retry-After header. Each attempt executes on the session
+// client below, so its cookie jar and the CSRF sniffer apply per attempt.
 func NewUOSClient(baseURL string) *UOSClient {
 	c := &UOSClient{
 		base: strings.TrimRight(baseURL, "/"),
 		csrf: &csrfToken{},
 	}
-	hc := newSessionClient()
-	hc.Transport = &csrfSniffer{base: hc.Transport, tok: c.csrf}
-	c.hc = hc
+	inner := newSessionClient()
+	inner.Transport = &csrfSniffer{base: inner.Transport, tok: c.csrf}
+
+	rc := retryablehttp.NewClient()
+	rc.HTTPClient = inner
+	rc.Logger = nil
+	rc.RetryMax = 8
+	c.hc = rc.StandardClient()
 	return c
 }
 
 // Login authenticates against /api/auth/login. The session cookie rides in
 // the jar; the CSRF token comes back in the x-updated-csrf-token response
 // header. A 200 without that header is still an error: without the token
-// every proxied call would 403, so a tokenless login is no login.
+// every proxied call would 403, so a tokenless login is no login. The
+// retrying client (see NewUOSClient) absorbs the 429s UniFi OS returns while
+// login is rate-limited.
 func (c *UOSClient) Login(ctx context.Context, user, pass string) error {
 	body, err := json.Marshal(map[string]string{
 		"username": user,

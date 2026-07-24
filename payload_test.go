@@ -331,10 +331,10 @@ func TestModelRegistryPayloads(t *testing.T) {
 			case "usw":
 				table(t, m, "port_table")
 				table(t, m, "ethernet_table")
-			case "ugw":
+			case "ugw", "uxg":
 				stats, ok := m["system-stats"].(map[string]any)
 				if !ok || len(stats) == 0 {
-					t.Errorf("system-stats missing or empty for ugw model %s", model)
+					t.Errorf("system-stats missing or empty for gateway model %s", model)
 				}
 			default:
 				t.Errorf("profile %s has unknown type %q", model, profile.Type)

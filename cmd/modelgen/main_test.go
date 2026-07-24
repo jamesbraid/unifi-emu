@@ -166,7 +166,7 @@ func TestHarvestBundleFiltersAndDerives(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fw := firmwareIndex{"USTEST": "7.0.0.1", "UAPTEST": "8.0.0.1", "UGWTEST": "4.4.0.1"}
+	fw := firmwareIndex{"USTEST": "7.0.0.1", "UAPTEST": "8.0.0.1", "UGWTEST": "4.4.0.1", "UXGTEST": "5.0.0.1"}
 	ov := overrides{Models: map[string]modelOverride{
 		"UAPTEST": {Eth: &ethOverride{Count: 1, Media: "2.5GbE"}},
 	}}
@@ -181,14 +181,27 @@ func TestHarvestBundleFiltersAndDerives(t *testing.T) {
 	if _, ok := got["UNVRX"]; ok {
 		t.Fatal("out-of-scope type unvr was not filtered out")
 	}
-	if len(got) != 3 {
-		t.Fatalf("got %d models, want 3 (usw/uap/ugw)", len(got))
+	if len(got) != 4 {
+		t.Fatalf("got %d models, want 4 (usw/uap/ugw/uxg)", len(got))
 	}
 	if got["USTEST"].Version != "7.0.0.1" {
 		t.Fatalf("firmware not applied: %q", got["USTEST"].Version)
 	}
 	if len(got["UAPTEST"].Ports) != 1 || got["UAPTEST"].Ports[0].Media != "2.5GbE" {
 		t.Fatalf("ap eth override not applied: %+v", got["UAPTEST"].Ports)
+	}
+	// The uxg gateway keeps only its ethernet ports (the "standard" switch
+	// category and the "psu0" pseudo-port are dropped), and media follows the
+	// fastest negotiated speed.
+	uxg := got["UXGTEST"].Ports
+	if len(uxg) != 2 {
+		t.Fatalf("uxg ports = %+v, want 2 (eth0/eth1 only)", uxg)
+	}
+	if uxg[0].PortIdx != 1 || uxg[0].Media != "2.5GbE" || !uxg[0].IsUplink {
+		t.Errorf("uxg eth0 = %+v, want idx1 2.5GbE uplink", uxg[0])
+	}
+	if uxg[1].PortIdx != 2 || uxg[1].Media != "GE" {
+		t.Errorf("uxg eth1 = %+v, want idx2 GE", uxg[1])
 	}
 }
 

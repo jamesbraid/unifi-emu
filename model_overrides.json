@@ -1,0 +1,248 @@
+{
+  "_source_note": "facts absent from the hardware DB bundle; eth entries are populated by `modelgen -fetch-eth`, others hand-curated.",
+  "models": {
+    "U6ENT": {
+      "eth": {
+        "count": 1,
+        "media": "2.5GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Enterprise)"
+    },
+    "U6ENTIW": {
+      "eth": {
+        "count": 1,
+        "media": "2.5GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Enterprise-IW)"
+    },
+    "U6IW": {
+      "eth": {
+        "count": 1,
+        "media": "GE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-IW)"
+    },
+    "U6M": {
+      "eth": {
+        "count": 1,
+        "media": "GE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Mesh)"
+    },
+    "U6MP": {
+      "eth": {
+        "count": 2,
+        "media": "GE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Mesh-Pro)"
+    },
+    "U7ENT": {
+      "eth": {
+        "count": 1,
+        "media": "2.5GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Pro-Max)"
+    },
+    "U7HD": {
+      "eth": {
+        "count": 2,
+        "media": "GE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-AC-HD)"
+    },
+    "U7IW": {
+      "eth": {
+        "count": 3,
+        "media": "2.5GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-IW)"
+    },
+    "U7LR": {
+      "eth": {
+        "count": 1,
+        "media": "2.5GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-LR)"
+    },
+    "U7LT": {
+      "eth": {
+        "count": 1,
+        "media": "GE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-AC-LITE)"
+    },
+    "U7MP": {
+      "radios": {
+        "na": {
+          "nss": 3
+        },
+        "ng": {
+          "nss": 3
+        }
+      },
+      "source": "https://techspecs.ui.com/unifi/wifi/uap-ac-mesh-pro"
+    },
+    "U7NHD": {
+      "eth": {
+        "count": 1,
+        "media": "GE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-nanoHD)"
+    },
+    "U7PG2": {
+      "eth": {
+        "count": 2,
+        "media": "GE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-AC-Pro)"
+    },
+    "U7PIW": {
+      "eth": {
+        "count": 1,
+        "media": "2.5GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Pro-Wall)"
+    },
+    "U7PRO": {
+      "eth": {
+        "count": 1,
+        "media": "2.5GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7 Pro)"
+    },
+    "U7PROMAX": {
+      "eth": {
+        "count": 1,
+        "media": "2.5GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Pro-Max)"
+    },
+    "U7SHD": {
+      "eth": {
+        "count": 2,
+        "media": "GE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-AC-SHD)"
+    },
+    "UAIW6": {
+      "eth": {
+        "count": 1,
+        "media": "GE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-IW)"
+    },
+    "UAL6": {
+      "eth": {
+        "count": 1,
+        "media": "GE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Lite)"
+    },
+    "UAM6": {
+      "eth": {
+        "count": 1,
+        "media": "GE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Mesh)"
+    },
+    "UAP6MP": {
+      "eth": {
+        "count": 1,
+        "media": "GE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Pro)"
+    },
+    "UAPA693": {
+      "eth": {
+        "count": 1,
+        "media": "2.5GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Lite)"
+    },
+    "UAPA69E": {
+      "eth": {
+        "count": 1,
+        "media": "2.5GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Mesh)"
+    },
+    "UAPA6A4": {
+      "eth": {
+        "count": 1,
+        "media": "10GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Pro-XGS)"
+    },
+    "UAPA6A5": {
+      "eth": {
+        "count": 3,
+        "media": "2.5GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-IW)"
+    },
+    "UAPA6A9": {
+      "eth": {
+        "count": 1,
+        "media": "10GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Pro-XG)"
+    },
+    "UAPA6B3": {
+      "eth": {
+        "count": 1,
+        "media": "2.5GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-LR)"
+    },
+    "UAPA6BA": {
+      "eth": {
+        "count": 1,
+        "media": "10GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Pro-XG-Wall)"
+    },
+    "UCXG": {
+      "eth": {
+        "count": 1,
+        "media": "10GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-XG)"
+    },
+    "UFLHD": {
+      "eth": {
+        "count": 1,
+        "media": "GE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-FlexHD)"
+    },
+    "UHDIW": {
+      "eth": {
+        "count": 5,
+        "media": "GE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-IW-HD)"
+    },
+    "UKPW": {
+      "eth": {
+        "count": 1,
+        "media": "2.5GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Outdoor)"
+    },
+    "USM8P": {
+      "ports": {
+        "plus": {
+          "media": "GE"
+        }
+      },
+      "source": "USW-Ultra PoE++ input is 1GbE RJ45, not SFP+"
+    },
+    "UXSDM": {
+      "eth": {
+        "count": 1,
+        "media": "10GbE"
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UWB-XG)"
+    }
+  }
+}

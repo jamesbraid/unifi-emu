@@ -9,6 +9,7 @@
 /vendor/
 coverage.txt
 coverage.html
+/models_generated.go
 
 # Local runtime / scratch
 *.log
@@ -18,3 +19,4 @@ coverage.html
 # Agent working notes — never commit
 docs/superpowers/
 .opencode/
+.claude/settings.local.json

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -118,33 +119,6 @@ func TestReduceRejectsIncompleteDevices(t *testing.T) {
 	}
 }
 
-func TestGenerateGoIsDeterministic(t *testing.T) {
-	catalog, err := reduce(strings.NewReader(sampleEnvelope), "10.4.57")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var first, second bytes.Buffer
-	if err := writeGo(&first, catalog); err != nil {
-		t.Fatal(err)
-	}
-	if err := writeGo(&second, catalog); err != nil {
-		t.Fatal(err)
-	}
-	if first.String() != second.String() {
-		t.Fatal("Go output is not deterministic")
-	}
-	for _, want := range []string{
-		`"UAP1": {`,
-		`ModelDisplay: "One-radio AP"`,
-		`PortIdx: 1`,
-		`RadioCaps: 17`,
-	} {
-		if !strings.Contains(first.String(), want) {
-			t.Errorf("generated Go missing %q:\n%s", want, first.String())
-		}
-	}
-}
-
 func TestReduceDeviceDatabaseMergesControllerIdentityAndHardwareFacts(t *testing.T) {
 	pending := strings.ReplaceAll(sampleEnvelope, `"state": 1`, `"state": 2`)
 	pending = strings.ReplaceAll(pending, `"adopted": true`, `"adopted": false`)
@@ -184,6 +158,89 @@ func TestReduceDeviceDatabaseRejectsMissingOrMismatchedModels(t *testing.T) {
 				t.Fatal("reducer accepted incomplete controller metadata")
 			}
 		})
+	}
+}
+
+func TestHarvestBundleFiltersAndDerives(t *testing.T) {
+	bundle, err := os.ReadFile("testdata/bundle.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fw := firmwareIndex{"USTEST": "7.0.0.1", "UAPTEST": "8.0.0.1", "UGWTEST": "4.4.0.1", "UXGTEST": "5.0.0.1"}
+	ov := overrides{Models: map[string]modelOverride{
+		"UAPTEST": {Eth: &ethOverride{Count: 1, Media: "2.5GbE"}},
+	}}
+	cat, err := harvestBundle(bundle, map[string]string{"USTEST": "Test Switch"}, fw, ov, "10.4.57")
+	if err != nil {
+		t.Fatalf("harvest: %v", err)
+	}
+	got := map[string]catalogModel{}
+	for _, m := range cat.Models {
+		got[m.Model] = m
+	}
+	if _, ok := got["UNVRX"]; ok {
+		t.Fatal("out-of-scope type unvr was not filtered out")
+	}
+	if len(got) != 4 {
+		t.Fatalf("got %d models, want 4 (usw/uap/ugw/uxg)", len(got))
+	}
+	if got["USTEST"].Version != "7.0.0.1" {
+		t.Fatalf("firmware not applied: %q", got["USTEST"].Version)
+	}
+	if len(got["UAPTEST"].Ports) != 1 || got["UAPTEST"].Ports[0].Media != "2.5GbE" {
+		t.Fatalf("ap eth override not applied: %+v", got["UAPTEST"].Ports)
+	}
+	// The uxg gateway keeps only its ethernet ports (the "standard" switch
+	// category and the "psu0" pseudo-port are dropped), and media follows the
+	// fastest negotiated speed.
+	uxg := got["UXGTEST"].Ports
+	if len(uxg) != 2 {
+		t.Fatalf("uxg ports = %+v, want 2 (eth0/eth1 only)", uxg)
+	}
+	if uxg[0].PortIdx != 1 || uxg[0].Media != "2.5GbE" || !uxg[0].IsUplink {
+		t.Errorf("uxg eth0 = %+v, want idx1 2.5GbE uplink", uxg[0])
+	}
+	if uxg[1].PortIdx != 2 || uxg[1].Media != "GE" {
+		t.Errorf("uxg eth1 = %+v, want idx2 GE", uxg[1])
+	}
+}
+
+func TestHarvestBundleAPWithoutEthDefaultsGE(t *testing.T) {
+	bundle, _ := os.ReadFile("testdata/bundle.js")
+	fw := firmwareIndex{}
+	cat, err := harvestBundle(bundle, nil, fw, overrides{}, "10.4.57")
+	if err != nil {
+		t.Fatalf("harvest: %v", err)
+	}
+	for _, m := range cat.Models {
+		if m.Model == "UAPTEST" {
+			if len(m.Ports) != 1 || m.Ports[0].Media != "GE" {
+				t.Fatalf("AP without eth override should default 1xGE, got %+v", m.Ports)
+			}
+		}
+	}
+}
+
+func TestHarvestBundleSkipsModelsItCannotExpress(t *testing.T) {
+	bundle, err := os.ReadFile("testdata/bundle.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cat, err := harvestBundle(bundle, nil, firmwareIndex{}, overrides{}, "10.4.57")
+	if err != nil {
+		t.Fatalf("harvest: %v", err)
+	}
+	got := map[string]bool{}
+	for _, m := range cat.Models {
+		got[m.Model] = true
+	}
+	if got["UAPBAD"] {
+		t.Fatal("UAPBAD has an unsupported radio band and should have been skipped, not emitted")
+	}
+	for _, want := range []string{"USTEST", "UAPTEST", "UGWTEST"} {
+		if !got[want] {
+			t.Errorf("harvest skipped %s, want it kept (only UAPBAD should be skipped)", want)
+		}
 	}
 }
 

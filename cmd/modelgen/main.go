@@ -1,5 +1,6 @@
-// Command modelgen reduces an adopted UniFi simulation fleet to the model
-// facts used by the emulator and generates the corresponding Go registry.
+// Command modelgen reduces an adopted UniFi simulation fleet (or a harvested
+// controller hardware database bundle) to model_profiles.json, the model
+// catalog the emulator embeds at build time.
 package main
 
 import (
@@ -8,10 +9,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"go/format"
 	"io"
 	"net"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -77,6 +78,7 @@ type rawDevice struct {
 
 type deviceDBModel struct {
 	Type   string                     `json:"type"`
+	SysID  string                     `json:"systemIdHexadecimal"`
 	Ports  map[string]json.RawMessage `json:"ports"`
 	Radios map[string]struct {
 		MaxPower int `json:"maxPower"`
@@ -86,7 +88,8 @@ type deviceDBModel struct {
 		PoE bool `json:"poe"`
 	} `json:"features"`
 	LinkNegotiation map[string]struct {
-		PortIdx int `json:"portIdx"`
+		PortIdx         int      `json:"portIdx"`
+		SupportedValues []string `json:"supportedValues"`
 	} `json:"linkNegotiation"`
 }
 
@@ -164,6 +167,159 @@ func reduceDeviceDatabase(identity, bundle io.Reader, controllerVersion string) 
 	return out, nil
 }
 
+// modelKeyPattern matches a quoted, uppercase model-code key that opens an
+// object: `"USW48POE": {`. Whitespace between the key, colon, and brace is
+// tolerated because the hardware DB bundle is hand-formatted JavaScript.
+var modelKeyPattern = regexp.MustCompile(`"([A-Z0-9][A-Z0-9-]{2,12})"\s*:\s*\{`)
+
+// allModelKeys returns every quoted model-code key in the bundle whose object
+// carries a top-level "type" field, sorted and de-duplicated. The regexp only
+// finds candidates; extractModelJSON confirms the object shape and the type
+// probe rejects container objects (e.g. "models", "features") that merely look
+// like model keys.
+func allModelKeys(bundle []byte) []string {
+	seen := map[string]bool{}
+	var keys []string
+	for _, match := range modelKeyPattern.FindAllSubmatch(bundle, -1) {
+		key := string(match[1])
+		if seen[key] {
+			continue
+		}
+		obj, err := extractModelJSON(bundle, key)
+		if err != nil {
+			continue
+		}
+		var probe struct {
+			Type string `json:"type"`
+		}
+		if json.Unmarshal(obj, &probe) != nil || probe.Type == "" {
+			continue
+		}
+		seen[key] = true
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// displayFor returns the human-facing model name from the display map, falling
+// back to the bare model code when the bundle offers no friendly name.
+func displayFor(model string, display map[string]string) string {
+	if name, ok := display[model]; ok && name != "" {
+		return name
+	}
+	return model
+}
+
+// deriveLayout fills in ports (and radios for APs) from the hardware DB
+// metadata using the existing generic derivation helpers. m.Model and m.Type
+// must already be set.
+func deriveLayout(m *catalogModel, meta deviceDBModel) error {
+	var err error
+	switch m.Type {
+	case "ugw", "uxg":
+		m.Ports, err = gatewayPorts(meta)
+	case "usw":
+		m.Ports, err = switchMetadataPorts(m.Model, meta)
+	case "uap":
+		m.Ports = accessPointPorts(m.Model)
+		m.Radios = metadataRadios(m.Model, meta)
+	default:
+		err = fmt.Errorf("unsupported type %q", m.Type)
+	}
+	return err
+}
+
+// harvestBundle builds the full-lineup catalog from every in-scope model in the
+// controller hardware DB bundle. Unlike reduceDeviceDatabase, which is gated on
+// an adopted stat/device dump, this walks every quoted model key with a
+// top-level type of uap/usw/ugw. Ports and radios are derived generically; the
+// firmware index supplies versions, the display map supplies friendly names,
+// and overrides patch the AP ethernet layout and per-band spatial streams that
+// the bundle cannot express.
+func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, ov overrides, ver string) (catalogFile, error) {
+	out := catalogFile{
+		ControllerVersion: ver,
+		IdentitySource:    "controller hardware DB bundle (swai.js)",
+		HardwareSource:    "controller hardware DB bundle + fw-update API + tech specs",
+	}
+	// considered holds every in-scope model the bundle offers, including ones
+	// later skipped as inexpressible. Overrides are validated against this set,
+	// not just the successfully-generated models: an override for a real model
+	// the bundle can't yet render (e.g. a novel radio band) is legitimate, but
+	// an override for a typo or an out-of-scope model is stale.
+	considered := map[string]bool{}
+	var skipped, defaultedEth []string
+	for _, model := range allModelKeys(bundle) {
+		metaJSON, err := extractModelJSON(bundle, model)
+		if err != nil {
+			continue
+		}
+		var meta deviceDBModel
+		if err := json.Unmarshal(metaJSON, &meta); err != nil {
+			continue
+		}
+		switch meta.Type {
+		case "uap", "usw", "ugw", "uxg":
+		default:
+			// Out of scope. udm/uck consoles run the Network app themselves
+			// (adoptability "standalone"); a controller receives their inform
+			// but never lists them as pending, so they can't adopt via this
+			// path (verified live: a UDM-Pro never reaches state=2). unvr/unas
+			// and other classes report differently.
+			continue
+		}
+		considered[model] = true
+
+		m := catalogModel{
+			Model:        model,
+			ModelDisplay: displayFor(model, display),
+			Type:         meta.Type,
+			Version:      firmwareVersion(fw, model, meta.Type),
+		}
+		// A model the bundle can't express (unknown radio band, unusual port
+		// encoding) is omitted, not silently wrong, and not fatal to the whole
+		// lineup. It's logged so the gap is visible and closable with an
+		// override or a supported-band addition.
+		if err := deriveLayout(&m, meta); err != nil {
+			skipped = append(skipped, fmt.Sprintf("%s (%v)", model, err))
+			continue
+		}
+		o, hasOverride := ov.Models[model]
+		if hasOverride {
+			applyOverride(&m, o)
+		}
+		if err := validateModel(&m); err != nil {
+			skipped = append(skipped, fmt.Sprintf("%s (%v)", model, err))
+			continue
+		}
+		// accessPointPorts always yields a valid layout, so an AP without an
+		// eth override keeps its derived ports; record that it fell back.
+		if meta.Type == "uap" && (!hasOverride || o.Eth == nil) {
+			defaultedEth = append(defaultedEth, model)
+		}
+		sort.Slice(m.Ports, func(i, j int) bool { return m.Ports[i].PortIdx < m.Ports[j].PortIdx })
+		out.Models = append(out.Models, m)
+	}
+	sort.Slice(out.Models, func(i, j int) bool {
+		return out.Models[i].Model < out.Models[j].Model
+	})
+	if len(defaultedEth) > 0 {
+		fmt.Fprintf(os.Stderr, "modelgen: %d APs using default ethernet (no eth override): %v\n",
+			len(defaultedEth), defaultedEth)
+	}
+	if len(skipped) > 0 {
+		fmt.Fprintf(os.Stderr, "modelgen: skipped %d models the bundle can't express:\n", len(skipped))
+		for _, s := range skipped {
+			fmt.Fprintf(os.Stderr, "  - %s\n", s)
+		}
+	}
+	if err := checkStaleOverrides(ov, considered); err != nil {
+		return catalogFile{}, err
+	}
+	return out, nil
+}
+
 func extractModelJSON(bundle []byte, model string) ([]byte, error) {
 	key := []byte(strconv.Quote(model))
 	searchFrom := 0
@@ -227,10 +383,19 @@ func gatewayPorts(meta deviceDBModel) ([]catalogPort, error) {
 	ports := make([]catalogPort, 0, len(meta.Ports))
 	for ifName, rawName := range meta.Ports {
 		var name string
+		// A gateway's ports map holds ifname->role ("eth0":"WAN"). UXG/UDM
+		// entries also carry switch-category keys ("standard":[0,1]) whose
+		// values are not strings — skip those; the ifname entries are the ports.
 		if err := json.Unmarshal(rawName, &name); err != nil {
-			return nil, fmt.Errorf("gateway port %s name: %w", ifName, err)
+			continue
 		}
-		idx := meta.LinkNegotiation[ifName].PortIdx
+		// Ethernet ports only; some gateways list a power-supply pseudo-port
+		// ("psu0") that carries no portIdx and isn't a network interface.
+		if !strings.HasPrefix(ifName, "eth") {
+			continue
+		}
+		neg := meta.LinkNegotiation[ifName]
+		idx := neg.PortIdx
 		if idx == 0 {
 			n, err := strconv.Atoi(strings.TrimPrefix(ifName, "eth"))
 			if err != nil {
@@ -239,11 +404,36 @@ func gatewayPorts(meta deviceDBModel) ([]catalogPort, error) {
 			idx = n + 1
 		}
 		ports = append(ports, catalogPort{
-			IfName: ifName, Name: name, PortIdx: idx, Media: "GE", IsUplink: idx == 1,
+			IfName: ifName, Name: name, PortIdx: idx,
+			Media: negotiatedMedia(neg.SupportedValues), IsUplink: idx == 1,
 		})
+	}
+	if len(ports) == 0 {
+		return nil, errors.New("gateway has no ethernet ports")
 	}
 	sort.Slice(ports, func(i, j int) bool { return ports[i].PortIdx < ports[j].PortIdx })
 	return ports, nil
+}
+
+// negotiatedMedia maps a port's link-negotiation speeds to a media label,
+// taking the fastest supported RJ45 rate. Defaults to GE when unknown.
+func negotiatedMedia(supported []string) string {
+	best := 0
+	for _, s := range supported {
+		for _, tok := range strings.Fields(s) {
+			if n, err := strconv.Atoi(tok); err == nil && n > best {
+				best = n
+			}
+		}
+	}
+	switch {
+	case best >= 10000:
+		return "10GbE"
+	case best >= 2500:
+		return "2.5GbE"
+	default:
+		return "GE"
+	}
 }
 
 func switchMetadataPorts(model string, meta deviceDBModel) ([]catalogPort, error) {
@@ -479,7 +669,7 @@ func validateModel(m *catalogModel) error {
 			m.Model, m.ModelDisplay, m.Version)
 	}
 	switch m.Type {
-	case "ugw", "usw", "uap":
+	case "ugw", "usw", "uap", "uxg":
 	default:
 		return fmt.Errorf("model %s has unsupported type %q", m.Model, m.Type)
 	}
@@ -542,33 +732,6 @@ func validateModel(m *catalogModel) error {
 	return nil
 }
 
-func validateCatalog(catalog *catalogFile) error {
-	if strings.TrimSpace(catalog.ControllerVersion) == "" {
-		return errors.New("catalog has no controller version")
-	}
-	if strings.TrimSpace(catalog.IdentitySource) == "" ||
-		strings.TrimSpace(catalog.HardwareSource) == "" {
-		return errors.New("catalog has incomplete source provenance")
-	}
-	seen := make(map[string]struct{}, len(catalog.Models))
-	for i := range catalog.Models {
-		if err := validateModel(&catalog.Models[i]); err != nil {
-			return err
-		}
-		if _, ok := seen[catalog.Models[i].Model]; ok {
-			return fmt.Errorf("duplicate model %s", catalog.Models[i].Model)
-		}
-		seen[catalog.Models[i].Model] = struct{}{}
-		sort.Slice(catalog.Models[i].Ports, func(a, b int) bool {
-			return catalog.Models[i].Ports[a].PortIdx < catalog.Models[i].Ports[b].PortIdx
-		})
-	}
-	sort.Slice(catalog.Models, func(i, j int) bool {
-		return catalog.Models[i].Model < catalog.Models[j].Model
-	})
-	return nil
-}
-
 func writeCatalog(w io.Writer, catalog catalogFile) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
@@ -576,72 +739,82 @@ func writeCatalog(w io.Writer, catalog catalogFile) error {
 	return enc.Encode(catalog)
 }
 
-func writeGo(w io.Writer, catalog catalogFile) error {
-	var src bytes.Buffer
-	fmt.Fprintln(&src, "// Code generated by cmd/modelgen; DO NOT EDIT.")
-	fmt.Fprintln(&src)
-	fmt.Fprintln(&src, "package emu")
-	fmt.Fprintln(&src)
-	fmt.Fprintf(&src, "const modelCatalogControllerVersion = %s\n\n",
-		strconv.Quote(catalog.ControllerVersion))
-	fmt.Fprintln(&src, "var generatedModelRegistry = map[string]ModelProfile{")
-	for _, m := range catalog.Models {
-		fmt.Fprintf(&src, "\t%s: {\n", strconv.Quote(m.Model))
-		fmt.Fprintf(&src, "\t\tModel: %s, ModelDisplay: %s, Type: %s, Version: %s,\n",
-			strconv.Quote(m.Model), strconv.Quote(m.ModelDisplay),
-			strconv.Quote(m.Type), strconv.Quote(m.Version))
-		fmt.Fprintln(&src, "\t\tPorts: []PortSpec{")
-		for _, p := range m.Ports {
-			fmt.Fprintf(&src, "\t\t\t{IfName: %s, Name: %s, PortIdx: %d, Media: %s, PoECaps: %d, IsUplink: %t},\n",
-				strconv.Quote(p.IfName), strconv.Quote(p.Name), p.PortIdx,
-				strconv.Quote(p.Media), p.PoECaps, p.IsUplink)
-		}
-		fmt.Fprintln(&src, "\t\t},")
-		if len(m.Radios) > 0 {
-			fmt.Fprintln(&src, "\t\tRadios: []RadioSpec{")
-			for _, r := range m.Radios {
-				fmt.Fprintf(&src, "\t\t\t{Name: %s, Radio: %s, Channel: %d, HT: %s, MinTxPower: %d, MaxTxPower: %d, NSS: %d, RadioCaps: %d, AntennaGain: %d},\n",
-					strconv.Quote(r.Name), strconv.Quote(r.Radio), defaultChannel(r.Radio),
-					strconv.Quote(r.HT), r.MinTxPower, r.MaxTxPower, r.NSS,
-					r.RadioCaps, r.AntennaGain)
-			}
-			fmt.Fprintln(&src, "\t\t},")
-		}
-		fmt.Fprintln(&src, "\t},")
-	}
-	fmt.Fprintln(&src, "}")
-	formatted, err := format.Source(src.Bytes())
-	if err != nil {
-		return fmt.Errorf("format generated Go: %w\n%s", err, src.String())
-	}
-	_, err = w.Write(formatted)
-	return err
-}
-
-func defaultChannel(radio string) int {
-	switch radio {
-	case "ng":
-		return 1
-	case "na":
-		return 36
-	default:
-		return 5
-	}
-}
-
 func run(args []string) error {
 	fs := flag.NewFlagSet("modelgen", flag.ContinueOnError)
-	input := fs.String("input", "", "raw stat/device JSON; omit to regenerate Go from the catalog")
+	input := fs.String("input", "", "raw stat/device JSON; required unless -bundle is set")
 	bundle := fs.String("device-db-bundle", "", "controller UI JavaScript bundle containing the hardware database")
+	harvestBundlePath := fs.String("bundle", "", "controller UI JavaScript bundle (swai.js); when set, harvest the full model lineup instead of reducing -input")
+	bundlesJSONPath := fs.String("bundles-json", "", "bundles.json model->display map, used with -bundle")
+	firmwareJSONPath := fs.String("firmware-json", "", "saved firmware-latest.json response, used with -bundle")
+	overridesPath := fs.String("overrides", "model_overrides.json", "model overrides file, used with -bundle")
 	catalogPath := fs.String("catalog", "model_profiles.json", "reduced model catalog")
-	goPath := fs.String("go", "models_generated.go", "generated Go registry")
-	version := fs.String("controller-version", "", "source controller version (required with -input)")
+	version := fs.String("controller-version", "", "source controller version (required with -input or -bundle)")
+	fetchEth := fs.Bool("fetch-eth", false, "pull AP ethernet from Tech Specs into -overrides (needs -bundle and -fingerprint)")
+	fingerprintPath := fs.String("fingerprint", "", "Ubiquiti device fingerprint DB (static.ui.com/fingerprint/ui/public.json), used with -fetch-eth")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
+	if *fetchEth {
+		if *harvestBundlePath == "" || *fingerprintPath == "" {
+			return fmt.Errorf("-fetch-eth requires -bundle and -fingerprint")
+		}
+		return runFetchEth(*harvestBundlePath, *fingerprintPath, *overridesPath)
+	}
+
 	var catalog catalogFile
-	if *input != "" {
+	if *harvestBundlePath != "" {
+		if strings.TrimSpace(*version) == "" {
+			return errors.New("controller version is required (-controller-version)")
+		}
+		bundleBytes, err := os.ReadFile(*harvestBundlePath)
+		if err != nil {
+			return err
+		}
+		display := map[string]string{}
+		if *bundlesJSONPath != "" {
+			b, err := os.ReadFile(*bundlesJSONPath)
+			if err != nil {
+				return err
+			}
+			var raw map[string]struct {
+				Display string `json:"display"`
+			}
+			if err := json.Unmarshal(b, &raw); err != nil {
+				return fmt.Errorf("parse %s: %w", *bundlesJSONPath, err)
+			}
+			for model, v := range raw {
+				display[model] = v.Display
+			}
+		}
+		fw := firmwareIndex{}
+		if *firmwareJSONPath != "" {
+			f, err := os.Open(*firmwareJSONPath)
+			if err != nil {
+				return err
+			}
+			fw, err = parseFirmware(f)
+			_ = f.Close()
+			if err != nil {
+				return err
+			}
+		}
+		ov, err := loadOverrides(*overridesPath)
+		if err != nil {
+			return err
+		}
+		catalog, err = harvestBundle(bundleBytes, display, fw, ov, *version)
+		if err != nil {
+			return err
+		}
+		var buf bytes.Buffer
+		if err := writeCatalog(&buf, catalog); err != nil {
+			return err
+		}
+		if err := os.WriteFile(*catalogPath, buf.Bytes(), 0o644); err != nil {
+			return err
+		}
+	} else if *input != "" {
 		f, err := os.Open(*input)
 		if err != nil {
 			return err
@@ -669,22 +842,9 @@ func run(args []string) error {
 			return err
 		}
 	} else {
-		b, err := os.ReadFile(*catalogPath)
-		if err != nil {
-			return err
-		}
-		if err := json.Unmarshal(b, &catalog); err != nil {
-			return err
-		}
-		if err := validateCatalog(&catalog); err != nil {
-			return err
-		}
+		return errors.New("modelgen: one of -bundle or -input is required")
 	}
-	var generated bytes.Buffer
-	if err := writeGo(&generated, catalog); err != nil {
-		return err
-	}
-	return os.WriteFile(*goPath, generated.Bytes(), 0o644)
+	return nil
 }
 
 func main() {

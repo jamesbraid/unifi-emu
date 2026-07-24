@@ -1,7 +1,9 @@
 // Command unifi-emu runs a fleet of emulated UniFi devices informing a
 // real controller until interrupted. Device sources (mutually exclusive):
-// -devices FILE (YAML/JSON), SIM_DEVICES env (inline YAML), or the
-// single-device flags.
+// -devices FILE (YAML/JSON), SIM_DEVICES env (inline YAML), -models
+// (terse MODEL[:count] list), SIM_MODELS env, or the single-device flags.
+// When none of those is set, SIM_DEFAULT_DEVICES (the image's baked-in
+// fleet file) is used if present; any explicit source overrides it.
 package main
 
 import (
@@ -33,7 +35,10 @@ func main() {
 	inform := flag.String("inform", informDefault, "controller inform URL (default: env SIM_CONTROLLER)")
 	devices := flag.String("devices", "", "YAML/JSON file with an array of DeviceSpec (fleet mode; "+
 		"keys: mac, type, model, modeldisplay, version, name, ip, ports, ssids; unknown keys rejected). "+
-		"Fleet sources (mutually exclusive): -devices FILE (YAML/JSON) or SIM_DEVICES env (inline YAML list); either beats single-device flags")
+		"Fleet sources (mutually exclusive): -devices FILE (YAML/JSON), SIM_DEVICES env (inline YAML list), "+
+		"-models, or SIM_MODELS env; any one beats single-device flags")
+	models := flag.String("models", "", "terse fleet: comma-separated MODEL[:count] (e.g. U7PRO,USM8P:2,UGW3); "+
+		"MAC/IP auto-derived from SIM_MAC_BASE/SIM_IP_BASE. Fleet sources are mutually exclusive.")
 	mac := flag.String("mac", "00:27:22:e0:00:01", "device MAC (single-device mode)")
 	typ := flag.String("type", "", "device type ugw/usw/uap (default: from model profile)")
 	model := flag.String("model", "UGW3", "device model")
@@ -50,9 +55,33 @@ func main() {
 
 	set := map[string]bool{}
 	flag.Visit(func(f *flag.Flag) { set[f.Name] = true })
-	specs, ignored, err := fleetSpecs(*devices, os.Getenv("SIM_DEVICES"), set)
+	src := fleetSources{
+		devicesFile: *devices,
+		envInline:   os.Getenv("SIM_DEVICES"),
+		modelsFlag:  *models,
+		models:      os.Getenv("SIM_MODELS"),
+	}
+	specs, ignored, err := fleetSpecs(src, set)
 	if err != nil {
 		log.Fatal(err)
+	}
+	// No explicit source: fall back to the image's baked-in default fleet
+	// (SIM_DEFAULT_DEVICES), so a bare `docker run` boots a fleet while any
+	// explicit source above still wins.
+	if specs == nil {
+		def, err := defaultFleet(os.Getenv("SIM_DEFAULT_DEVICES"), set)
+		if err != nil {
+			log.Fatalf("default fleet: %v", err)
+		}
+		specs = def
+	}
+	if specs != nil {
+		macBase := envOr("SIM_MAC_BASE", "00:27:22:e0:00:00")
+		ipBase := envOr("SIM_IP_BASE", "192.168.1.100")
+		specs, err = expandFleet(specs, macBase, ipBase)
+		if err != nil {
+			log.Fatalf("expand fleet: %v", err)
+		}
 	}
 
 	resolved, err := resolveInformURL(*inform)
@@ -69,7 +98,7 @@ func main() {
 			Version: *version, Name: *name, IP: *ip,
 		}}
 	} else if len(ignored) > 0 {
-		log.Printf("SIM_DEVICES set: ignoring single-device flags -%s", strings.Join(ignored, ", -"))
+		log.Printf("fleet env source set: ignoring single-device flags -%s", strings.Join(ignored, ", -"))
 	}
 
 	e := emu.New(*inform)
@@ -137,6 +166,14 @@ func resolveInformURLWith(
 		u.Host = ips[0].String()
 	}
 	return u.String(), nil
+}
+
+// envOr returns the env var key's value, or def if it is unset or empty.
+func envOr(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
 }
 
 // watch logs a line whenever mac's adoption state changes, so long runs

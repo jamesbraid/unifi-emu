@@ -118,12 +118,10 @@ func uosContainerRequest(networkName, image string) testcontainers.ContainerRequ
 	}
 }
 
-func emulatorContainerRequest(
-	networkName string,
-	images itestImages,
-	informURL string,
-	specs []emu.DeviceSpec,
-) testcontainers.ContainerRequest {
+// baseEmulatorRequest builds the container request common to every launch
+// mode: the shared network, the -inform command, and the emulator image
+// (built from the checkout unless a prebuilt one is selected).
+func baseEmulatorRequest(networkName string, images itestImages, informURL string) testcontainers.ContainerRequest {
 	request := testcontainers.ContainerRequest{
 		Networks: []string{networkName},
 		Cmd:      []string{"-inform", informURL},
@@ -139,6 +137,37 @@ func emulatorContainerRequest(
 	} else {
 		request.Image = images.emulator
 	}
+	return request
+}
+
+// itestMACBase and itestIPBase pin the emulator's SIM_MODELS expansion so the
+// caller can predict each device's MAC (base + index + 1). They match the
+// emulator's own defaults but are set explicitly to keep the contract local.
+const (
+	itestMACBase = "00:27:22:e0:00:00"
+	itestIPBase  = "192.168.1.100"
+)
+
+// emulatorModelsRequest launches the emulator from a terse SIM_MODELS list,
+// exercising the CLI's model-list selector and MAC/IP auto-expansion end to
+// end. SIM_DEVICES would bypass both.
+func emulatorModelsRequest(networkName string, images itestImages, informURL, modelsCSV string) testcontainers.ContainerRequest {
+	request := baseEmulatorRequest(networkName, images, informURL)
+	request.Env = map[string]string{
+		"SIM_MODELS":   modelsCSV,
+		"SIM_MAC_BASE": itestMACBase,
+		"SIM_IP_BASE":  itestIPBase,
+	}
+	return request
+}
+
+func emulatorContainerRequest(
+	networkName string,
+	images itestImages,
+	informURL string,
+	specs []emu.DeviceSpec,
+) testcontainers.ContainerRequest {
+	request := baseEmulatorRequest(networkName, images, informURL)
 
 	if len(specs) == 1 {
 		spec := specs[0]

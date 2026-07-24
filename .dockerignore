@@ -2,5 +2,6 @@
 tmp
 .opencode
 docs
-scripts
+scripts/itest.sh
+scripts/*.example.yaml
 assets/

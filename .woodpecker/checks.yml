@@ -19,3 +19,16 @@ steps:
     commands:
       - apk add --no-cache git
       - go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2 run ./...
+
+  # Build the image on every PR so a broken Dockerfile fails here, not months
+  # later when a release tag first builds it. kaniko needs no daemon (matches
+  # the rootless agent); --no-push makes this validation-only.
+  image:
+    image: gcr.io/kaniko-project/executor:debug
+    commands:
+      - |
+        /kaniko/executor \
+          --dockerfile=Dockerfile \
+          --context=dir://./ \
+          --no-push \
+          --single-snapshot

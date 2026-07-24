@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/jamesbraid/unifi-emu"
@@ -14,45 +16,119 @@ import (
 
 // singleFlags are the flags that build one device. Combined with a fleet
 // source, one of the two definitions would silently drop, so the
-// combination is either rejected (-devices) or the flags lose
-// (SIM_DEVICES).
+// combination is either rejected (a flag fleet source: -devices, -models)
+// or the single-device flags lose (an env fleet source: SIM_DEVICES,
+// SIM_MODELS).
 var singleFlags = []string{"mac", "type", "model", "model-display", "version", "name", "ip"}
 
-// fleetSpecs resolves the device list from the fleet sources, in
-// sources (mutually exclusive):
+// fleetSources holds the four mutually-exclusive fleet definitions; at most
+// one may be set. envInline/models come from SIM_DEVICES/SIM_MODELS,
+// devicesFile/modelsFlag from -devices/-models.
+type fleetSources struct {
+	devicesFile string // -devices FILE
+	envInline   string // SIM_DEVICES
+	modelsFlag  string // -models
+	models      string // SIM_MODELS (or -models; see modelsText)
+}
+
+// modelsText returns the terse-list text from -models or SIM_MODELS and
+// whether it came from the flag (explicit CLI intent).
+func (s fleetSources) modelsText() (text string, fromFlag bool) {
+	if s.modelsFlag != "" {
+		return s.modelsFlag, true
+	}
+	return s.models, false
+}
+
+// fleetSpecs resolves the device list from the fleet sources, in src
+// (mutually exclusive):
 //
-//	-devices FILE or SIM_DEVICES env; either beats single-device flags
+//	-devices FILE, SIM_DEVICES env, -models flag, or SIM_MODELS env;
+//	any one beats single-device flags
 //
-// set marks the flags explicitly given on the command line. Both fleet
-// sources at once are ambiguous and an error. Single-device flags
-// combined with -devices are an error; combined with SIM_DEVICES they
+// set marks the flags explicitly given on the command line. More than one
+// fleet source at once is ambiguous and an error, naming the offenders.
+// Single-device flags combined with a flag source (-devices/-models) are
+// an error; combined with an env source (SIM_DEVICES/SIM_MODELS) they
 // lose, and the losing flag names are returned so the caller can log the
 // override. A nil spec slice means single-device mode.
-func fleetSpecs(devicesFile, envInline string, set map[string]bool) ([]emu.DeviceSpec, []string, error) {
-	if devicesFile != "" && strings.TrimSpace(envInline) != "" {
-		return nil, nil, errors.New("ambiguous device sources: -devices and SIM_DEVICES are both set")
+func fleetSpecs(src fleetSources, set map[string]bool) ([]emu.DeviceSpec, []string, error) {
+	// Count fleet sources off the pre-collapsed fields directly: -models
+	// and SIM_MODELS must each be counted when set, even together. Doing
+	// this after modelsText() collapses them to a single winner would hide
+	// the case where both are set (the winner leaves only one entry).
+	active := []string{}
+	if src.devicesFile != "" {
+		active = append(active, "-devices")
 	}
-	if devicesFile != "" {
+	if strings.TrimSpace(src.envInline) != "" {
+		active = append(active, "SIM_DEVICES")
+	}
+	if strings.TrimSpace(src.modelsFlag) != "" {
+		active = append(active, "-models")
+	}
+	if strings.TrimSpace(src.models) != "" {
+		active = append(active, "SIM_MODELS")
+	}
+	if len(active) > 1 {
+		return nil, nil, fmt.Errorf("ambiguous device sources: %s are all set", strings.Join(active, ", "))
+	}
+	if len(active) == 0 {
+		return nil, nil, nil // single-device mode
+	}
+	// At most one fleet source is set, so resolving the models winner now
+	// is safe: modelsFlag and models are never both non-empty here.
+	modelsText, modelsFromFlag := src.modelsText()
+	// A flag fleet source cannot combine with single-device flags.
+	flagSource := src.devicesFile != "" || (strings.TrimSpace(modelsText) != "" && modelsFromFlag)
+	if flagSource {
 		for _, f := range singleFlags {
 			if set[f] {
-				return nil, nil, fmt.Errorf("-devices cannot be combined with -%s", f)
+				return nil, nil, fmt.Errorf("%s cannot be combined with -%s", active[0], f)
 			}
 		}
 	}
-	specs, err := loadDevices(devicesFile, envInline)
+	var specs []emu.DeviceSpec
+	var err error
+	switch {
+	case strings.TrimSpace(modelsText) != "":
+		specs, err = parseModelsList(modelsText)
+	default:
+		specs, err = loadDevices(src.devicesFile, src.envInline)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
-	if specs == nil || devicesFile != "" {
-		return specs, nil, nil
-	}
+	// Env source: single-device flags lose and are logged.
 	var ignored []string
-	for _, f := range singleFlags {
-		if set[f] {
-			ignored = append(ignored, f)
+	if !flagSource {
+		for _, f := range singleFlags {
+			if set[f] {
+				ignored = append(ignored, f)
+			}
 		}
 	}
 	return specs, ignored, nil
+}
+
+// defaultFleet loads the image's baked-in default fleet named by
+// defaultFile, but only when the user selected nothing at all — no fleet
+// source (fleetSpecs already returned single-device mode) and no
+// single-device flag. Any explicit choice therefore wins without ever
+// colliding with the "ambiguous device sources" guard, which is what lets
+// `docker run img` boot the baked fleet while `-e SIM_MODELS=...` or
+// `-model X` still overrides it. defaultFile is empty outside the image, so
+// this is a no-op for a plain CLI build.
+func defaultFleet(defaultFile string, set map[string]bool) ([]emu.DeviceSpec, error) {
+	if defaultFile == "" {
+		return nil, nil
+	}
+	for _, f := range singleFlags {
+		if set[f] {
+			return nil, nil
+		}
+	}
+	return loadDevices(defaultFile, "")
 }
 
 // loadDevices reads the fleet from filePath or, when that is empty, from
@@ -96,4 +172,108 @@ func loadDevices(filePath, envInline string) ([]emu.DeviceSpec, error) {
 		return nil, fmt.Errorf("%s: no devices", src)
 	}
 	return specs, nil
+}
+
+// parseModelsList parses the terse fleet grammar used by -models and
+// SIM_MODELS: a comma-separated list of MODEL or MODEL:count items, e.g.
+// "U7PRO,USM8P:2,UGW3". Each unit becomes one DeviceSpec carrying only the
+// model; MAC/IP are filled later by expandFleet. Unknown models are caught
+// downstream by the registry lookup.
+func parseModelsList(s string) ([]emu.DeviceSpec, error) {
+	var specs []emu.DeviceSpec
+	for _, item := range strings.Split(s, ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		model, countText, hasCount := strings.Cut(item, ":")
+		model = strings.TrimSpace(model)
+		if model == "" {
+			return nil, fmt.Errorf("models list: empty model in %q", item)
+		}
+		count := 1
+		if hasCount {
+			n, err := strconv.Atoi(strings.TrimSpace(countText))
+			if err != nil || n <= 0 {
+				return nil, fmt.Errorf("models list: bad count in %q", item)
+			}
+			count = n
+		}
+		for i := 0; i < count; i++ {
+			specs = append(specs, emu.DeviceSpec{Model: model})
+		}
+	}
+	if len(specs) == 0 {
+		return nil, errors.New("models list: no models")
+	}
+	return specs, nil
+}
+
+// expandFleet fills omitted mac/ip on an ordered fleet deterministically
+// from the bases (mac = base+index+1, ip = base+index), so a restart
+// reproduces the same addresses. Explicit spec values always win. It fails
+// fast on an unknown model, a fleet with more than one gateway
+// (api.err.NoSecondGateway), or an ip that would leave the base /24.
+func expandFleet(specs []emu.DeviceSpec, macBase, ipBase string) ([]emu.DeviceSpec, error) {
+	baseMAC, err := net.ParseMAC(macBase)
+	if err != nil {
+		return nil, fmt.Errorf("SIM_MAC_BASE %q: %w", macBase, err)
+	}
+	baseIP := net.ParseIP(ipBase).To4()
+	if baseIP == nil {
+		return nil, fmt.Errorf("SIM_IP_BASE %q: not an IPv4 address", ipBase)
+	}
+	out := make([]emu.DeviceSpec, len(specs))
+	gateways := 0
+	for i, s := range specs {
+		profile, ok := emu.Profile(s.Model)
+		if !ok {
+			return nil, fmt.Errorf("unknown model %q", s.Model)
+		}
+		if profile.Type == "ugw" {
+			gateways++
+			if gateways > 1 {
+				return nil, fmt.Errorf("fleet has %d gateways; a site adopts at most one (api.err.NoSecondGateway)", gateways)
+			}
+		}
+		if s.MAC == "" {
+			s.MAC = nextMAC(baseMAC, i+1)
+		}
+		if s.IP == "" {
+			ip, err := nextIP(baseIP, i)
+			if err != nil {
+				return nil, err
+			}
+			s.IP = ip
+		}
+		out[i] = s
+	}
+	return out, nil
+}
+
+// nextMAC returns baseMAC advanced by n as a 48-bit integer.
+func nextMAC(base net.HardwareAddr, n int) string {
+	v := uint64(0)
+	for _, b := range base {
+		v = v<<8 | uint64(b)
+	}
+	v += uint64(n)
+	var mac [6]byte
+	for i := 5; i >= 0; i-- {
+		mac[i] = byte(v)
+		v >>= 8
+	}
+	return net.HardwareAddr(mac[:]).String()
+}
+
+// nextIP returns baseIP's last octet advanced by n, erroring if it leaves
+// the /24. The reported IP is cosmetic (the controller keys on MAC), so a
+// single /24 of headroom is enough; past it the caller sets SIM_IP_BASE.
+func nextIP(base net.IP, n int) (string, error) {
+	last := int(base[3]) + n
+	if last > 254 {
+		return "", fmt.Errorf("auto-IP left the base /24 (%s + %d > .254); set SIM_IP_BASE or give explicit ips", base, n)
+	}
+	ip := net.IPv4(base[0], base[1], base[2], byte(last))
+	return ip.String(), nil
 }

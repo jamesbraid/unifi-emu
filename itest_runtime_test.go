@@ -144,6 +144,22 @@ func (h *itestHarness) startEmulator(specs []emu.DeviceSpec) {
 	}
 }
 
+// startEmulatorModels launches the emulator from a terse SIM_MODELS list so
+// the live test exercises the CLI selector and MAC/IP expansion end to end.
+func (h *itestHarness) startEmulatorModels(modelsCSV string) {
+	h.t.Helper()
+	informURL := "http://" + h.controllerIP + ":8080/inform"
+	request := emulatorModelsRequest(h.network.Name, loadITestImages(), informURL, modelsCSV)
+	emulator, err := testcontainers.GenericContainer(h.ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: request,
+		Started:          true,
+	})
+	h.emulator = emulator
+	if err != nil {
+		h.t.Fatalf("start emulator container: %v", err)
+	}
+}
+
 func (h *itestHarness) recordPending(device Device) {
 	h.pending = append(h.pending, device)
 	if err := writeJSON(filepath.Join(h.evidence, "pending-devices.json"), h.pending); err != nil {

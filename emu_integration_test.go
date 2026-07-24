@@ -54,6 +54,40 @@ func TestClassicFleetLive(t *testing.T) {
 	}
 }
 
+// TestClassicRandomFleetLive boots a reproducible pseudo-random selection of
+// models via SIM_MODELS (exercising the CLI selector and MAC/IP expansion end
+// to end) and adopts each to CONNECTED. The seed is logged and honored from
+// SIM_ITEST_SEED so a CI failure reproduces exactly.
+func TestClassicRandomFleetLive(t *testing.T) {
+	seed := seedFromEnv()
+	typeOf := func(m string) (string, bool) {
+		p, ok := emu.Profile(m)
+		return p.Type, ok
+	}
+	models := selectFleet(emu.Models(), typeOf, seed)
+	t.Logf("random fleet seed=%d models=%v (reproduce with SIM_ITEST_SEED=%d)", seed, models, seed)
+
+	macs, err := macsForModels(itestMACBase, len(models))
+	if err != nil {
+		t.Fatalf("compute MACs for %v: %v", models, err)
+	}
+
+	h := startClassicHarness(t)
+	h.startEmulatorModels(strings.Join(models, ","))
+
+	client := newControllerClient(h.apiURL, classic)
+	if err := client.Login(h.ctx, "admin", "admin"); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+
+	// One device at a time: this controller rejects bursts.
+	for i, mac := range macs {
+		t.Logf("adopting %s (mac %s)", models[i], mac)
+		device := adoptAndWaitConnected(t, h.ctx, h, client, mac)
+		t.Logf("adopted mac %s: controller model=%s state=%d", mac, device.Model, device.State)
+	}
+}
+
 func TestUOSAPUpgradeLive(t *testing.T) {
 	h := startUOSHarness(t)
 	spec := emu.DeviceSpec{

@@ -3,6 +3,7 @@ package emu_test
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -103,5 +104,84 @@ func TestDockerfileDeclaresBuildPlatformBeforeFirstFrom(t *testing.T) {
 	from := strings.Index(string(body), "FROM --platform=$BUILDPLATFORM")
 	if arg < 0 || from < 0 || arg > from {
 		t.Fatalf("Dockerfile must declare ARG BUILDPLATFORM before its first parameterized FROM")
+	}
+}
+
+func TestClassicContainerRequest(t *testing.T) {
+	request := classicContainerRequest("itest-network", "example/classic:test")
+	if request.Image != "example/classic:test" {
+		t.Fatalf("image = %q", request.Image)
+	}
+	if !reflect.DeepEqual(request.Networks, []string{"itest-network"}) {
+		t.Fatalf("networks = %#v", request.Networks)
+	}
+	if !reflect.DeepEqual(request.ExposedPorts, []string{"8443/tcp"}) {
+		t.Fatalf("exposed ports = %#v", request.ExposedPorts)
+	}
+	if request.WaitingFor == nil {
+		t.Fatal("classic request has no health wait strategy")
+	}
+}
+
+func TestUOSContainerRequest(t *testing.T) {
+	request := uosContainerRequest("itest-network", "example/uos:test")
+	if request.Image != "example/uos:test" {
+		t.Fatalf("image = %q", request.Image)
+	}
+	if !reflect.DeepEqual(request.ExposedPorts, []string{"443/tcp"}) {
+		t.Fatalf("exposed ports = %#v", request.ExposedPorts)
+	}
+	if request.WaitingFor == nil {
+		t.Fatal("UOS request has no health wait strategy")
+	}
+	if request.HostConfigModifier == nil {
+		t.Fatal("UOS request has no host config modifier")
+	}
+}
+
+func TestEmulatorContainerRequestUsesImageOverride(t *testing.T) {
+	request := emulatorContainerRequest(
+		"itest-network",
+		itestImages{emulator: "example/emu:test"},
+		"http://172.18.0.2:8080/inform",
+		[]emu.DeviceSpec{{
+			MAC: "00:27:22:e0:00:01", Model: "UGW3", IP: "192.168.1.242",
+		}},
+	)
+	if request.Image != "example/emu:test" {
+		t.Fatalf("image = %q", request.Image)
+	}
+	if request.Context != "" {
+		t.Fatalf("build context = %q, want none", request.Context)
+	}
+	wantCommand := []string{
+		"-inform", "http://172.18.0.2:8080/inform",
+		"-mac", "00:27:22:e0:00:01",
+		"-model", "UGW3",
+		"-ip", "192.168.1.242",
+	}
+	if !reflect.DeepEqual(request.Cmd, wantCommand) {
+		t.Fatalf("command = %#v, want %#v", request.Cmd, wantCommand)
+	}
+}
+
+func TestEmulatorContainerRequestBuildsCheckoutByDefault(t *testing.T) {
+	request := emulatorContainerRequest(
+		"itest-network",
+		itestImages{},
+		"http://172.18.0.2:8080/inform",
+		[]emu.DeviceSpec{
+			{MAC: "00:27:22:e0:00:01", Model: "UGW3", IP: "192.168.1.242"},
+			{MAC: "00:27:22:e0:00:11", Model: "USWED74", IP: "192.168.1.243"},
+		},
+	)
+	if request.Image != "" {
+		t.Fatalf("image = %q, want source build", request.Image)
+	}
+	if request.Context != "." || request.Dockerfile != "Dockerfile" {
+		t.Fatalf("source build = context %q Dockerfile %q", request.Context, request.Dockerfile)
+	}
+	if request.Env["SIM_DEVICES"] == "" {
+		t.Fatal("fleet request has no SIM_DEVICES payload")
 	}
 }

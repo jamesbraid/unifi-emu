@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jamesbraid/unifi-emu/inform"
+	"gopkg.in/yaml.v3"
 )
 
 // DefaultKey is the inform authkey of unadopted devices.
@@ -59,6 +60,42 @@ type DeviceSpec struct {
 	// setstate provisions real WLAN config (the setstate echo path
 	// overlays vap_table), so devices inform with an empty vap_table.
 	SSIDs []string `json:"ssids" yaml:"ssids"`
+}
+
+// deviceSpecKeys is the set of accepted fleet-file keys. A mapping entry
+// with any other key is rejected, preserving the strictness the JSON loader
+// had via DisallowUnknownFields (a custom UnmarshalYAML bypasses the outer
+// decoder's KnownFields, so the check lives here).
+var deviceSpecKeys = map[string]bool{
+	"mac": true, "type": true, "model": true, "modeldisplay": true,
+	"version": true, "name": true, "ip": true, "ports": true, "ssids": true,
+}
+
+// UnmarshalYAML lets a fleet-list entry be a bare model string ("U7PRO") or
+// a full mapping. A scalar becomes {Model: scalar}; a mapping decodes the
+// known keys and rejects any other. JSON files parse through the same YAML
+// decoder, so both formats get this behavior.
+func (d *DeviceSpec) UnmarshalYAML(node *yaml.Node) error {
+	if node.Kind == yaml.ScalarNode {
+		d.Model = node.Value
+		return nil
+	}
+	if node.Kind != yaml.MappingNode {
+		return fmt.Errorf("device entry: want a model string or mapping, got yaml kind %d", node.Kind)
+	}
+	for i := 0; i < len(node.Content); i += 2 {
+		if key := node.Content[i].Value; !deviceSpecKeys[key] {
+			return fmt.Errorf("device entry: unknown key %q", key)
+		}
+	}
+	// Decode into an alias to avoid recursing into this method.
+	type raw DeviceSpec
+	var r raw
+	if err := node.Decode(&r); err != nil {
+		return err
+	}
+	*d = DeviceSpec(r)
+	return nil
 }
 
 // device is the mutable runtime state of one emulated device.

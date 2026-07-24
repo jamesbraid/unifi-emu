@@ -1,0 +1,34 @@
+package main
+
+import (
+	"os"
+	"strings"
+	"testing"
+)
+
+func TestParseFirmware(t *testing.T) {
+	f, err := os.Open("testdata/firmware-latest.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	idx, err := parseFirmware(f)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	// platform==model join; version transform v4.4.57+5578372 -> 4.4.57.5578372
+	if got := idx["UGW3"]; got == "" || got[0] == 'v' || strings.Contains(got, "+") {
+		t.Fatalf("UGW3 version = %q, want transformed X.Y.Z.build", got)
+	}
+}
+
+func TestFirmwareVersionFallback(t *testing.T) {
+	idx := firmwareIndex{"UGW3": "4.4.57.5578372"}
+	if got := firmwareVersion(idx, "UGW3", "ugw"); got != "4.4.57.5578372" {
+		t.Fatalf("matched = %q", got)
+	}
+	// Unmatched AP falls back to the per-type default (non-empty).
+	if got := firmwareVersion(idx, "UNMATCHED", "uap"); got == "" {
+		t.Fatal("unmatched uap version empty, want per-type default")
+	}
+}

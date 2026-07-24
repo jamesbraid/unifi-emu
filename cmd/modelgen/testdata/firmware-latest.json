@@ -1,0 +1,216 @@
+{
+ "_embedded": {
+  "firmware": [
+   {
+    "channel": "release",
+    "created": "2026-02-11T20:10:34Z",
+    "file_size": 8004245,
+    "id": "18e7f970-2f2d-4945-b3c8-6ec0bf37c19f",
+    "md5": "c8d246413057085b4dc2a8e0c8d368d4",
+    "sha256_checksum": "3cf8ebe793f74f5ce4aa81131f03f4a4fa9d1b0b0ed915c9ddfa9fac9297474e",
+    "platform": "U7MP",
+    "product": "unifi-firmware",
+    "updated": "2026-02-11T20:10:37Z",
+    "version": "v6.8.2+15592",
+    "version_major": 6,
+    "version_minor": 8,
+    "version_patch": 2,
+    "version_build": "15592",
+    "probability_computed": 0,
+    "_links": {
+     "self": {
+      "href": "https://fw-update.ui.com/api/firmware/18e7f970-2f2d-4945-b3c8-6ec0bf37c19f"
+     },
+     "upload": [
+      {
+       "name": "data",
+       "href": "https://fw-update.ui.com/api/firmware/18e7f970-2f2d-4945-b3c8-6ec0bf37c19f/data"
+      },
+      {
+       "name": "changelog",
+       "href": "https://fw-update.ui.com/api/firmware/18e7f970-2f2d-4945-b3c8-6ec0bf37c19f/changelog"
+      }
+     ],
+     "data": {
+      "href": "https://fw-download.ubnt.com/data/unifi-firmware/101e-U7MP-6.8.2-18e7f970-2f2d-4945-b3c8-6ec0bf37c19f.bin"
+     }
+    }
+   },
+   {
+    "channel": "release",
+    "created": "2026-06-04T12:31:07Z",
+    "file_size": 64833923,
+    "id": "94862a62-887a-4433-b148-3dcfc93e672f",
+    "md5": "f300eb4ad0732161949b6cb06b0c6858",
+    "sha256_checksum": "bde9ddea1628b2813fd2c7514c27e5245014ef5005cf04e01734e5d5a63b5def",
+    "platform": "U7PRO",
+    "product": "unifi-firmware",
+    "updated": "2026-06-04T12:31:09Z",
+    "version": "v8.6.11+18870",
+    "version_major": 8,
+    "version_minor": 6,
+    "version_patch": 11,
+    "version_build": "18870",
+    "probability_computed": 0,
+    "_links": {
+     "self": {
+      "href": "https://fw-update.ui.com/api/firmware/94862a62-887a-4433-b148-3dcfc93e672f"
+     },
+     "upload": [
+      {
+       "name": "data",
+       "href": "https://fw-update.ui.com/api/firmware/94862a62-887a-4433-b148-3dcfc93e672f/data"
+      },
+      {
+       "name": "changelog",
+       "href": "https://fw-update.ui.com/api/firmware/94862a62-887a-4433-b148-3dcfc93e672f/changelog"
+      }
+     ],
+     "data": {
+      "href": "https://fw-download.ubnt.com/data/unifi-firmware/1718-U7PRO-8.6.11-94862a62-887a-4433-b148-3dcfc93e672f.bin"
+     }
+    }
+   },
+   {
+    "channel": "release",
+    "created": "2023-01-23T13:00:01Z",
+    "file_size": 109199360,
+    "id": "803dc567-1c67-45db-b68c-8dfa10145a8f",
+    "md5": "251184d87b7291157b503fb362f0a5f9",
+    "sha256_checksum": "08a35a626e9733018b2e49af92aa3474255136bb0178e0697f44c6d8042cdd74",
+    "platform": "UGW3",
+    "product": "unifi-firmware",
+    "updated": "2023-01-23T13:00:07Z",
+    "version": "v4.4.57+5578372",
+    "version_major": 4,
+    "version_minor": 4,
+    "version_patch": 57,
+    "version_build": "5578372",
+    "probability_computed": 0,
+    "_links": {
+     "self": {
+      "href": "https://fw-update.ui.com/api/firmware/803dc567-1c67-45db-b68c-8dfa10145a8f"
+     },
+     "upload": [
+      {
+       "name": "data",
+       "href": "https://fw-update.ui.com/api/firmware/803dc567-1c67-45db-b68c-8dfa10145a8f/data"
+      },
+      {
+       "name": "changelog",
+       "href": "https://fw-update.ui.com/api/firmware/803dc567-1c67-45db-b68c-8dfa10145a8f/changelog"
+      }
+     ],
+     "data": {
+      "href": "https://fw-download.ubnt.com/data/unifi-firmware/7920-UGW3-4.4.57-803dc5671c6745dbb68c8dfa10145a8f.tar"
+     }
+    }
+   },
+   {
+    "channel": "release",
+    "created": "2026-04-07T07:15:23Z",
+    "file_size": 16068842,
+    "id": "673fe9d6-bb56-4db7-bf12-171d2b43e440",
+    "md5": "c395ed49b93bb268916fbd69880df155",
+    "sha256_checksum": "2921beec66d0e3a106c7ce36eaf4ebfba2ee29b988f125af3daf2f66f411e374",
+    "platform": "US48P750",
+    "product": "unifi-firmware",
+    "updated": "2026-04-07T07:15:27Z",
+    "version": "v7.4.1+16850",
+    "version_major": 7,
+    "version_minor": 4,
+    "version_patch": 1,
+    "version_build": "16850",
+    "probability_computed": 0,
+    "_links": {
+     "self": {
+      "href": "https://fw-update.ui.com/api/firmware/673fe9d6-bb56-4db7-bf12-171d2b43e440"
+     },
+     "upload": [
+      {
+       "name": "data",
+       "href": "https://fw-update.ui.com/api/firmware/673fe9d6-bb56-4db7-bf12-171d2b43e440/data"
+      },
+      {
+       "name": "changelog",
+       "href": "https://fw-update.ui.com/api/firmware/673fe9d6-bb56-4db7-bf12-171d2b43e440/changelog"
+      }
+     ],
+     "data": {
+      "href": "https://fw-download.ubnt.com/data/unifi-firmware/2e28-US48P750-7.4.1-673fe9d6-bb56-4db7-bf12-171d2b43e440.bin"
+     }
+    }
+   },
+   {
+    "channel": "release",
+    "created": "2025-04-30T09:45:41Z",
+    "file_size": 2548208,
+    "id": "3c6f8d93-8fc6-4d6e-89bb-0e19f37f431d",
+    "md5": "66d2128d3b7e8112f3c5e01e4da5691b",
+    "sha256_checksum": "fee50cb3ba72e9129100549d4d61945e6410407b6e25171a847f6acb768e41cb",
+    "platform": "USM8P",
+    "product": "unifi-firmware",
+    "updated": "2025-04-30T09:45:42Z",
+    "version": "v2.1.8+971",
+    "version_major": 2,
+    "version_minor": 1,
+    "version_patch": 8,
+    "version_build": "971",
+    "probability_computed": 0,
+    "_links": {
+     "self": {
+      "href": "https://fw-update.ui.com/api/firmware/3c6f8d93-8fc6-4d6e-89bb-0e19f37f431d"
+     },
+     "upload": [
+      {
+       "name": "data",
+       "href": "https://fw-update.ui.com/api/firmware/3c6f8d93-8fc6-4d6e-89bb-0e19f37f431d/data"
+      },
+      {
+       "name": "changelog",
+       "href": "https://fw-update.ui.com/api/firmware/3c6f8d93-8fc6-4d6e-89bb-0e19f37f431d/changelog"
+      }
+     ],
+     "data": {
+      "href": "https://fw-download.ubnt.com/data/unifi-firmware/89e4-USM8P-2.1.8-3c6f8d93-8fc6-4d6e-89bb-0e19f37f431d.bin"
+     }
+    }
+   },
+   {
+    "channel": "release",
+    "created": "2026-02-10T15:40:48Z",
+    "file_size": 9352292,
+    "id": "7a3e486e-c2a0-47f9-81cc-4f138e04e1dd",
+    "md5": "68707b26c3c7e3199052a53644ec17bb",
+    "sha256_checksum": "2426c467d54188b936a712ac5746f026def653a0547e4feefe3254cf769fb77e",
+    "platform": "USWED74",
+    "product": "unifi-firmware",
+    "updated": "2026-02-10T15:40:48Z",
+    "version": "v7.3.109+16640",
+    "version_major": 7,
+    "version_minor": 3,
+    "version_patch": 109,
+    "version_build": "16640",
+    "probability_computed": 0,
+    "_links": {
+     "self": {
+      "href": "https://fw-update.ui.com/api/firmware/7a3e486e-c2a0-47f9-81cc-4f138e04e1dd"
+     },
+     "upload": [
+      {
+       "name": "data",
+       "href": "https://fw-update.ui.com/api/firmware/7a3e486e-c2a0-47f9-81cc-4f138e04e1dd/data"
+      },
+      {
+       "name": "changelog",
+       "href": "https://fw-update.ui.com/api/firmware/7a3e486e-c2a0-47f9-81cc-4f138e04e1dd/changelog"
+      }
+     ],
+     "data": {
+      "href": "https://fw-download.ubnt.com/data/unifi-firmware/e290-USWED74-7.3.109-311e73b0-f8cd-4cc5-82a9-780c86bf71f6.bin"
+     }
+    }
+   }
+  ]
+ }
+}

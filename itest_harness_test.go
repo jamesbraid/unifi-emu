@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -56,6 +57,24 @@ func evidenceDir(testName string) string {
 		}
 	}
 	return filepath.Join("tmp", "itest", strings.Trim(normalized.String(), "_"))
+}
+
+func discoverDockerHost(current, home string, socketExists func(string) bool) string {
+	if current != "" {
+		return current
+	}
+	colima := filepath.Join(home, ".colima", "default", "docker.sock")
+	if socketExists(colima) {
+		return "unix://" + colima
+	}
+	return ""
+}
+
+func containerRuntimeSocketOverride(host string) string {
+	if strings.Contains(host, "/.colima/") {
+		return "/var/run/docker.sock"
+	}
+	return ""
 }
 
 func writeJSON(path string, value any) error {
@@ -115,6 +134,7 @@ func emulatorContainerRequest(
 			Dockerfile: "Dockerfile",
 			Repo:       "unifi-emu-itest",
 			Tag:        strings.ReplaceAll(networkName, "_", "-"),
+			BuildArgs:  emulatorBuildArgs(runtime.GOARCH),
 		}
 	} else {
 		request.Image = images.emulator
@@ -148,6 +168,17 @@ func emulatorContainerRequest(
 	}
 	request.Env = map[string]string{"SIM_DEVICES": string(encoded)}
 	return request
+}
+
+func emulatorBuildArgs(goarch string) map[string]*string {
+	buildPlatform := "linux/" + goarch
+	targetOS := "linux"
+	targetArch := goarch
+	return map[string]*string{
+		"BUILDPLATFORM": &buildPlatform,
+		"TARGETOS":      &targetOS,
+		"TARGETARCH":    &targetArch,
+	}
 }
 
 func applyUOSHostConfig(cfg *container.HostConfig) {

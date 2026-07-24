@@ -8,6 +8,7 @@
 # Build on the native BUILDPLATFORM and cross-compile to TARGETOS/TARGETARCH
 # (CGO is off, so no emulation needed — buildx multi-arch stays fast). VERSION
 # stamps the CLI so `docker run ... -V` reports the release version.
+ARG BUILDPLATFORM
 FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./

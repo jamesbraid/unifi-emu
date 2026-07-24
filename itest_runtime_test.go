@@ -48,6 +48,7 @@ func startUOSHarness(t *testing.T) *itestHarness {
 
 func newITestHarness(t *testing.T, timeout time.Duration) *itestHarness {
 	t.Helper()
+	configureContainerRuntime(t)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	evidence := evidenceDir(t.Name())
 	if err := os.RemoveAll(evidence); err != nil {
@@ -71,6 +72,29 @@ func newITestHarness(t *testing.T, timeout time.Duration) *itestHarness {
 		t.Fatalf("create Testcontainers network: %v", err)
 	}
 	return h
+}
+
+func configureContainerRuntime(t *testing.T) {
+	t.Helper()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("resolve home directory for container runtime discovery: %v", err)
+	}
+	host := discoverDockerHost(os.Getenv("DOCKER_HOST"), home, func(path string) bool {
+		info, statErr := os.Stat(path)
+		return statErr == nil && info.Mode()&os.ModeSocket != 0
+	})
+	if host != "" && os.Getenv("DOCKER_HOST") == "" {
+		if err := os.Setenv("DOCKER_HOST", host); err != nil {
+			t.Fatalf("select discovered container runtime %s: %v", host, err)
+		}
+	}
+	if override := containerRuntimeSocketOverride(host); override != "" &&
+		os.Getenv("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE") == "" {
+		if err := os.Setenv("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE", override); err != nil {
+			t.Fatalf("configure container runtime socket override %s: %v", override, err)
+		}
+	}
 }
 
 func (h *itestHarness) startController(request testcontainers.ContainerRequest, apiPort string) {
@@ -131,6 +155,21 @@ func (h *itestHarness) recordFinal(device emu.Device) {
 	h.final = append(h.final, device)
 	if err := writeJSON(filepath.Join(h.evidence, "final-devices.json"), h.final); err != nil {
 		h.t.Errorf("write final device evidence: %v", err)
+	}
+}
+
+func (h *itestHarness) requireEmulatorRunning() {
+	h.t.Helper()
+	if h.emulator == nil {
+		h.t.Fatal("emulator container was not started")
+	}
+	state, err := h.emulator.State(h.ctx)
+	if err != nil {
+		h.t.Fatalf("inspect emulator container: %v", err)
+	}
+	if !state.Running {
+		h.t.Fatalf("emulator container stopped: status=%s exit=%d error=%s",
+			state.Status, state.ExitCode, state.Error)
 	}
 }
 

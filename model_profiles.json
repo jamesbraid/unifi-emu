@@ -4281,7 +4281,7 @@
           "ifname": "eth1",
           "name": "1",
           "port_idx": 2,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth2",
@@ -4305,7 +4305,7 @@
           "ifname": "eth5",
           "name": "5",
           "port_idx": 6,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth6",
@@ -20751,6 +20751,195 @@
           "nss": 2,
           "radio_caps": 0,
           "antenna_gain": 10
+        }
+      ]
+    },
+    {
+      "model": "UXG",
+      "model_display": "Gateway Lite",
+      "type": "uxg",
+      "version": "5.0.16.30689",
+      "ports": [
+        {
+          "ifname": "eth0",
+          "name": "LAN",
+          "port_idx": 1,
+          "media": "GE",
+          "is_uplink": true
+        },
+        {
+          "ifname": "eth1",
+          "name": "WAN",
+          "port_idx": 2,
+          "media": "GE"
+        }
+      ]
+    },
+    {
+      "model": "UXGA6AA",
+      "model_display": "UXGA6AA",
+      "type": "uxg",
+      "version": "5.0.16.30689",
+      "ports": [
+        {
+          "ifname": "eth0",
+          "name": "LAN",
+          "port_idx": 1,
+          "media": "2.5GbE",
+          "is_uplink": true
+        },
+        {
+          "ifname": "eth1",
+          "name": "LAN",
+          "port_idx": 2,
+          "media": "2.5GbE"
+        },
+        {
+          "ifname": "eth2",
+          "name": "LAN",
+          "port_idx": 3,
+          "media": "2.5GbE"
+        },
+        {
+          "ifname": "eth3",
+          "name": "LAN",
+          "port_idx": 4,
+          "media": "2.5GbE"
+        },
+        {
+          "ifname": "eth4",
+          "name": "WAN",
+          "port_idx": 5,
+          "media": "10GbE"
+        },
+        {
+          "ifname": "eth5",
+          "name": "LAN",
+          "port_idx": 6,
+          "media": "10GbE"
+        },
+        {
+          "ifname": "eth6",
+          "name": "WAN2",
+          "port_idx": 7,
+          "media": "10GbE"
+        }
+      ]
+    },
+    {
+      "model": "UXGB",
+      "model_display": "Gateway Max",
+      "type": "uxg",
+      "version": "5.0.16.30689",
+      "ports": [
+        {
+          "ifname": "eth0",
+          "name": "LAN",
+          "port_idx": 1,
+          "media": "GE",
+          "is_uplink": true
+        },
+        {
+          "ifname": "eth1",
+          "name": "LAN",
+          "port_idx": 2,
+          "media": "GE"
+        },
+        {
+          "ifname": "eth2",
+          "name": "LAN",
+          "port_idx": 3,
+          "media": "GE"
+        },
+        {
+          "ifname": "eth3",
+          "name": "LAN",
+          "port_idx": 4,
+          "media": "2.5GbE"
+        },
+        {
+          "ifname": "eth4",
+          "name": "WAN",
+          "port_idx": 5,
+          "media": "2.5GbE"
+        }
+      ]
+    },
+    {
+      "model": "UXGENT",
+      "model_display": "Gateway Enterprise",
+      "type": "uxg",
+      "version": "5.0.16.30689",
+      "ports": [
+        {
+          "ifname": "eth0",
+          "name": "WAN",
+          "port_idx": 1,
+          "media": "2.5GbE",
+          "is_uplink": true
+        },
+        {
+          "ifname": "eth1",
+          "name": "LAN",
+          "port_idx": 2,
+          "media": "2.5GbE"
+        },
+        {
+          "ifname": "eth2",
+          "name": "LAN",
+          "port_idx": 3,
+          "media": "10GbE"
+        },
+        {
+          "ifname": "eth3",
+          "name": "LAN",
+          "port_idx": 4,
+          "media": "10GbE"
+        },
+        {
+          "ifname": "eth4",
+          "name": "WAN2",
+          "port_idx": 5,
+          "media": "10GbE"
+        },
+        {
+          "ifname": "eth5",
+          "name": "LAN",
+          "port_idx": 6,
+          "media": "10GbE"
+        }
+      ]
+    },
+    {
+      "model": "UXGPRO",
+      "model_display": "Gateway Pro",
+      "type": "uxg",
+      "version": "1.13.8.4578",
+      "ports": [
+        {
+          "ifname": "eth0",
+          "name": "WAN",
+          "port_idx": 1,
+          "media": "GE",
+          "is_uplink": true
+        },
+        {
+          "ifname": "eth1",
+          "name": "LAN",
+          "port_idx": 2,
+          "media": "GE"
+        },
+        {
+          "ifname": "eth2",
+          "name": "WAN2",
+          "port_idx": 3,
+          "media": "10GbE"
+        },
+        {
+          "ifname": "eth3",
+          "name": "LAN2",
+          "port_idx": 4,
+          "media": "10GbE"
         }
       ]
     },

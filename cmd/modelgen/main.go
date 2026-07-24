@@ -88,7 +88,8 @@ type deviceDBModel struct {
 		PoE bool `json:"poe"`
 	} `json:"features"`
 	LinkNegotiation map[string]struct {
-		PortIdx int `json:"portIdx"`
+		PortIdx         int      `json:"portIdx"`
+		SupportedValues []string `json:"supportedValues"`
 	} `json:"linkNegotiation"`
 }
 
@@ -216,7 +217,7 @@ func displayFor(model string, display map[string]string) string {
 func deriveLayout(m *catalogModel, meta deviceDBModel) error {
 	var err error
 	switch m.Type {
-	case "ugw":
+	case "ugw", "uxg":
 		m.Ports, err = gatewayPorts(meta)
 	case "usw":
 		m.Ports, err = switchMetadataPorts(m.Model, meta)
@@ -259,9 +260,14 @@ func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, o
 			continue
 		}
 		switch meta.Type {
-		case "uap", "usw", "ugw":
+		case "uap", "usw", "ugw", "uxg":
 		default:
-			continue // out of scope: udm, unvr, etc.
+			// Out of scope. udm/uck consoles run the Network app themselves
+			// (adoptability "standalone"); a controller receives their inform
+			// but never lists them as pending, so they can't adopt via this
+			// path (verified live: a UDM-Pro never reaches state=2). unvr/unas
+			// and other classes report differently.
+			continue
 		}
 		considered[model] = true
 
@@ -377,10 +383,19 @@ func gatewayPorts(meta deviceDBModel) ([]catalogPort, error) {
 	ports := make([]catalogPort, 0, len(meta.Ports))
 	for ifName, rawName := range meta.Ports {
 		var name string
+		// A gateway's ports map holds ifname->role ("eth0":"WAN"). UXG/UDM
+		// entries also carry switch-category keys ("standard":[0,1]) whose
+		// values are not strings — skip those; the ifname entries are the ports.
 		if err := json.Unmarshal(rawName, &name); err != nil {
-			return nil, fmt.Errorf("gateway port %s name: %w", ifName, err)
+			continue
 		}
-		idx := meta.LinkNegotiation[ifName].PortIdx
+		// Ethernet ports only; some gateways list a power-supply pseudo-port
+		// ("psu0") that carries no portIdx and isn't a network interface.
+		if !strings.HasPrefix(ifName, "eth") {
+			continue
+		}
+		neg := meta.LinkNegotiation[ifName]
+		idx := neg.PortIdx
 		if idx == 0 {
 			n, err := strconv.Atoi(strings.TrimPrefix(ifName, "eth"))
 			if err != nil {
@@ -389,11 +404,36 @@ func gatewayPorts(meta deviceDBModel) ([]catalogPort, error) {
 			idx = n + 1
 		}
 		ports = append(ports, catalogPort{
-			IfName: ifName, Name: name, PortIdx: idx, Media: "GE", IsUplink: idx == 1,
+			IfName: ifName, Name: name, PortIdx: idx,
+			Media: negotiatedMedia(neg.SupportedValues), IsUplink: idx == 1,
 		})
+	}
+	if len(ports) == 0 {
+		return nil, errors.New("gateway has no ethernet ports")
 	}
 	sort.Slice(ports, func(i, j int) bool { return ports[i].PortIdx < ports[j].PortIdx })
 	return ports, nil
+}
+
+// negotiatedMedia maps a port's link-negotiation speeds to a media label,
+// taking the fastest supported RJ45 rate. Defaults to GE when unknown.
+func negotiatedMedia(supported []string) string {
+	best := 0
+	for _, s := range supported {
+		for _, tok := range strings.Fields(s) {
+			if n, err := strconv.Atoi(tok); err == nil && n > best {
+				best = n
+			}
+		}
+	}
+	switch {
+	case best >= 10000:
+		return "10GbE"
+	case best >= 2500:
+		return "2.5GbE"
+	default:
+		return "GE"
+	}
 }
 
 func switchMetadataPorts(model string, meta deviceDBModel) ([]catalogPort, error) {
@@ -629,7 +669,7 @@ func validateModel(m *catalogModel) error {
 			m.Model, m.ModelDisplay, m.Version)
 	}
 	switch m.Type {
-	case "ugw", "usw", "uap":
+	case "ugw", "usw", "uap", "uxg":
 	default:
 		return fmt.Errorf("model %s has unsupported type %q", m.Model, m.Type)
 	}

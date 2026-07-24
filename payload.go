@@ -52,7 +52,7 @@ func (d *device) buildPayload() []byte {
 			"mem_buffer": 16777216,
 		}
 		switch d.profile.Type {
-		case "ugw":
+		case "ugw", "uxg":
 			m["system-stats"] = map[string]any{
 				"cpu":    "1.5",
 				"mem":    "50.0",

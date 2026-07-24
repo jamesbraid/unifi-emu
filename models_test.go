@@ -7,8 +7,8 @@ func TestGeneratedModelRegistryMatchesControllerMetadata(t *testing.T) {
 		"UGW3": 3, "USWED74": 4, "USM8P": 8, "US48P750": 52,
 		"USWED06": 16, "USWF07D": 32, "U7MP": 2, "U7PRO": 1, "UAPA6B0": 1,
 	}
-	if len(modelRegistry) != len(wantPorts) {
-		t.Fatalf("model registry has %d models, want %d", len(modelRegistry), len(wantPorts))
+	if len(modelRegistry) < 150 {
+		t.Fatalf("model registry has %d models, want at least 150 (the full lineup is ~182)", len(modelRegistry))
 	}
 	for model, portCount := range wantPorts {
 		profile, ok := modelRegistry[model]

@@ -58,3 +58,18 @@ jobs:
         with:
           context: .
           push: false
+
+  # Live classic-controller integration tests via Testcontainers. GitHub
+  # runners have native Docker, so no runtime plumbing is needed. This boots
+  # real controllers, so it runs in minutes, not seconds. UOS is excluded: it
+  # needs host cgroup ns and an unpublished seeded image, so it stays a manual
+  # gate (the Woodpecker gate only compiles the integration tests).
+  itest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: go test -tags integration -run TestClassic -count=1 -timeout 35m -v .

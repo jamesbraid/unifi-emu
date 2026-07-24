@@ -242,6 +242,7 @@ func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, o
 		HardwareSource:    "controller hardware DB bundle + fw-update API + tech specs",
 	}
 	seen := map[string]bool{}
+	var skipped, defaultedEth []string
 	for _, model := range allModelKeys(bundle) {
 		metaJSON, err := extractModelJSON(bundle, model)
 		if err != nil {
@@ -256,7 +257,6 @@ func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, o
 		default:
 			continue // out of scope: udm, unvr, etc.
 		}
-		seen[model] = true
 
 		m := catalogModel{
 			Model:        model,
@@ -264,27 +264,44 @@ func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, o
 			Type:         meta.Type,
 			Version:      firmwareVersion(fw, model, meta.Type),
 		}
+		// A model the bundle can't express (unknown radio band, unusual port
+		// encoding) is omitted, not silently wrong, and not fatal to the whole
+		// lineup. It's logged so the gap is visible and closable with an
+		// override or a supported-band addition.
 		if err := deriveLayout(&m, meta); err != nil {
-			return catalogFile{}, fmt.Errorf("model %s: %w", model, err)
+			skipped = append(skipped, fmt.Sprintf("%s (%v)", model, err))
+			continue
 		}
 		o, hasOverride := ov.Models[model]
 		if hasOverride {
 			applyOverride(&m, o)
 		}
-		// accessPointPorts always yields a valid layout, so an AP without an
-		// eth override keeps its derived ports; just flag that it fell back.
-		if meta.Type == "uap" && (!hasOverride || o.Eth == nil) {
-			fmt.Fprintf(os.Stderr, "modelgen: %s using default ethernet (no eth override)\n", model)
-		}
 		if err := validateModel(&m); err != nil {
-			return catalogFile{}, err
+			skipped = append(skipped, fmt.Sprintf("%s (%v)", model, err))
+			continue
+		}
+		// accessPointPorts always yields a valid layout, so an AP without an
+		// eth override keeps its derived ports; record that it fell back.
+		if meta.Type == "uap" && (!hasOverride || o.Eth == nil) {
+			defaultedEth = append(defaultedEth, model)
 		}
 		sort.Slice(m.Ports, func(i, j int) bool { return m.Ports[i].PortIdx < m.Ports[j].PortIdx })
+		seen[model] = true
 		out.Models = append(out.Models, m)
 	}
 	sort.Slice(out.Models, func(i, j int) bool {
 		return out.Models[i].Model < out.Models[j].Model
 	})
+	if len(defaultedEth) > 0 {
+		fmt.Fprintf(os.Stderr, "modelgen: %d APs using default ethernet (no eth override): %v\n",
+			len(defaultedEth), defaultedEth)
+	}
+	if len(skipped) > 0 {
+		fmt.Fprintf(os.Stderr, "modelgen: skipped %d models the bundle can't express:\n", len(skipped))
+		for _, s := range skipped {
+			fmt.Fprintf(os.Stderr, "  - %s\n", s)
+		}
+	}
 	if err := checkStaleOverrides(ov, seen); err != nil {
 		return catalogFile{}, err
 	}

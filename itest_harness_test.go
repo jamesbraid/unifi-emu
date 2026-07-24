@@ -3,6 +3,7 @@ package emu_test
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -38,6 +39,35 @@ func envOrDefault(name, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func evidenceDir(testName string) string {
+	var normalized strings.Builder
+	underscore := false
+	for _, r := range strings.ToLower(testName) {
+		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
+			normalized.WriteRune(r)
+			underscore = false
+			continue
+		}
+		if !underscore && normalized.Len() > 0 {
+			normalized.WriteByte('_')
+			underscore = true
+		}
+	}
+	return filepath.Join("tmp", "itest", strings.Trim(normalized.String(), "_"))
+}
+
+func writeJSON(path string, value any) error {
+	body, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return err
+	}
+	body = append(body, '\n')
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, body, 0o644)
 }
 
 func classicContainerRequest(networkName, image string) testcontainers.ContainerRequest {

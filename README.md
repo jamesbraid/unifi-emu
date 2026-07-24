@@ -73,49 +73,37 @@ stays enabled. The harness also waits for seeded-owner and API readiness.
 
 ### Model registry
 
-| Model | Type | Firmware |
-|---|---|---|
-| UGW3 | gateway | 4.4.36.5146617 |
-| USWED74 | switch | 4.0.21.9965 |
-| USM8P | switch (PoE) | 4.0.21.9965 |
-| US48P750 | switch (PoE) | 4.0.21.9965 |
-| USWED06 | switch | 4.0.21.9965 |
-| USWF07D | switch | 4.0.21.9965 |
-| U7MP | access point | 4.0.21.9965 |
-| U7PRO | access point | 4.0.21.9965 |
-| UAPA6B0 | access point | 4.0.21.9965 |
+The registry covers the full current UniFi AP / switch / gateway lineup —
+**182 models** at controller 10.4.57. [`model_profiles.json`](model_profiles.json)
+is the checked-in reduced catalog; it is embedded (`go:embed`) and parsed at
+startup, so there is no generated Go to commit and `go build`/`go test` need no
+extra step.
 
-The registry is generated, not hand-shaped. [`model_profiles.json`](model_profiles.json)
-is the checked-in reduced fixture and `go generate ./...` renders
-`models_generated.go` from it. The fixture records the source controller
-version and keeps the complete expanded port and radio layouts so review diffs
-show every hardware change.
-
-To refresh it from a controller build, save:
-
-- `GET /api/s/default/stat/device` for model IDs, names, types, and firmware;
-- the controller UI's `swai.*.js` bundle, which contains its hardware database.
-
-Then run:
+`cmd/modelgen` builds the catalog from a controller's hardware database plus a
+couple of Ubiquiti sources. The bundle isn't in git, so refreshing needs a
+controller — a deliberate step, not part of the build. Harvest from a controller
+the UI's `swai.*.js` bundle (every model's ports and radios) and
+`.../dl/firmware/bundles.json` (display names), and fetch Ubiquiti's
+`firmware-latest` and device `fingerprint` JSON. Then:
 
 ```sh
-go run ./cmd/modelgen \
-  -input stat-device.json \
-  -device-db-bundle swai.js \
+# real AP ethernet from Tech Specs, written into model_overrides.json
+go run ./cmd/modelgen -fetch-eth -bundle swai.js -fingerprint fingerprint.json
+
+# generate the catalog
+go run ./cmd/modelgen -bundle swai.js -bundles-json bundles.json \
+  -firmware-json firmware-latest.json -overrides model_overrides.json \
   -controller-version 10.4.57
 go test ./...
 ```
 
-The reducer rejects missing models, duplicate IDs or ports, type mismatches,
-unknown port encodings, empty layouts, and incomplete AP radio data. The
-controller also exposes `GET /v2/api/site/default/models`; that endpoint is
-useful for identity/image metadata but does not include port or radio layouts.
-The few facts absent from both dumps (AP Ethernet speed/count and radio spatial
-streams) follow Ubiquiti's Tech Specs for
-[AC Mesh Pro](https://techspecs.ui.com/unifi/wifi/uap-ac-mesh-pro),
-[U7 Pro](https://techspecs.ui.com/unifi/wifi/u7-pro),
-[U7 Pro Outdoor](https://techspecs.ui.com/unifi/wifi/u7-pro-outdoor-us), and
-[Ultra](https://techspecs.ui.com/unifi/switching/usw-ultra).
+Firmware versions come from Ubiquiti's fw-update API, joined on the model code.
+AP Ethernet — which the hardware DB omits — comes from Tech Specs, matched to the
+fingerprint DB by model code and then by hardware sysid (so the hex-coded 10GbE
+flagships resolve). Facts the bundle can't express live in
+[`model_overrides.json`](model_overrides.json). A model the bundle can't render —
+an unknown radio band, say — is skipped and logged, never emitted wrong; an AP
+with no resolved ethernet keeps a 1×GbE default, also logged.
 
 ## More
 

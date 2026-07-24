@@ -73,6 +73,7 @@ type device struct {
 	key       string
 	informURL string
 	cfgvers   string
+	useAESGCM bool
 	interval  time.Duration
 	setstate  map[string]json.RawMessage
 

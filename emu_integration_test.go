@@ -70,6 +70,14 @@ var fleetSpecs = []emu.DeviceSpec{
 	{MAC: "00:27:22:e0:00:22", Model: "U7PRO", IP: "192.168.1.246"},
 }
 
+// adopter is the controller-side surface shared by the classic Network App
+// and UniFi OS clients.
+type adopter interface {
+	Adopt(ctx context.Context, site, mac string) error
+	DeviceByMAC(ctx context.Context, site, mac string) (emu.Device, error)
+	WaitAdopted(ctx context.Context, site, mac string) (emu.Device, error)
+}
+
 // TestEmuAdoptsFleetLive adopts the whole fleet. One live test per
 // fresh controller: recreate the controller (scripts/itest.sh does
 // this) and run with -run TestEmuAdoptsFleetLive; a combined
@@ -103,6 +111,66 @@ func TestEmuAdoptsFleetLive(t *testing.T) {
 	}
 }
 
+// TestEmuAdoptsUOSLive proves the newer UOS adoption and firmware-upgrade
+// cycle. Boot a fresh published seeded controller without its login-heavy
+// healthcheck:
+//
+//	run-uos.sh uos-seeded-reverse ghcr.io/jamesbraid/unifi-os-server:seeded \
+//	  --no-healthcheck -p 12443:443 -p 19080:8080
+//
+// Then run:
+//
+//	UNIFI_EMU_TEST_UOS_INFORM_URL=http://127.0.0.1:19080/inform \
+//	UNIFI_EMU_TEST_UOS_API_URL=https://localhost:12443 \
+//	go test -tags integration -run TestEmuAdoptsUOSLive -v .
+func TestEmuAdoptsUOSLive(t *testing.T) {
+	informURL := os.Getenv("UNIFI_EMU_TEST_UOS_INFORM_URL")
+	apiURL := os.Getenv("UNIFI_EMU_TEST_UOS_API_URL")
+	if informURL == "" || apiURL == "" {
+		t.Skip("UNIFI_EMU_TEST_UOS_INFORM_URL/UNIFI_EMU_TEST_UOS_API_URL unset; skipping live UOS test")
+	}
+	user := os.Getenv("UNIFI_EMU_TEST_UOS_USER")
+	if user == "" {
+		user = "admin"
+	}
+	pass := os.Getenv("UNIFI_EMU_TEST_UOS_PASS")
+	if pass == "" {
+		pass = "admin"
+	}
+	mac := os.Getenv("UNIFI_EMU_TEST_UOS_MAC")
+	if mac == "" {
+		mac = "00:27:22:e0:00:31"
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	e := emu.New(informURL)
+	if err := e.Add(emu.DeviceSpec{MAC: mac, Model: "U7PRO", IP: "192.168.1.247"}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if err := e.Start(ctx); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	defer e.Stop()
+
+	c := emu.NewUOSClient(apiURL)
+	if err := c.Login(ctx, user, pass); err != nil {
+		t.Fatalf("Login: %v", err)
+	}
+
+	adoptAndWaitConnected(t, ctx, e, c, mac)
+	d, err := c.DeviceByMAC(ctx, "default", mac)
+	if err != nil {
+		t.Fatalf("%s final controller device: %v", mac, err)
+	}
+	if d.Version != "8.6.11.18870" {
+		t.Fatalf("%s controller firmware = %q, want upgraded 8.6.11.18870", mac, d.Version)
+	}
+	t.Logf("%s UOS upgrade complete: state=%d adopted=%v version=%s",
+		mac, d.State, d.Adopted, d.Version)
+}
+
 func liveEnv(t *testing.T) (informURL, apiURL string) {
 	t.Helper()
 	informURL = os.Getenv("UNIFI_EMU_TEST_INFORM_URL")
@@ -117,7 +185,7 @@ func liveEnv(t *testing.T) (informURL, apiURL string) {
 // wait for the pending doc, adopt (retrying the rejections this
 // controller build hands out for young docs), then wait for both the
 // controller (state 1, adopted) and the emu (CONNECTED) to settle.
-func adoptAndWaitConnected(t *testing.T, ctx context.Context, e *emu.Emu, c *emu.ClassicClient, mac string) {
+func adoptAndWaitConnected(t *testing.T, ctx context.Context, e *emu.Emu, c adopter, mac string) {
 	t.Helper()
 	const site = "default"
 

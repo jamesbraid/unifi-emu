@@ -64,6 +64,42 @@ func (p *Packet) Encode(keyHex string) ([]byte, error) {
 	return append(head, body...), nil
 }
 
+// EncodeGCM serializes, zlib-compresses and AES-GCM-encrypts p. Newer
+// controllers negotiate this mode by sending use_aes_gcm=true in mgmt_cfg.
+// The complete 40-byte TNBU header is authenticated as additional data.
+func (p *Packet) EncodeGCM(keyHex string) ([]byte, error) {
+	key, err := ParseKey(keyHex)
+	if err != nil {
+		return nil, err
+	}
+	iv := randomIV()
+
+	var buf bytes.Buffer
+	zw := zlib.NewWriter(&buf)
+	if _, err := zw.Write(p.Payload); err != nil {
+		return nil, err
+	}
+	if err := zw.Close(); err != nil {
+		return nil, err
+	}
+	plain := buf.Bytes()
+
+	head := make([]byte, 0, headerLen)
+	head = append(head, "TNBU"...)
+	head = binary.BigEndian.AppendUint32(head, packetVersion)
+	head = append(head, p.MAC[:]...)
+	head = binary.BigEndian.AppendUint16(head, flagEncrypted|flagZlib|flagGCM)
+	head = append(head, iv...)
+	head = binary.BigEndian.AppendUint32(head, payloadVersion)
+	head = binary.BigEndian.AppendUint32(head, uint32(len(plain)+16))
+
+	body, err := encryptGCM(key, iv, head, plain)
+	if err != nil {
+		return nil, err
+	}
+	return append(head, body...), nil
+}
+
 // Decode parses, decrypts and decompresses one packet with keyHex.
 func Decode(data []byte, keyHex string) (*Packet, error) {
 	if len(data) < headerLen {

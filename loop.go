@@ -81,9 +81,18 @@ func (d *device) informOnce(ctx context.Context) {
 	d.mu.Lock()
 	key := d.key
 	url := d.informURL
+	useAESGCM := d.useAESGCM
 	d.mu.Unlock()
 
-	enc, err := (&inform.Packet{MAC: d.macHeader(), Payload: d.buildPayload()}).Encode(key)
+	payload := d.buildPayload()
+	packet := &inform.Packet{MAC: d.macHeader(), Payload: payload}
+	var enc []byte
+	var err error
+	if useAESGCM {
+		enc, err = packet.EncodeGCM(key)
+	} else {
+		enc, err = packet.Encode(key)
+	}
 	if err != nil {
 		log.Printf("[%s] encode inform: %v", d.spec.MAC, err)
 		return

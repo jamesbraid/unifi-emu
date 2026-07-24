@@ -48,8 +48,8 @@ func TestSetAdoptRotatesKeyAndURL(t *testing.T) {
 			if m["default"] != false || m["_default_key"] != false {
 				t.Errorf("payload default flags = %v/%v, want false/false", m["default"], m["_default_key"])
 			}
-			if m["state"] != float64(2) {
-				t.Errorf("payload state = %v, want 2", m["state"])
+			if m["state"] != float64(4) {
+				t.Errorf("payload state = %v, want 4 for an adopted device", m["state"])
 			}
 		})
 	}
@@ -64,7 +64,7 @@ func TestSetAdoptRotatesKeyAndURL(t *testing.T) {
 // authkey, exactly as if set-adopt had arrived.
 func TestSetparamAdoptsAuthkeyFromMgmtCfg(t *testing.T) {
 	d := mustDevice(t, DeviceSpec{MAC: "00:15:6d:00:00:01", Model: "U7MP", IP: "10.0.0.57"})
-	d.applyResponse([]byte(`{"_type":"setparam","mgmt_cfg":"cfgversion=abc123\nauthkey=4c36cd132e0a811601a3e0ca5793b677\n"}`))
+	d.applyResponse([]byte(`{"_type":"setparam","mgmt_cfg":"cfgversion=abc123\nauthkey=4c36cd132e0a811601a3e0ca5793b677\nuse_aes_gcm=true\n"}`))
 
 	if d.key != "4c36cd132e0a811601a3e0ca5793b677" {
 		t.Errorf("key = %q, want rotated to mgmt_cfg authkey", d.key)
@@ -77,6 +77,9 @@ func TestSetparamAdoptsAuthkeyFromMgmtCfg(t *testing.T) {
 	}
 	if d.cfgvers != "abc123" {
 		t.Errorf("cfgvers = %q, want abc123 from mgmt_cfg", d.cfgvers)
+	}
+	if !d.useAESGCM {
+		t.Error("useAESGCM = false after use_aes_gcm=true")
 	}
 
 	m := decodePayload(t, d)
@@ -214,6 +217,9 @@ func TestUpgradeAppliesVersionAndReboots(t *testing.T) {
 	}
 	if m := decodePayload(t, d); m["version"] != "8.6.11.18870" {
 		t.Errorf("payload version = %v, want 8.6.11.18870", m["version"])
+	}
+	if m := decodePayload(t, d); m["state"] != float64(4) {
+		t.Errorf("payload state = %v, want 4 while applying upgrade", m["state"])
 	}
 
 	// An upgrade is a firmware swap, not a reset: adoption state must

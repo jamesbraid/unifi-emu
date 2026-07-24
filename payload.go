@@ -39,10 +39,11 @@ func (d *device) buildPayload() []byte {
 		"selfrun_beacon": true,
 	}
 	if d.adopted {
-		// state 2 = adopted/connected. If a controller ever stalls at this
-		// point, the OpenUniFi convention is to fall back to state 4; healthy
-		// firmware reports 2, so stick with it unless an oracle says otherwise.
-		m["state"] = 2
+		// Device-side state 4 means managed/adopted; it is not the same
+		// state enum as stat/device. OpenUniFi sends 4 for every adopted
+		// inform, and newer UOS requires it to finish post-upgrade
+		// provisioning. The controller's REST document settles at state 1.
+		m["state"] = 4
 		m["bootrom_version"] = "unknown"
 		m["sys_stats"] = map[string]any{
 			"cpu":        1.5,

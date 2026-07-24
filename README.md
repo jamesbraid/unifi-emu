@@ -24,14 +24,13 @@ firmware "upgrade" survived with an emulated reboot. Shipped:
 - **Container image** — `docker build -t unifi-emu:dev .` (static, scratch,
   ~9MB). In-container adoption proven on a pinned docker network.
 - **Adopt helpers** — classic Network App (`ClassicClient`) and UniFi OS
-  ucore/CSRF (`UOSClient`; unit-tested — no seeded UOS image exists locally
-  yet, so that path is unproven live).
+  ucore/CSRF (`UOSClient`), live-proven against the published seeded UOS
+  image through its controller-requested AP firmware upgrade.
 - **Consumer integrations** — `AdoptDevice` + `StartDeviceSim` in go-unifi's
   controllertest (jamesbraid/go-unifi#16) and a compose sidecar in
   terraform-provider-unifi (jamesbraid/terraform-provider-unifi#11).
 
-Not yet: the module/image aren't published anywhere (both PRs note it), and
-the seeded-UOS live run is blocked on a `unifi-os-server:seeded` image.
+Not yet: the module/image aren't published anywhere (both PRs note it).
 
 ### Quick start
 
@@ -50,6 +49,18 @@ vars (one live test per fresh controller — recreate between runs):
 UNIFI_EMU_TEST_INFORM_URL=http://127.0.0.1:8080/inform \
 UNIFI_EMU_TEST_API_URL=https://localhost:8443 \
 go test -tags integration -run TestEmuAdoptsFleetLive -v .
+```
+
+The newer UOS path uses a fresh seeded controller and proves the negotiated
+CBC-to-AES-GCM transition as well as the AP firmware upgrade:
+
+```sh
+run-uos.sh uos-seeded-reverse ghcr.io/jamesbraid/unifi-os-server:seeded \
+  --no-healthcheck -p 12443:443 -p 19080:8080
+
+UNIFI_EMU_TEST_UOS_INFORM_URL=http://127.0.0.1:19080/inform \
+UNIFI_EMU_TEST_UOS_API_URL=https://localhost:12443 \
+go test -tags integration -run TestEmuAdoptsUOSLive -v .
 ```
 
 ### Model registry

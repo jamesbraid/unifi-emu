@@ -133,6 +133,7 @@ type Device struct {
 	Model   string `json:"model"`
 	IP      string `json:"ip"`
 	Name    string `json:"name"`
+	Version string `json:"version"`
 }
 
 // DeviceByMAC returns the stat/device doc for mac in site, or a "device not

@@ -22,10 +22,7 @@ func mustDevice(t *testing.T, spec DeviceSpec) *device {
 // markAdopted flips a device into the adopted state for payload-shape tests
 // (the real transition path via applyResponse is covered by response_test.go).
 func markAdopted(d *device) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.adopted = true
-	d.state = StateAdopting
+	d.applyResponse([]byte(`{"_type":"cmd","cmd":"set-adopt"}`))
 }
 
 func decodePayload(t *testing.T, d *device) map[string]any {
@@ -103,8 +100,8 @@ func TestAdoptedPayloadUGW(t *testing.T) {
 		t.Errorf("adopted payload advertises a global required_version: %v", m["required_version"])
 	}
 
-	if m["state"] != float64(2) {
-		t.Errorf("state = %v, want 2", m["state"])
+	if m["state"] != float64(4) {
+		t.Errorf("state = %v, want 4 for an adopted device", m["state"])
 	}
 	if m["default"] != false {
 		t.Errorf("default = %v, want false", m["default"])

@@ -3,6 +3,7 @@ package emu
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"io"
 	"log"
@@ -48,7 +49,10 @@ type fakeController struct {
 	// firstAdoptedState is the probed device state when the first adopt-key
 	// inform arrived, -1 until then.
 	firstAdoptedState atomic.Int32
-	lastPayload       atomic.Value // map[string]any of the latest inform
+	// firstAdoptedProtocolState is the state field in the first inform
+	// encrypted with the adopted key.
+	firstAdoptedProtocolState atomic.Int32
+	lastPayload               atomic.Value // map[string]any of the latest inform
 }
 
 // newFakeController starts the controller. stateProbe, when non-nil, must be
@@ -58,6 +62,7 @@ func newFakeController(t *testing.T, stateProbe func() DeviceState) *fakeControl
 	t.Helper()
 	fc := &fakeController{adoptKey: adoptKey, stateProbe: stateProbe}
 	fc.firstAdoptedState.Store(-1)
+	fc.firstAdoptedProtocolState.Store(-1)
 	fc.server = httptest.NewServer(http.HandlerFunc(fc.handleInform))
 	t.Cleanup(fc.server.Close)
 	return fc
@@ -92,6 +97,11 @@ func (fc *fakeController) handleInform(w http.ResponseWriter, r *http.Request) {
 	var m map[string]any
 	if err := json.Unmarshal(pkt.Payload, &m); err == nil {
 		fc.lastPayload.Store(m)
+		if !usedDefault {
+			if state, ok := m["state"].(float64); ok {
+				fc.firstAdoptedProtocolState.CompareAndSwap(-1, int32(state))
+			}
+		}
 	}
 
 	if !fc.adoptCalled.Load() {
@@ -176,7 +186,72 @@ func TestDeviceLoopFullHandshake(t *testing.T) {
 			if got := DeviceState(fc.firstAdoptedState.Load()); got != StateAdopting {
 				t.Errorf("first adopt-key inform sent in state %v, want ADOPTING", got)
 			}
+			if got := fc.firstAdoptedProtocolState.Load(); got != 4 {
+				t.Errorf("first adopt-key inform protocol state = %d, want 4", got)
+			}
 		})
+	}
+}
+
+func TestDeviceLoopSwitchesToNegotiatedGCM(t *testing.T) {
+	var sawGCM atomic.Bool
+	var calls atomic.Int64
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "read body", http.StatusBadRequest)
+			return
+		}
+		call := calls.Add(1)
+		key := inform.DefaultKey
+		if call > 1 {
+			key = adoptKey
+			if len(body) >= 16 && binary.BigEndian.Uint16(body[14:16])&(1<<3) != 0 {
+				sawGCM.Store(true)
+			}
+		}
+		pkt, err := inform.Decode(body, key)
+		if err != nil {
+			http.Error(w, "decode request", http.StatusBadRequest)
+			return
+		}
+
+		reply := `{"_type":"setparam","mgmt_cfg":"cfgversion=abc123\nauthkey=` +
+			adoptKey + `\nuse_aes_gcm=true\n"}`
+		if call > 1 {
+			reply = `{"_type":"noop"}`
+		}
+		response := &inform.Packet{MAC: pkt.MAC, Payload: []byte(reply)}
+		var enc []byte
+		if call > 1 {
+			enc, err = response.EncodeGCM(key)
+		} else {
+			enc, err = response.Encode(key)
+		}
+		if err != nil {
+			http.Error(w, "encode response", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/x-binary")
+		_, _ = w.Write(enc)
+	}))
+	t.Cleanup(srv.Close)
+
+	d, err := newDevice(uapSpec(), srv.URL+"/inform")
+	if err != nil {
+		t.Fatalf("newDevice: %v", err)
+	}
+	d.interval = 10 * time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go d.run(ctx)
+
+	deadline := time.Now().Add(2 * time.Second)
+	for !sawGCM.Load() {
+		if time.Now().After(deadline) {
+			t.Fatal("device never switched to a GCM inform after use_aes_gcm=true")
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 }
 

@@ -3,6 +3,7 @@ package emu
 import (
 	"encoding/json"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -96,6 +97,7 @@ func (d *device) applyCmd(r informResponse) {
 		d.adopted = false
 		d.key = DefaultKey
 		d.cfgvers = "0"
+		d.useAESGCM = false
 		d.state = StatePending
 		d.setstate = nil
 		d.mu.Unlock()
@@ -121,7 +123,7 @@ func (d *device) applySetparam(r informResponse) {
 		log.Printf("%s: mgmt_cfg: %q", d.spec.MAC, r.MgmtCfg)
 	}
 
-	var cfgvers, authkey string
+	var cfgvers, authkey, useAESGCM string
 	for _, line := range strings.Split(r.MgmtCfg, "\n") {
 		line = strings.TrimSpace(line)
 		k, v, ok := strings.Cut(line, "=")
@@ -133,6 +135,8 @@ func (d *device) applySetparam(r informResponse) {
 			cfgvers = v
 		case "authkey":
 			authkey = v
+		case "use_aes_gcm":
+			useAESGCM = v
 		}
 	}
 
@@ -148,6 +152,11 @@ func (d *device) applySetparam(r informResponse) {
 		d.adopted = true
 		d.state = StateAdopting
 		rotated = true
+	}
+	if useAESGCM != "" {
+		if enabled, err := strconv.ParseBool(useAESGCM); err == nil {
+			d.useAESGCM = enabled
+		}
 	}
 	d.mu.Unlock()
 	if rotated {

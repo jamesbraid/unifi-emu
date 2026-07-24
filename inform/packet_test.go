@@ -63,6 +63,25 @@ func TestEncodeDecodeRoundTrip(t *testing.T) {
 	}
 }
 
+func TestEncodeGCMRoundTrip(t *testing.T) {
+	in := &Packet{MAC: testMAC, Payload: []byte(`{"state":4,"default":false}`)}
+	pkt, err := in.EncodeGCM(DefaultKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	flags := binary.BigEndian.Uint16(pkt[14:16])
+	if flags&flagGCM == 0 {
+		t.Fatalf("flags = %#x, want GCM bit", flags)
+	}
+	out, err := Decode(pkt, DefaultKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.MAC != in.MAC || string(out.Payload) != string(in.Payload) {
+		t.Fatalf("round trip mismatch: %+v", out)
+	}
+}
+
 func TestDecodeErrors(t *testing.T) {
 	good, _ := (&Packet{MAC: testMAC, Payload: []byte("{}")}).Encode(DefaultKey)
 

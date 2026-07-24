@@ -163,15 +163,15 @@ All phases landed; see the README status section. Historical record:
   resolved (benign "nothing queued" — see the protocol facts above).
 - **B — switch + AP payloads.** Live-proven fleet: 1 UGW + 2 USW + 2 UAP, all
   `state=1 adopted=true` (host-mode and in-container).
-- **C — library + adopt helpers + container image + CLI.** Shipped; UOS
-  helper unit-tested (no seeded image exists locally for a live run).
+- **C — library + adopt helpers + container image + CLI.** Shipped; the UOS
+  helper and negotiated AES-GCM inform path are live-proven against the
+  published seeded image.
 - **D — go-unifi PR** (`AdoptDevice` + `StartDeviceSim` + inform port):
   jamesbraid/go-unifi#16.
 - **E — provider PR** (compose sidecar, profile-gated):
   jamesbraid/terraform-provider-unifi#11.
 
-Remaining: publish the module + image (both PRs note it); live-validate the
-UOS helper once a `unifi-os-server:seeded` image is available.
+Remaining: publish the module + image (both PRs note it).
 
 ## References
 

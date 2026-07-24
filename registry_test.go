@@ -37,4 +37,18 @@ func TestLoadRegistryDerivesRadioChannel(t *testing.T) {
 	if !foundNA {
 		t.Fatal("U7PRO has no na radio")
 	}
+
+	var found6E bool
+	for _, r := range profile.Radios {
+		if r.Radio != "6e" {
+			continue
+		}
+		found6E = true
+		if r.Channel != 5 {
+			t.Errorf("U7PRO 6e radio channel = %d, want 5", r.Channel)
+		}
+	}
+	if !found6E {
+		t.Fatal("U7PRO has no 6e radio")
+	}
 }

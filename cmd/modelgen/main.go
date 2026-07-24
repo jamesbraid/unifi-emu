@@ -686,33 +686,6 @@ func validateModel(m *catalogModel) error {
 	return nil
 }
 
-func validateCatalog(catalog *catalogFile) error {
-	if strings.TrimSpace(catalog.ControllerVersion) == "" {
-		return errors.New("catalog has no controller version")
-	}
-	if strings.TrimSpace(catalog.IdentitySource) == "" ||
-		strings.TrimSpace(catalog.HardwareSource) == "" {
-		return errors.New("catalog has incomplete source provenance")
-	}
-	seen := make(map[string]struct{}, len(catalog.Models))
-	for i := range catalog.Models {
-		if err := validateModel(&catalog.Models[i]); err != nil {
-			return err
-		}
-		if _, ok := seen[catalog.Models[i].Model]; ok {
-			return fmt.Errorf("duplicate model %s", catalog.Models[i].Model)
-		}
-		seen[catalog.Models[i].Model] = struct{}{}
-		sort.Slice(catalog.Models[i].Ports, func(a, b int) bool {
-			return catalog.Models[i].Ports[a].PortIdx < catalog.Models[i].Ports[b].PortIdx
-		})
-	}
-	sort.Slice(catalog.Models, func(i, j int) bool {
-		return catalog.Models[i].Model < catalog.Models[j].Model
-	})
-	return nil
-}
-
 func writeCatalog(w io.Writer, catalog catalogFile) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")

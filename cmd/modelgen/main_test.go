@@ -235,6 +235,29 @@ func TestHarvestBundleAPWithoutEthDefaultsGE(t *testing.T) {
 	}
 }
 
+func TestHarvestBundleSkipsModelsItCannotExpress(t *testing.T) {
+	bundle, err := os.ReadFile("testdata/bundle.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cat, err := harvestBundle(bundle, nil, firmwareIndex{}, overrides{}, "10.4.57")
+	if err != nil {
+		t.Fatalf("harvest: %v", err)
+	}
+	got := map[string]bool{}
+	for _, m := range cat.Models {
+		got[m.Model] = true
+	}
+	if got["UAPBAD"] {
+		t.Fatal("UAPBAD has an unsupported radio band and should have been skipped, not emitted")
+	}
+	for _, want := range []string{"USTEST", "UAPTEST", "UGWTEST"} {
+		if !got[want] {
+			t.Errorf("harvest skipped %s, want it kept (only UAPBAD should be skipped)", want)
+		}
+	}
+}
+
 func TestValidateModelRejectsInvalidHardwareFacts(t *testing.T) {
 	base := catalogModel{
 		Model: "UAP1", ModelDisplay: "AP", Type: "uap", Version: "1",

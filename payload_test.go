@@ -222,8 +222,11 @@ func TestDeviceSpecDefaults(t *testing.T) {
 	if d.spec.ModelDisplay == "" {
 		t.Errorf("ModelDisplay not defaulted from profile")
 	}
-	if d.spec.Version != "4.0.21.9965" {
-		t.Errorf("Version = %q, want profile default 4.0.21.9965", d.spec.Version)
+	// U7MP's real firmware version, harvested by cmd/modelgen from the
+	// fw-update API; changes if the registry is regenerated against a newer
+	// controller/firmware snapshot.
+	if want := modelRegistry["U7MP"].Version; d.spec.Version != want {
+		t.Errorf("Version = %q, want profile default %q", d.spec.Version, want)
 	}
 	if d.spec.Name != "UBNT" {
 		t.Errorf("Name = %q, want default UBNT", d.spec.Name)

@@ -777,15 +777,67 @@ func run(args []string) error {
 	fs := flag.NewFlagSet("modelgen", flag.ContinueOnError)
 	input := fs.String("input", "", "raw stat/device JSON; omit to regenerate Go from the catalog")
 	bundle := fs.String("device-db-bundle", "", "controller UI JavaScript bundle containing the hardware database")
+	harvestBundlePath := fs.String("bundle", "", "controller UI JavaScript bundle (swai.js); when set, harvest the full model lineup instead of reducing -input")
+	bundlesJSONPath := fs.String("bundles-json", "", "bundles.json model->display map, used with -bundle")
+	firmwareJSONPath := fs.String("firmware-json", "", "saved firmware-latest.json response, used with -bundle")
+	overridesPath := fs.String("overrides", "model_overrides.json", "model overrides file, used with -bundle")
 	catalogPath := fs.String("catalog", "model_profiles.json", "reduced model catalog")
 	goPath := fs.String("go", "models_generated.go", "generated Go registry")
-	version := fs.String("controller-version", "", "source controller version (required with -input)")
+	version := fs.String("controller-version", "", "source controller version (required with -input or -bundle)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
 	var catalog catalogFile
-	if *input != "" {
+	if *harvestBundlePath != "" {
+		bundleBytes, err := os.ReadFile(*harvestBundlePath)
+		if err != nil {
+			return err
+		}
+		display := map[string]string{}
+		if *bundlesJSONPath != "" {
+			b, err := os.ReadFile(*bundlesJSONPath)
+			if err != nil {
+				return err
+			}
+			var raw map[string]struct {
+				Display string `json:"display"`
+			}
+			if err := json.Unmarshal(b, &raw); err != nil {
+				return fmt.Errorf("parse %s: %w", *bundlesJSONPath, err)
+			}
+			for model, v := range raw {
+				display[model] = v.Display
+			}
+		}
+		fw := firmwareIndex{}
+		if *firmwareJSONPath != "" {
+			f, err := os.Open(*firmwareJSONPath)
+			if err != nil {
+				return err
+			}
+			fw, err = parseFirmware(f)
+			_ = f.Close()
+			if err != nil {
+				return err
+			}
+		}
+		ov, err := loadOverrides(*overridesPath)
+		if err != nil {
+			return err
+		}
+		catalog, err = harvestBundle(bundleBytes, display, fw, ov, *version)
+		if err != nil {
+			return err
+		}
+		var buf bytes.Buffer
+		if err := writeCatalog(&buf, catalog); err != nil {
+			return err
+		}
+		if err := os.WriteFile(*catalogPath, buf.Bytes(), 0o644); err != nil {
+			return err
+		}
+	} else if *input != "" {
 		f, err := os.Open(*input)
 		if err != nil {
 			return err

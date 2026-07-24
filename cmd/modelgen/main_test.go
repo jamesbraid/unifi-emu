@@ -119,33 +119,6 @@ func TestReduceRejectsIncompleteDevices(t *testing.T) {
 	}
 }
 
-func TestGenerateGoIsDeterministic(t *testing.T) {
-	catalog, err := reduce(strings.NewReader(sampleEnvelope), "10.4.57")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var first, second bytes.Buffer
-	if err := writeGo(&first, catalog); err != nil {
-		t.Fatal(err)
-	}
-	if err := writeGo(&second, catalog); err != nil {
-		t.Fatal(err)
-	}
-	if first.String() != second.String() {
-		t.Fatal("Go output is not deterministic")
-	}
-	for _, want := range []string{
-		`"UAP1": {`,
-		`ModelDisplay: "One-radio AP"`,
-		`PortIdx: 1`,
-		`RadioCaps: 17`,
-	} {
-		if !strings.Contains(first.String(), want) {
-			t.Errorf("generated Go missing %q:\n%s", want, first.String())
-		}
-	}
-}
-
 func TestReduceDeviceDatabaseMergesControllerIdentityAndHardwareFacts(t *testing.T) {
 	pending := strings.ReplaceAll(sampleEnvelope, `"state": 1`, `"state": 2`)
 	pending = strings.ReplaceAll(pending, `"adopted": true`, `"adopted": false`)

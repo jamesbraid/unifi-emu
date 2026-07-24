@@ -19,10 +19,13 @@ adopts all the way to CONNECTED against a real controller
 firmware "upgrade" survived with an emulated reboot. Shipped:
 
 - **Library** (`package emu`) — fleet API: `New/Add/Start/State/WaitState/Stop`.
-- **CLI** (`cmd/unifi-emu`) — single-device flags, `-devices` file, or
-  `SIM_DEVICES` env (YAML/JSON).
+- **CLI** (`cmd/unifi-emu`) — single-device flags, a full `-devices` file /
+  `SIM_DEVICES` env (YAML/JSON), or a terse `-models` / `SIM_MODELS` list
+  (`U7PRO,USM8P:2,UGW3`) that auto-derives MAC/IP.
 - **Container image** — `docker build -t unifi-emu:dev .` (static, scratch,
-  ~9MB). The live suite builds this image from the checkout.
+  ~9MB). Bakes the 5-device fleet as its default, so a bare `docker run`
+  boots it; `-e SIM_MODELS=…`, `-e SIM_DEVICES=…`, or the flags override it.
+  The live suite builds this image from the checkout.
 - **Adopt helpers** — classic Network App (`ClassicClient`) and UniFi OS
   ucore/CSRF (`UOSClient`), live-proven against the published seeded UOS
   image through its controller-requested AP firmware upgrade.
@@ -41,6 +44,18 @@ go test -tags integration -run TestClassicFleetLive -v -count=1 .
 go test -tags integration -run TestUOSAPUpgradeLive -v -count=1 .
 docker build -t unifi-emu:dev . && docker run --rm unifi-emu:dev -h
 ```
+
+The image boots its baked default fleet, and any explicit source overrides it:
+
+```sh
+docker run --rm unifi-emu:dev -inform http://CTRL:8080/inform                 # baked 5-device fleet
+docker run --rm -e SIM_MODELS=U7PRO,USM8P:2,UGW3 unifi-emu:dev -inform …       # pick models (MAC/IP auto)
+docker run --rm -e SIM_DEVICES="$(cat my-fleet.yaml)" unifi-emu:dev -inform …  # full control
+```
+
+`SIM_MODELS` counts models (`USM8P:2` = two of them) and derives each
+device's MAC/IP from `SIM_MAC_BASE`/`SIM_IP_BASE` (defaults
+`00:27:22:e0:00:00` / `192.168.1.100`); a fleet may hold at most one gateway.
 
 The live tests use `testcontainers-go`. Each test creates an isolated network,
 a fresh controller, and an emulator container built from the checkout.

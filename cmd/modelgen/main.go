@@ -78,6 +78,7 @@ type rawDevice struct {
 
 type deviceDBModel struct {
 	Type   string                     `json:"type"`
+	SysID  string                     `json:"systemIdHexadecimal"`
 	Ports  map[string]json.RawMessage `json:"ports"`
 	Radios map[string]struct {
 		MaxPower int `json:"maxPower"`
@@ -241,7 +242,12 @@ func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, o
 		IdentitySource:    "controller hardware DB bundle (swai.js)",
 		HardwareSource:    "controller hardware DB bundle + fw-update API + tech specs",
 	}
-	seen := map[string]bool{}
+	// considered holds every in-scope model the bundle offers, including ones
+	// later skipped as inexpressible. Overrides are validated against this set,
+	// not just the successfully-generated models: an override for a real model
+	// the bundle can't yet render (e.g. a novel radio band) is legitimate, but
+	// an override for a typo or an out-of-scope model is stale.
+	considered := map[string]bool{}
 	var skipped, defaultedEth []string
 	for _, model := range allModelKeys(bundle) {
 		metaJSON, err := extractModelJSON(bundle, model)
@@ -257,6 +263,7 @@ func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, o
 		default:
 			continue // out of scope: udm, unvr, etc.
 		}
+		considered[model] = true
 
 		m := catalogModel{
 			Model:        model,
@@ -286,7 +293,6 @@ func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, o
 			defaultedEth = append(defaultedEth, model)
 		}
 		sort.Slice(m.Ports, func(i, j int) bool { return m.Ports[i].PortIdx < m.Ports[j].PortIdx })
-		seen[model] = true
 		out.Models = append(out.Models, m)
 	}
 	sort.Slice(out.Models, func(i, j int) bool {
@@ -302,7 +308,7 @@ func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, o
 			fmt.Fprintf(os.Stderr, "  - %s\n", s)
 		}
 	}
-	if err := checkStaleOverrides(ov, seen); err != nil {
+	if err := checkStaleOverrides(ov, considered); err != nil {
 		return catalogFile{}, err
 	}
 	return out, nil
@@ -703,8 +709,17 @@ func run(args []string) error {
 	overridesPath := fs.String("overrides", "model_overrides.json", "model overrides file, used with -bundle")
 	catalogPath := fs.String("catalog", "model_profiles.json", "reduced model catalog")
 	version := fs.String("controller-version", "", "source controller version (required with -input or -bundle)")
+	fetchEth := fs.Bool("fetch-eth", false, "pull AP ethernet from Tech Specs into -overrides (needs -bundle and -fingerprint)")
+	fingerprintPath := fs.String("fingerprint", "", "Ubiquiti device fingerprint DB (static.ui.com/fingerprint/ui/public.json), used with -fetch-eth")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+
+	if *fetchEth {
+		if *harvestBundlePath == "" || *fingerprintPath == "" {
+			return fmt.Errorf("-fetch-eth requires -bundle and -fingerprint")
+		}
+		return runFetchEth(*harvestBundlePath, *fingerprintPath, *overridesPath)
 	}
 
 	var catalog catalogFile

@@ -13,6 +13,14 @@ import "sort"
 // model here, and no harvested field separates them from models that work, so
 // the only honest basis for an exclusion is a measurement, recorded per model.
 // Promote this to a rule if a field ever turns out to predict the behaviour.
+//
+// These codes reach the catalog because the harvest walks every model key in
+// the controller's hardware DB bundle, which carries cancelled and unreleased
+// SKUs alongside shipping ones. UGWHD4 is the UniFi Security Gateway HD-4,
+// rumoured to be an EdgeRouter-4-based gateway and pulled before announcement
+// (ubntwiki.com/doku.php?id=products:unifi:unifi_security_gateway_hd_4), which
+// is why the controller knows the code, no hardware reports it, and it has
+// neither a firmware bundle nor a friendly name.
 var excludedModels = map[string]string{
 	"UGWHD4": "no hardware reports this code. Ubiquiti's fingerprint DB files it " +
 		"as an alias on the USG product record with an empty sysids list, while " +

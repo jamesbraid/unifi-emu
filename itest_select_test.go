@@ -8,7 +8,24 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	emu "github.com/jamesbraid/unifi-emu"
 )
+
+// adoptableModels is the curated pool the random-fleet live test draws from:
+// models with dedicated live coverage, proven to adopt against the sim
+// controller. The full registry carries ~150 models, many never live-proven
+// (e.g. UGWHD4), so drawing from all of them made the gate flaky — a seed that
+// picked an unadoptable model failed it. Two gateways, two switches, two APs
+// give the selector variety while every draw is known to reach CONNECTED.
+var adoptableModels = []string{
+	"UGW3",    // classic gateway (ugw)
+	"UXGENT",  // next-gen gateway (uxg)
+	"USWED74", // switch
+	"USM8P",   // switch
+	"U7MP",    // access point
+	"U7PRO",   // access point
+}
 
 // seedFromEnv returns the fleet-selection seed: SIM_ITEST_SEED when set (so a
 // CI failure reproduces exactly), otherwise a time-derived seed for variety.
@@ -89,6 +106,28 @@ func advanceMAC(base net.HardwareAddr, n int) string {
 }
 
 // --- unit tests (no container runtime needed) ---
+
+// TestAdoptableModelsKnown guards the curated pool against typos and registry
+// drift: every entry must resolve to a real model, and the pool must keep at
+// least one gateway plus two non-gateways so selectFleet can build a fleet.
+func TestAdoptableModelsKnown(t *testing.T) {
+	gateways, others := 0, 0
+	for _, m := range adoptableModels {
+		p, ok := emu.Profile(m)
+		if !ok {
+			t.Errorf("adoptableModels has %q, not in the registry", m)
+			continue
+		}
+		if p.Type == "ugw" || p.Type == "uxg" {
+			gateways++
+		} else {
+			others++
+		}
+	}
+	if gateways < 1 || others < 2 {
+		t.Fatalf("pool needs >=1 gateway and >=2 others, got %d/%d", gateways, others)
+	}
+}
 
 func fakeTypeOf(types map[string]string) func(string) (string, bool) {
 	return func(m string) (string, bool) { t, ok := types[m]; return t, ok }

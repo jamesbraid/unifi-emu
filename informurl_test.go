@@ -1,4 +1,4 @@
-package main
+package emu
 
 import (
 	"context"
@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-// resolveInformURL rewrites hostname inform URLs to the resolved IPv4 so
-// the reported inform_url passes controller-side validation; IPs and
-// invalid or unresolvable hostnames fail before the emulator starts.
+// ResolveInformURL rewrites hostname inform URLs to the resolved IPv4 so the
+// reported inform_url passes controller-side validation; IPs and invalid or
+// unresolvable hostnames fail before the fleet starts.
 func TestResolveInformURL(t *testing.T) {
 	tests := []struct {
 		name string
@@ -25,12 +25,12 @@ func TestResolveInformURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := resolveInformURL(tt.in)
+			got, err := ResolveInformURL(context.Background(), tt.in)
 			if err != nil {
-				t.Fatalf("resolveInformURL(%q): %v", tt.in, err)
+				t.Fatalf("ResolveInformURL(%q): %v", tt.in, err)
 			}
 			if got != tt.want {
-				t.Errorf("resolveInformURL(%q) = %q, want %q", tt.in, got, tt.want)
+				t.Errorf("ResolveInformURL(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
 	}

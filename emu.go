@@ -29,7 +29,11 @@ type Emu struct {
 	wg      sync.WaitGroup
 }
 
-// New builds a fleet whose devices will inform informURL.
+// New builds a fleet whose devices will inform informURL. informURL is kept
+// verbatim and reported to the controller as each device's inform_url. A
+// controller rejects an inform whose host is not an IP ("invalid inform_ip
+// <host>") once adoption starts, so a caller passing a hostname should resolve
+// it to an IP first with ResolveInformURL; IP literals need no such step.
 func New(informURL string, opts ...Option) *Emu {
 	e := &Emu{
 		informURL: informURL,

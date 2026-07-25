@@ -27,6 +27,29 @@ func TestClassicUGWLive(t *testing.T) {
 	adoptAndWaitConnected(t, h.ctx, h, client, spec.MAC)
 }
 
+// TestClassicUXGLive adopts a next-gen gateway (UXGENT / "Gateway Enterprise",
+// type uxg) to CONNECTED against the classic Network application. The emu runs
+// as a peer container on the shared network, so the post-adopt inform_ip the
+// controller hands back round-trips container-to-container -- the handshake a
+// host-loopback harness cannot complete on docker-in-a-VM. Type is left blank
+// so it derives from the profile (uxg), proving the profile drives the full
+// inform/adopt/provision flow, not just the initial pending document.
+func TestClassicUXGLive(t *testing.T) {
+	h := startClassicHarness(t)
+	spec := emu.DeviceSpec{
+		MAC:   "00:27:22:e0:00:02",
+		Model: "UXGENT",
+		IP:    "192.168.1.248",
+	}
+	h.startEmulator([]emu.DeviceSpec{spec})
+
+	client := newControllerClient(h.apiURL, classic)
+	if err := client.Login(h.ctx, "admin", "admin"); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	adoptAndWaitConnected(t, h.ctx, h, client, spec.MAC)
+}
+
 // fleetSpecs is the live fleet: exactly one gateway (the controller allows
 // one per site), two switches, and two access points. The reported IPs are
 // distinct but arbitrary because the controller never routes to them.

@@ -23,9 +23,9 @@ func seedFromEnv() int64 {
 
 // selectFleet picks a reproducible pseudo-random fleet for the live adoption
 // test: 2-3 distinct models in adoption order, including at most one gateway
-// (a UniFi site adopts a single gateway). typeOf reports a model's device
-// type ("ugw"/"usw"/"uap"); unknown models are skipped. The pool must hold at
-// least two non-gateway models.
+// (a UniFi site adopts a single gateway, classic ugw or next-gen uxg). typeOf
+// reports a model's device type ("ugw"/"uxg"/"usw"/"uap"); unknown models are
+// skipped. The pool must hold at least two non-gateway models.
 func selectFleet(all []string, typeOf func(string) (string, bool), seed int64) []string {
 	r := rand.New(rand.NewSource(seed))
 	var gateways, others []string
@@ -34,7 +34,10 @@ func selectFleet(all []string, typeOf func(string) (string, bool), seed int64) [
 		if !ok {
 			continue
 		}
-		if t == "ugw" {
+		// ugw and uxg are both gateway families; a site adopts one of
+		// either, so they compete for the single gateway slot rather
+		// than landing in the non-gateway pool.
+		if t == "ugw" || t == "uxg" {
 			gateways = append(gateways, m)
 		} else {
 			others = append(others, m)
@@ -93,10 +96,10 @@ func fakeTypeOf(types map[string]string) func(string) (string, bool) {
 
 func TestSelectFleetInvariants(t *testing.T) {
 	types := map[string]string{
-		"UGW3": "ugw", "USWED74": "usw", "USM8P": "usw",
+		"UGW3": "ugw", "UXGENT": "uxg", "USWED74": "usw", "USM8P": "usw",
 		"U7MP": "uap", "U7PRO": "uap", "UAPA6B0": "uap",
 	}
-	all := []string{"UGW3", "USWED74", "USM8P", "U7MP", "U7PRO", "UAPA6B0"}
+	all := []string{"UGW3", "UXGENT", "USWED74", "USM8P", "U7MP", "U7PRO", "UAPA6B0"}
 	for seed := int64(0); seed < 200; seed++ {
 		got := selectFleet(all, fakeTypeOf(types), seed)
 		if len(got) < 2 || len(got) > 3 {
@@ -112,7 +115,7 @@ func TestSelectFleetInvariants(t *testing.T) {
 			if types[m] == "" {
 				t.Fatalf("seed %d: model %q not from pool", seed, m)
 			}
-			if types[m] == "ugw" {
+			if types[m] == "ugw" || types[m] == "uxg" {
 				gateways++
 			}
 		}

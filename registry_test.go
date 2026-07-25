@@ -7,7 +7,7 @@ import "testing"
 // which loadRegistry derives from the radio band via defaultChannel.
 func TestLoadRegistryDerivesRadioChannel(t *testing.T) {
 	if len(modelRegistry) <= 150 {
-		t.Fatalf("model registry has %d models, want more than 150", len(modelRegistry))
+		t.Fatalf("model registry has %d models, want the full lineup", len(modelRegistry))
 	}
 
 	profile, ok := modelRegistry["U7PRO"]

@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -165,6 +166,33 @@ func (h *itestHarness) recordPending(device Device) {
 	if err := writeJSON(filepath.Join(h.evidence, "pending-devices.json"), h.pending); err != nil {
 		h.t.Errorf("write pending device evidence: %v", err)
 	}
+}
+
+// recordListing dumps every device the controller lists into the evidence
+// directory and summarises it for the failure message. When the device under
+// test never appears, "not found" is the only clue the poll loop has; what the
+// controller did list is what separates "it dropped this one device" from "it
+// was listing nothing at all".
+func (h *itestHarness) recordListing(client adopter, site string) string {
+	// The caller's context is spent -- its expiry is why this runs -- so use
+	// a fresh one, the same way close() does for container logs.
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	list, err := client.Devices(ctx, site)
+	if err != nil {
+		return fmt.Sprintf("controller listing unavailable: %v", err)
+	}
+	if err := writeJSON(filepath.Join(h.evidence, "devices-at-timeout.json"), list); err != nil {
+		h.t.Errorf("write device listing evidence: %v", err)
+	}
+	if len(list) == 0 {
+		return "controller listed no devices at all"
+	}
+	summary := make([]string, 0, len(list))
+	for _, d := range list {
+		summary = append(summary, fmt.Sprintf("%s/%s state=%d", d.MAC, d.Model, d.State))
+	}
+	return fmt.Sprintf("controller listed %d devices: %s", len(list), strings.Join(summary, ", "))
 }
 
 func (h *itestHarness) recordFinal(device Device) {

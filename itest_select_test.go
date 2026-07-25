@@ -14,10 +14,14 @@ import (
 
 // adoptableModels is the curated pool the random-fleet live test draws from:
 // models with dedicated live coverage, proven to adopt against the sim
-// controller. The full registry carries ~150 models, many never live-proven
-// (e.g. UGWHD4), so drawing from all of them made the gate flaky — a seed that
-// picked an unadoptable model failed it. Two gateways, two switches, two APs
-// give the selector variety while every draw is known to reach CONNECTED.
+// controller. The registry carries 186 models and only these have been
+// measured, so drawing from all of them made the gate a lottery — a seed that
+// picked an unproven model failed it. Two gateways, two switches, two APs give
+// the selector variety while every draw is known to reach CONNECTED.
+//
+// UGWHD4, the model that first failed this way, is gone from the registry
+// entirely (see cmd/modelgen's excludedModels). The pool stays curated anyway:
+// dropping one measured-bad model proves nothing about the other 185.
 var adoptableModels = []string{
 	"UGW3",    // classic gateway (ugw)
 	"UXGENT",  // next-gen gateway (uxg)

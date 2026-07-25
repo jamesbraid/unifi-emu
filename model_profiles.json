@@ -1821,43 +1821,6 @@
       ]
     },
     {
-      "model": "U7E",
-      "model_display": "UniFi AP-AC",
-      "type": "uap",
-      "version": "8.6.11.18870",
-      "ports": [
-        {
-          "ifname": "eth0",
-          "name": "eth0",
-          "port_idx": 1,
-          "media": "GE",
-          "is_uplink": true
-        }
-      ],
-      "radios": [
-        {
-          "name": "wifi-ng",
-          "radio": "ng",
-          "ht": "20",
-          "min_txpower": 5,
-          "max_txpower": 22,
-          "nss": 2,
-          "radio_caps": 0,
-          "antenna_gain": 4
-        },
-        {
-          "name": "wifi-na",
-          "radio": "na",
-          "ht": "40",
-          "min_txpower": 5,
-          "max_txpower": 24,
-          "nss": 2,
-          "radio_caps": 0,
-          "antenna_gain": 4
-        }
-      ]
-    },
-    {
       "model": "U7EDU",
       "model_display": "UniFi AP-AC-EDU",
       "type": "uap",
@@ -2208,43 +2171,6 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
-          "radio_caps": 0,
-          "antenna_gain": 4
-        }
-      ]
-    },
-    {
-      "model": "U7O",
-      "model_display": "UniFi AP-AC Outdoor",
-      "type": "uap",
-      "version": "8.6.11.18870",
-      "ports": [
-        {
-          "ifname": "eth0",
-          "name": "eth0",
-          "port_idx": 1,
-          "media": "GE",
-          "is_uplink": true
-        }
-      ],
-      "radios": [
-        {
-          "name": "wifi-ng",
-          "radio": "ng",
-          "ht": "20",
-          "min_txpower": 5,
-          "max_txpower": 22,
-          "nss": 2,
-          "radio_caps": 0,
-          "antenna_gain": 4
-        },
-        {
-          "name": "wifi-na",
-          "radio": "na",
-          "ht": "40",
-          "min_txpower": 5,
-          "max_txpower": 24,
           "nss": 2,
           "radio_caps": 0,
           "antenna_gain": 4
@@ -3576,80 +3502,6 @@
           "nss": 2,
           "radio_caps": 0,
           "antenna_gain": 12
-        }
-      ]
-    },
-    {
-      "model": "UAPA6BE",
-      "model_display": "UAPA6BE",
-      "type": "uap",
-      "version": "8.6.11.18870",
-      "ports": [
-        {
-          "ifname": "eth0",
-          "name": "eth0",
-          "port_idx": 1,
-          "media": "GE",
-          "is_uplink": true
-        }
-      ],
-      "radios": [
-        {
-          "name": "wifi-ng",
-          "radio": "ng",
-          "ht": "20",
-          "min_txpower": 5,
-          "max_txpower": 23,
-          "nss": 2,
-          "radio_caps": 0,
-          "antenna_gain": 4
-        },
-        {
-          "name": "wifi-na",
-          "radio": "na",
-          "ht": "40",
-          "min_txpower": 5,
-          "max_txpower": 24,
-          "nss": 2,
-          "radio_caps": 0,
-          "antenna_gain": 5
-        }
-      ]
-    },
-    {
-      "model": "UAPA6BF",
-      "model_display": "UAPA6BF",
-      "type": "uap",
-      "version": "8.6.11.18870",
-      "ports": [
-        {
-          "ifname": "eth0",
-          "name": "eth0",
-          "port_idx": 1,
-          "media": "GE",
-          "is_uplink": true
-        }
-      ],
-      "radios": [
-        {
-          "name": "wifi-ng",
-          "radio": "ng",
-          "ht": "20",
-          "min_txpower": 5,
-          "max_txpower": 23,
-          "nss": 2,
-          "radio_caps": 0,
-          "antenna_gain": 4
-        },
-        {
-          "name": "wifi-na",
-          "radio": "na",
-          "ht": "40",
-          "min_txpower": 5,
-          "max_txpower": 24,
-          "nss": 2,
-          "radio_caps": 0,
-          "antenna_gain": 5
         }
       ]
     },
@@ -20939,6 +20791,22 @@
     }
   ],
   "excluded_models": [
+    {
+      "model": "U7E",
+      "reason": "UniFi AP-AC (real hardware, fingerprint sysids e920/e900) that sim controller 10.4.57 never lists. Measured: no document in a batch, alone, or when reporting a plausible gen1 build (4.0.21.x) instead of the catalog's default, while a U7PRO registered in the same boot -- so the controller rejects the model code, and no version rescues it"
+    },
+    {
+      "model": "U7O",
+      "reason": "UniFi AP-AC Outdoor (real hardware, fingerprint sysid e910) that sim controller 10.4.57 never lists. Measured: no document in a batch, alone, or when reporting a plausible gen1 build (4.0.21.x) instead of the catalog's default, while a U7PRO registered in the same boot -- so the controller rejects the model code, and no version rescues it"
+    },
+    {
+      "model": "UAPA6BE",
+      "reason": "no hardware reports this code: absent from Ubiquiti's fingerprint DB entirely, from bundles.json, and from the firmware index, so it has no friendly name and only a per-type default version. Measured against sim controller 10.4.57: never listed, in a batch or alone"
+    },
+    {
+      "model": "UAPA6BF",
+      "reason": "no hardware reports this code: absent from Ubiquiti's fingerprint DB entirely, from bundles.json, and from the firmware index, so it has no friendly name and only a per-type default version. Measured against sim controller 10.4.57: never listed, in a batch or alone"
+    },
     {
       "model": "UGWHD4",
       "reason": "no hardware reports this code. Ubiquiti's fingerprint DB files it as an alias on the USG product record with an empty sysids list, while real USG hardware identifies as UGW3 (sysid ee21); it has no firmware bundle and no friendly name. Measured against sim controller 10.4.57: it informs and is answered HTTP 404 like any pending device, but the controller never creates a pending document for it -- alone or beside a device that does appear -- and logs nothing about it, while UGW3 and UXGENT adopt to CONNECTED from the same payload branch"

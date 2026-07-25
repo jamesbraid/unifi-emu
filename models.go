@@ -28,9 +28,9 @@ type RadioSpec struct {
 type ModelProfile struct {
 	Model        string      `json:"model"`
 	ModelDisplay string      `json:"model_display"`
-	Type         string      `json:"type"` // "ugw", "usw", "uap"
+	Type         string      `json:"type"` // "ugw", "uxg", "usw", "uap"
 	Version      string      `json:"version"`
-	Ports        []PortSpec  `json:"ports"`  // usw + ugw + uap (eth port)
+	Ports        []PortSpec  `json:"ports"`  // usw + ugw + uxg + uap (eth port)
 	Radios       []RadioSpec `json:"radios"` // uap only
 }
 

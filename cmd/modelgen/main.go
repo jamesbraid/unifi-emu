@@ -19,10 +19,11 @@ import (
 )
 
 type catalogFile struct {
-	ControllerVersion string         `json:"controller_version"`
-	IdentitySource    string         `json:"identity_source"`
-	HardwareSource    string         `json:"hardware_source"`
-	Models            []catalogModel `json:"models"`
+	ControllerVersion string          `json:"controller_version"`
+	IdentitySource    string          `json:"identity_source"`
+	HardwareSource    string          `json:"hardware_source"`
+	Models            []catalogModel  `json:"models"`
+	ExcludedModels    []excludedModel `json:"excluded_models,omitempty"`
 }
 
 type catalogModel struct {
@@ -77,10 +78,11 @@ type rawDevice struct {
 }
 
 type deviceDBModel struct {
-	Type   string                     `json:"type"`
-	SysID  string                     `json:"systemIdHexadecimal"`
-	Ports  map[string]json.RawMessage `json:"ports"`
-	Radios map[string]struct {
+	Type         string                     `json:"type"`
+	SysID        string                     `json:"systemIdHexadecimal"`
+	Adoptability string                     `json:"adoptability"`
+	Ports        map[string]json.RawMessage `json:"ports"`
+	Radios       map[string]struct {
 		MaxPower int `json:"maxPower"`
 		Gain     int `json:"gain"`
 	} `json:"radios"`
@@ -249,7 +251,7 @@ func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, o
 	// the bundle can't yet render (e.g. a novel radio band) is legitimate, but
 	// an override for a typo or an out-of-scope model is stale.
 	considered := map[string]bool{}
-	var skipped, defaultedEth []string
+	var skipped, defaultedEth, excluded []string
 	for _, model := range allModelKeys(bundle) {
 		metaJSON, err := extractModelJSON(bundle, model)
 		if err != nil {
@@ -270,6 +272,19 @@ func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, o
 			continue
 		}
 		considered[model] = true
+
+		// The bundle's own verdict, when it disagrees with the type filter:
+		// a console that reports an emulatable type would otherwise reach the
+		// catalog and never adopt. No current model takes this path.
+		if meta.Adoptability != "" && meta.Adoptability != "adoptable" {
+			skipped = append(skipped, fmt.Sprintf("%s (adoptability %q)", model, meta.Adoptability))
+			continue
+		}
+		// Models measured not to adopt despite claiming they can.
+		if reason, ok := excludedModels[model]; ok {
+			excluded = append(excluded, fmt.Sprintf("%s (%s)", model, reason))
+			continue
+		}
 
 		m := catalogModel{
 			Model:        model,
@@ -314,6 +329,17 @@ func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, o
 			fmt.Fprintf(os.Stderr, "  - %s\n", s)
 		}
 	}
+	if len(excluded) > 0 {
+		fmt.Fprintf(os.Stderr, "modelgen: excluded %d models that do not adopt:\n", len(excluded))
+		for _, s := range excluded {
+			fmt.Fprintf(os.Stderr, "  - %s\n", s)
+		}
+	}
+	if stale := staleExclusions(considered); len(stale) > 0 {
+		fmt.Fprintf(os.Stderr, "modelgen: %d exclusions name models absent from this bundle: %v\n",
+			len(stale), stale)
+	}
+	out.ExcludedModels = excludedCatalogList()
 	if err := checkStaleOverrides(ov, considered); err != nil {
 		return catalogFile{}, err
 	}

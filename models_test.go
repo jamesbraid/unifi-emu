@@ -7,17 +7,20 @@ func TestGeneratedModelRegistryMatchesControllerMetadata(t *testing.T) {
 		"UGW3": 3, "USWED74": 4, "USM8P": 8, "US48P750": 52,
 		"USWED06": 16, "USWF07D": 32, "U7MP": 2, "U7PRO": 1, "UAPA6B0": 1,
 	}
-	// Measured not to adopt against any controller, so it must not be
-	// emulatable: see excludedModels in cmd/modelgen for the evidence. Named
-	// here because the count below would not say which model came back.
-	if _, ok := modelRegistry["UGWHD4"]; ok {
-		t.Error("UGWHD4 is back in the registry; no hardware reports that code and no controller adopts it")
+	// Measured never to reach a controller document, so they must not be
+	// emulatable: see excludedModels in cmd/modelgen for the per-model
+	// evidence. Named here because the count below would not say which model
+	// came back, and a resurrected one costs a live run a silent timeout.
+	for _, model := range []string{"UGWHD4", "UAPA6BE", "UAPA6BF", "U7E", "U7O"} {
+		if _, ok := modelRegistry[model]; ok {
+			t.Errorf("%s is back in the registry; no controller lists it", model)
+		}
 	}
 
 	// An exact count, not a floor: a regeneration that silently drops models
 	// is the failure this guards, and a deliberate change to the lineup is
 	// exactly when the number should be reviewed rather than tolerated.
-	const wantModels = 186
+	const wantModels = 182
 	if len(modelRegistry) != wantModels {
 		t.Fatalf("model registry has %d models, want %d (the full lineup at controller 10.4.57, "+
 			"minus the exclusions in cmd/modelgen)", len(modelRegistry), wantModels)

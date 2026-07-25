@@ -230,7 +230,9 @@ func expandFleet(specs []emu.DeviceSpec, macBase, ipBase string) ([]emu.DeviceSp
 		if !ok {
 			return nil, fmt.Errorf("unknown model %q", s.Model)
 		}
-		if profile.Type == "ugw" {
+		// ugw and uxg are both gateway families and a site adopts one of
+		// either, so they share the single slot.
+		if profile.Type == "ugw" || profile.Type == "uxg" {
 			gateways++
 			if gateways > 1 {
 				return nil, fmt.Errorf("fleet has %d gateways; a site adopts at most one (api.err.NoSecondGateway)", gateways)

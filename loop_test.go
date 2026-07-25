@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -372,5 +374,69 @@ func TestInformStatusTransitionsLogged(t *testing.T) {
 	time.Sleep(50 * time.Millisecond) // several more 200 informs must stay silent
 	if n := strings.Count(logs.String(), "HTTP 200"); n != 1 {
 		t.Errorf("200 logged %d times, want exactly 1 (repeats stay silent)", n)
+	}
+}
+
+// Silence on a repeated status is right for a short run and wrong for a long
+// one: a device the controller never lists 404s forever, and the transition
+// log alone then says nothing for as long as the device is stuck -- exactly
+// when an operator needs to know it is still trying rather than wedged. The
+// heartbeat relogs the run periodically without restoring per-inform spam.
+func TestInformStatusHeartbeatWhileStuck(t *testing.T) {
+	var logs lockedBuffer
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+
+	prevHeartbeat := informStatusHeartbeat
+	informStatusHeartbeat = 20 * time.Millisecond
+	t.Cleanup(func() { informStatusHeartbeat = prevHeartbeat })
+
+	// A controller that never lists the device: 404, every time, forever.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	t.Cleanup(srv.Close)
+
+	d, err := newDevice(ugwSpec(), srv.URL+"/inform")
+	if err != nil {
+		t.Fatalf("newDevice: %v", err)
+	}
+	d.interval = 5 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go d.run(ctx)
+
+	mac := "dc:9f:db:00:00:01"
+	heartbeat := "[" + mac + "] inform: still HTTP 404 ("
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		got := logs.String()
+		if strings.Count(got, heartbeat) >= 2 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("want at least 2 %q heartbeats, got:\n%s", heartbeat, got)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	// The heartbeat supplements the transition log, it does not replace it.
+	out := logs.String()
+	first404 := "[" + mac + "] inform: HTTP 404 (nothing queued)"
+	if n := strings.Count(out, first404); n != 1 {
+		t.Errorf("first-404 transition logged %d times, want exactly 1:\n%s", n, out)
+	}
+	// The run count must climb, proving it reports the run and not a constant.
+	// How many informs land inside one heartbeat window is timing-dependent,
+	// so assert the growth, not any particular count.
+	runs := regexp.MustCompile(`still HTTP 404 \((\d+) in a row`).FindAllStringSubmatch(out, -1)
+	if len(runs) < 2 {
+		t.Fatalf("want at least 2 heartbeat run counts, got %d:\n%s", len(runs), out)
+	}
+	first, _ := strconv.Atoi(runs[0][1])
+	second, _ := strconv.Atoi(runs[1][1])
+	if second <= first {
+		t.Errorf("heartbeat run count did not grow: %d then %d:\n%s", first, second, out)
 	}
 }

@@ -4232,39 +4232,6 @@
       ]
     },
     {
-      "model": "UGWHD4",
-      "model_display": "UGWHD4",
-      "type": "ugw",
-      "version": "4.4.57.5578372",
-      "ports": [
-        {
-          "ifname": "eth0",
-          "name": "0",
-          "port_idx": 1,
-          "media": "GE",
-          "is_uplink": true
-        },
-        {
-          "ifname": "eth1",
-          "name": "1",
-          "port_idx": 2,
-          "media": "GE"
-        },
-        {
-          "ifname": "eth2",
-          "name": "2",
-          "port_idx": 3,
-          "media": "GE"
-        },
-        {
-          "ifname": "eth3",
-          "name": "3",
-          "port_idx": 4,
-          "media": "GE"
-        }
-      ]
-    },
-    {
       "model": "UGWXG",
       "model_display": "UniFi Security Gateway XG-8",
       "type": "ugw",
@@ -20969,6 +20936,12 @@
           "antenna_gain": 10
         }
       ]
+    }
+  ],
+  "excluded_models": [
+    {
+      "model": "UGWHD4",
+      "reason": "no hardware reports this code. Ubiquiti's fingerprint DB files it as an alias on the USG product record with an empty sysids list, while real USG hardware identifies as UGW3 (sysid ee21); it has no firmware bundle and no friendly name. Measured against sim controller 10.4.57: it informs and is answered HTTP 404 like any pending device, but the controller never creates a pending document for it -- alone or beside a device that does appear -- and logs nothing about it, while UGW3 and UXGENT adopt to CONNECTED from the same payload branch"
     }
   ]
 }

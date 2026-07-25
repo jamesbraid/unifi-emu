@@ -87,7 +87,7 @@ func TestClassicRandomFleetLive(t *testing.T) {
 		p, ok := emu.Profile(m)
 		return p.Type, ok
 	}
-	models := selectFleet(emu.Models(), typeOf, seed)
+	models := selectFleet(adoptableModels, typeOf, seed)
 	t.Logf("random fleet seed=%d models=%v (reproduce with SIM_ITEST_SEED=%d)", seed, models, seed)
 
 	macs, err := macsForModels(itestMACBase, len(models))

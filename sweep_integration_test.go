@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -33,6 +34,7 @@ const (
 	sweepEnableEnv   = "UNIFI_EMU_ITEST_SWEEP"
 	sweepBatchEnv    = "UNIFI_EMU_ITEST_SWEEP_BATCH"
 	sweepParallelEnv = "UNIFI_EMU_ITEST_SWEEP_PARALLEL"
+	sweepModelsEnv   = "UNIFI_EMU_ITEST_SWEEP_MODELS"
 	sweepSite        = "default"
 
 	// sweepSettle is how long a batch gets for every device to appear. A
@@ -73,6 +75,72 @@ func requireSweepEnabled(t *testing.T) {
 	}
 }
 
+// adoptionExceptions are models a controller deliberately refuses to adopt for
+// a reason no emulated device can satisfy, mapped to the refusal it returns.
+// They register normally, so the registration tier still covers them; only the
+// adoption tier skips them, and it says so rather than quietly shrinking its
+// scope. A sweep that stays red on a rule the controller is right to enforce
+// gets ignored, and then it stops catching real regressions.
+var adoptionExceptions = map[string]string{
+	"ULTE": "api.err.LteDeviceAdoptingUnregistered: the controller will not adopt a " +
+		"U-LTE that is not registered to an LTE service account. Measured: it " +
+		"registers, then the adopt command returns HTTP 400. ULTEPEU and ULTEPUS " +
+		"carry no such rule and adopt normally.",
+}
+
+// withoutAdoptionExceptions drops the models the controller refuses on
+// principle, naming each one and why.
+func withoutAdoptionExceptions(t *testing.T, models []string) []string {
+	t.Helper()
+	kept := make([]string, 0, len(models))
+	for _, model := range models {
+		if reason, ok := adoptionExceptions[model]; ok {
+			t.Logf("not adoption-swept: %s -- %s", model, reason)
+			continue
+		}
+		kept = append(kept, model)
+	}
+	return kept
+}
+
+// sweepModels is the catalog, or the subset named by sweepModelsEnv.
+//
+// A full adoption sweep runs for over an hour, and anything that interrupts it
+// -- a stopped job, a reboot, a laptop lid -- throws away every model measured
+// so far, because the report is only written at the end. Naming the models that
+// were missed turns a lost run into a short one. It is also how a single
+// suspect gets re-measured without paying for the other 181.
+func sweepModels(t *testing.T) []string {
+	t.Helper()
+	all := emu.Models()
+	raw := os.Getenv(sweepModelsEnv)
+	if strings.TrimSpace(raw) == "" {
+		return all
+	}
+	known := make(map[string]bool, len(all))
+	for _, model := range all {
+		known[model] = true
+	}
+	var models []string
+	for _, field := range strings.Split(raw, ",") {
+		model := strings.TrimSpace(field)
+		if model == "" {
+			continue
+		}
+		// An unknown name here is a typo or a model that has since been
+		// excluded, and silently sweeping 0 models would look like success.
+		if !known[model] {
+			t.Fatalf("%s names %q, which is not in the catalog", sweepModelsEnv, model)
+		}
+		models = append(models, model)
+	}
+	if len(models) == 0 {
+		t.Fatalf("%s=%q names no models", sweepModelsEnv, raw)
+	}
+	sort.Strings(models)
+	return models
+}
+
 // sweepSetting reads a positive integer knob, falling back to def.
 func sweepSetting(t *testing.T, env string, def int) int {
 	t.Helper()
@@ -94,7 +162,15 @@ func runCatalogSweep(t *testing.T, tier string, defaultBatch int) {
 		profile, ok := emu.Profile(model)
 		return profile.Type, ok
 	}
-	models := emu.Models()
+	models := sweepModels(t)
+	if tier == "adoption" {
+		models = withoutAdoptionExceptions(t, models)
+	}
+	// Sweeping nothing would report "0/0, no failures" and pass, which is the
+	// most misleading outcome available.
+	if len(models) == 0 {
+		t.Fatalf("no models left to sweep: every model asked for is an adoption exception")
+	}
 	batchSize := sweepSetting(t, sweepBatchEnv, defaultBatch)
 	// Each controller is a JVM holding a database, so parallelism is bounded
 	// by memory on the docker host, not by CPU. Two is safe on a 16GB VM.

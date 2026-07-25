@@ -8,12 +8,9 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"log"
-	"net"
-	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -84,7 +81,9 @@ func main() {
 		}
 	}
 
-	resolved, err := resolveInformURL(*inform)
+	resolveCtx, cancelResolve := context.WithTimeout(context.Background(), 5*time.Second)
+	resolved, err := emu.ResolveInformURL(resolveCtx, *inform)
+	cancelResolve()
 	if err != nil {
 		log.Fatalf("resolve inform URL: %v", err)
 	}
@@ -118,54 +117,6 @@ func main() {
 	<-ctx.Done()
 	log.Print("signal received, stopping")
 	e.Stop()
-}
-
-// resolveInformURL rewrites raw's host to its resolved IPv4 address.
-// Controllers validate the inform_url a device reports and recent
-// versions reject informs whose host is not an IP they recognize
-// ("invalid inform_ip <host>"), which deadlocks adoption when the sim
-// dials a compose DNS name such as http://unifi:8080/inform. Dialing the
-// resolved IP is equivalent and reports an inform_url the controller
-// accepts. IP literals pass through; malformed or unresolvable hostnames
-// fail before any inform loops are launched.
-func resolveInformURL(raw string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	return resolveInformURLWith(ctx, raw, net.DefaultResolver.LookupIP)
-}
-
-func resolveInformURLWith(
-	ctx context.Context,
-	raw string,
-	lookup func(context.Context, string, string) ([]net.IP, error),
-) (string, error) {
-	u, err := url.Parse(raw)
-	if err != nil || u.Scheme == "" || u.Host == "" {
-		if err == nil {
-			err = errors.New("missing scheme or host")
-		}
-		return "", fmt.Errorf("not a valid inform URL %q: %w", raw, err)
-	}
-	host := u.Hostname()
-	if host == "" {
-		return "", fmt.Errorf("inform URL %q has no host", raw)
-	}
-	if net.ParseIP(host) != nil {
-		return raw, nil
-	}
-	ips, err := lookup(ctx, "ip4", host)
-	if err != nil {
-		return "", fmt.Errorf("resolve inform host %q to IPv4: %w", host, err)
-	}
-	if len(ips) == 0 {
-		return "", fmt.Errorf("inform host %q has no IPv4 address", host)
-	}
-	if port := u.Port(); port != "" {
-		u.Host = net.JoinHostPort(ips[0].String(), port)
-	} else {
-		u.Host = ips[0].String()
-	}
-	return u.String(), nil
 }
 
 // envOr returns the env var key's value, or def if it is unset or empty.

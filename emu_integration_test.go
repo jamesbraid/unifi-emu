@@ -162,6 +162,26 @@ func adoptAndWaitConnected(
 	mac string,
 ) Device {
 	t.Helper()
+	device, err := adoptAndWait(t, ctx, h, client, model, mac)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return device
+}
+
+// adoptAndWait is adoptAndWaitConnected's body, reporting failure as an error
+// instead of ending the test. The catalog sweep drives many models through one
+// controller and has to record a model that will not adopt and carry on to the
+// next, which a t.Fatalf cannot do.
+func adoptAndWait(
+	t *testing.T,
+	ctx context.Context,
+	h *itestHarness,
+	client adopter,
+	model string,
+	mac string,
+) (Device, error) {
+	t.Helper()
 	const site = "default"
 	dev := fmt.Sprintf("%s %s", model, mac)
 
@@ -174,7 +194,7 @@ func adoptAndWaitConnected(
 		if err == nil {
 			last, seen = device, true
 			if device.State == 1 && device.Adopted {
-				t.Fatalf("%s already adopted on a fresh controller", dev)
+				return last, fmt.Errorf("%s already adopted on a fresh controller", dev)
 			}
 			if device.State == 2 {
 				h.recordPending(device)
@@ -185,10 +205,10 @@ func adoptAndWaitConnected(
 		select {
 		case <-pendingCtx.Done():
 			if seen {
-				t.Fatalf("%s never appeared pending: %v (last state %d adopted=%v)",
+				return last, fmt.Errorf("%s never appeared pending: %v (last state %d adopted=%v)",
 					dev, pendingCtx.Err(), last.State, last.Adopted)
 			}
-			t.Fatalf("%s never appeared pending: %v (never listed, last error %v; %s)",
+			return last, fmt.Errorf("%s never appeared pending: %v (never listed, last error %v; %s)",
 				dev, pendingCtx.Err(), err, h.recordListing(client, site))
 		case <-time.After(2 * time.Second):
 		}
@@ -202,7 +222,7 @@ func adoptAndWaitConnected(
 			break
 		}
 		if !strings.Contains(strings.ToLower(err.Error()), "cannotadopt") {
-			t.Fatalf("adopt %s: %v", dev, err)
+			return Device{}, fmt.Errorf("adopt %s: %w", dev, err)
 		}
 		if device, lookupErr := client.DeviceByMAC(adoptCtx, site, mac); lookupErr == nil && device.Adopted {
 			t.Logf("%s adopt returned CannotAdopt but the document is adopted; continuing", dev)
@@ -212,7 +232,7 @@ func adoptAndWaitConnected(
 		h.requireEmulatorRunning()
 		select {
 		case <-adoptCtx.Done():
-			t.Fatalf("%s never adopted: %v (last adopt error %v)", dev, adoptCtx.Err(), err)
+			return Device{}, fmt.Errorf("%s never adopted: %v (last adopt error %v)", dev, adoptCtx.Err(), err)
 		case <-time.After(10 * time.Second):
 		}
 	}
@@ -221,11 +241,11 @@ func adoptAndWaitConnected(
 	defer stop()
 	device, err := client.WaitAdopted(waitCtx, site, mac)
 	if err != nil {
-		t.Fatalf("%s controller-side adoption: %v", dev, err)
+		return device, fmt.Errorf("%s controller-side adoption: %w", dev, err)
 	}
 	h.requireEmulatorRunning()
 	h.recordFinal(device)
 	t.Logf("%s controller: state=%d adopted=%v model=%s ip=%s name=%s",
 		dev, device.State, device.Adopted, device.Model, device.IP, device.Name)
-	return device
+	return device, nil
 }

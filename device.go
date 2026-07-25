@@ -116,9 +116,12 @@ type device struct {
 
 	// Inform HTTP-status tracking for transition logging: lastStatus is
 	// the previous inform's status (0 = none yet), statusRun the count of
-	// consecutive informs answered with it.
-	lastStatus int
-	statusRun  int
+	// consecutive informs answered with it, and lastStatusLog the time the
+	// status was last written to the log -- a long run is relogged on the
+	// informStatusHeartbeat interval so a stuck device stays visible.
+	lastStatus    int
+	statusRun     int
+	lastStatusLog time.Time
 
 	// lastMgmt is the previous mgmt_cfg body, so repeats are not relogged.
 	lastMgmt string

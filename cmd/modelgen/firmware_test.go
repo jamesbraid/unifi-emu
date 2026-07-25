@@ -31,4 +31,12 @@ func TestFirmwareVersionFallback(t *testing.T) {
 	if got := firmwareVersion(idx, "UNMATCHED", "uap"); got == "" {
 		t.Fatal("unmatched uap version empty, want per-type default")
 	}
+	// Every emulated type needs a default: an empty version fails
+	// validateModel, so a type without one silently drops any model the
+	// firmware API does not list.
+	for _, typ := range []string{"uap", "usw", "ugw", "uxg"} {
+		if got := firmwareVersion(idx, "UNMATCHED", typ); got == "" {
+			t.Errorf("unmatched %s version empty, want a per-type default", typ)
+		}
+	}
 }

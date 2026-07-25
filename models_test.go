@@ -7,6 +7,13 @@ func TestGeneratedModelRegistryMatchesControllerMetadata(t *testing.T) {
 		"UGW3": 3, "USWED74": 4, "USM8P": 8, "US48P750": 52,
 		"USWED06": 16, "USWF07D": 32, "U7MP": 2, "U7PRO": 1, "UAPA6B0": 1,
 	}
+	// Measured not to adopt against any controller, so it must not be
+	// emulatable: see excludedModels in cmd/modelgen for the evidence. Named
+	// here because the count below would not say which model came back.
+	if _, ok := modelRegistry["UGWHD4"]; ok {
+		t.Error("UGWHD4 is back in the registry; no hardware reports that code and no controller adopts it")
+	}
+
 	// An exact count, not a floor: a regeneration that silently drops models
 	// is the failure this guards, and a deliberate change to the lineup is
 	// exactly when the number should be reviewed rather than tolerated.

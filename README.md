@@ -74,7 +74,7 @@ stays enabled. The harness also waits for seeded-owner and API readiness.
 ### Model registry
 
 The registry covers the full current UniFi AP / switch / gateway lineup —
-**182 models** at controller 10.4.57. [`model_profiles.json`](model_profiles.json)
+**186 models** at controller 10.4.57. [`model_profiles.json`](model_profiles.json)
 is the checked-in reduced catalog; it is embedded (`go:embed`) and parsed at
 startup, so there is no generated Go to commit and `go build`/`go test` need no
 extra step.

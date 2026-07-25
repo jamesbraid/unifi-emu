@@ -37,21 +37,40 @@ func (d *device) run(ctx context.Context) {
 	}
 }
 
-// noteStatus records the inform's HTTP status and logs only transitions,
-// never repeats: a pending device 404s every interval, and logging each
-// one would bury the log lines that matter. The first 404 announces
-// "pending, nothing queued"; the first 200 after a run of 404s reports
-// the run length, which is the evidence that 404 meant "nothing queued"
-// rather than a protocol mismatch.
+// informStatusHeartbeat is how long a repeating inform status stays silent
+// before noteStatus logs it again. Transitions alone are enough evidence for
+// a device that gets adopted promptly, but a device the controller never
+// lists 404s until the test gives up, and silence there is indistinguishable
+// from a wedged emulator. A var, so tests can shorten it.
+var informStatusHeartbeat = 60 * time.Second
+
+// noteStatus records the inform's HTTP status and logs transitions plus a
+// periodic heartbeat, never every inform: a pending device 404s every
+// interval, and logging each one would bury the log lines that matter. The
+// first 404 announces "pending, nothing queued"; the first 200 after a run of
+// 404s reports the run length, which is the evidence that 404 meant "nothing
+// queued" rather than a protocol mismatch. A run that outlives
+// informStatusHeartbeat is relogged with its length, so a device stuck
+// pending keeps saying so instead of going quiet.
 func (d *device) noteStatus(status int) {
+	now := time.Now()
 	d.mu.Lock()
 	prev, run := d.lastStatus, d.statusRun
 	if status == d.lastStatus {
 		d.statusRun++
+		run = d.statusRun
+		since := now.Sub(d.lastStatusLog)
+		if since < informStatusHeartbeat {
+			d.mu.Unlock()
+			return
+		}
+		d.lastStatusLog = now
 		d.mu.Unlock()
+		log.Printf("[%s] inform: still HTTP %d (%d in a row, %s)",
+			d.spec.MAC, status, run, since.Round(time.Second))
 		return
 	}
-	d.lastStatus, d.statusRun = status, 1
+	d.lastStatus, d.statusRun, d.lastStatusLog = status, 1, now
 	d.mu.Unlock()
 	// Logging after the unlock: log writes can block on I/O and must not
 	// stall State readers (same pattern as applyCmd).

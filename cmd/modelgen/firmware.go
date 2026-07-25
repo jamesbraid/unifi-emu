@@ -14,6 +14,7 @@ type firmwareIndex map[string]string
 // (EOL or too-new). Values are the observed release trains per type.
 var perTypeFirmwareDefault = map[string]string{
 	"ugw": "4.4.57.5578372",
+	"uxg": "5.0.16.30689",
 	"usw": "7.3.109.16640",
 	"uap": "8.6.11.18870",
 }

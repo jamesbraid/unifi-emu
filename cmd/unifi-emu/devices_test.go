@@ -314,10 +314,30 @@ func TestExpandFleetExplicitWins(t *testing.T) {
 	}
 }
 
+// A site adopts one gateway whichever family it comes from, so ugw and uxg
+// compete for the same slot. Counting only ugw let a mixed pair through here
+// and left the controller to reject it minutes into a live run.
 func TestExpandFleetRejectsTwoGateways(t *testing.T) {
-	in := []emu.DeviceSpec{{Model: "UGW3"}, {Model: "UGW3"}}
-	if _, err := expandFleet(in, "00:27:22:e0:00:00", "192.168.1.100"); err == nil {
-		t.Fatal("two gateways accepted, want error")
+	for _, models := range [][]string{
+		{"UGW3", "UGW3"},
+		{"UGW3", "UXGENT"},
+		{"UXGENT", "UGW3"},
+		{"UXGENT", "UXGB"},
+	} {
+		in := []emu.DeviceSpec{{Model: models[0]}, {Model: models[1]}}
+		if _, err := expandFleet(in, "00:27:22:e0:00:00", "192.168.1.100"); err == nil {
+			t.Errorf("%v accepted, want the one-gateway error", models)
+		}
+	}
+}
+
+// One gateway of either family beside non-gateways stays legal.
+func TestExpandFleetAcceptsOneGateway(t *testing.T) {
+	for _, gateway := range []string{"UGW3", "UXGENT"} {
+		in := []emu.DeviceSpec{{Model: gateway}, {Model: "US24"}}
+		if _, err := expandFleet(in, "00:27:22:e0:00:00", "192.168.1.100"); err != nil {
+			t.Errorf("%s with a switch rejected: %v", gateway, err)
+		}
 	}
 }
 

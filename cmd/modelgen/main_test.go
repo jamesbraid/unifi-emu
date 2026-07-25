@@ -205,6 +205,38 @@ func TestHarvestBundleFiltersAndDerives(t *testing.T) {
 	}
 }
 
+// A model in the exclusion table stays out of the catalog even though the
+// bundle marks it adoptable, and the catalog records why it was dropped. A
+// model the bundle itself marks non-adoptable is dropped without needing a
+// table entry.
+func TestHarvestBundleDropsModelsThatCannotAdopt(t *testing.T) {
+	bundle, err := os.ReadFile("testdata/bundle.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cat, err := harvestBundle(bundle, nil, firmwareIndex{}, overrides{}, "10.4.57")
+	if err != nil {
+		t.Fatalf("harvest: %v", err)
+	}
+	for _, m := range cat.Models {
+		switch m.Model {
+		case "UGWHD4":
+			t.Error("excluded model UGWHD4 reached the catalog")
+		case "UGWSOLO":
+			t.Error(`model with adoptability "standalone" reached the catalog`)
+		}
+	}
+	reason := ""
+	for _, e := range cat.ExcludedModels {
+		if e.Model == "UGWHD4" {
+			reason = e.Reason
+		}
+	}
+	if reason == "" {
+		t.Error("catalog does not record why UGWHD4 was excluded")
+	}
+}
+
 func TestHarvestBundleAPWithoutEthDefaultsGE(t *testing.T) {
 	bundle, _ := os.ReadFile("testdata/bundle.js")
 	fw := firmwareIndex{}

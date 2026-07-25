@@ -12,7 +12,7 @@ func Profile(model string) (ModelProfile, bool) {
 
 // Models returns the names of every model in the generated registry, sorted
 // for a stable order. Read-only view for callers that enumerate the known
-// models — the integration suite uses it to pick a random fleet.
+// models, such as a UI listing what the emulator can pretend to be.
 func Models() []string {
 	names := make([]string, 0, len(modelRegistry))
 	for m := range modelRegistry {

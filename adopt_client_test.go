@@ -165,6 +165,14 @@ func (c *controllerClient) DeviceByMAC(ctx context.Context, site, mac string) (D
 	return deviceByMAC(ctx, c.hc, c.apiURL(site, "stat/device"), c.authHeader(), mac)
 }
 
+// Devices returns every stat/device doc in site. A device that never appears
+// reports only "not found", which cannot distinguish a controller that
+// dropped this one device from a controller that listed nothing at all; the
+// full list is what tells those apart after the fact.
+func (c *controllerClient) Devices(ctx context.Context, site string) ([]Device, error) {
+	return devices(ctx, c.hc, c.apiURL(site, "stat/device"), c.authHeader())
+}
+
 // WaitAdopted polls stat/device every 2s until the device reports state 1
 // and adopted. On ctx timeout it returns the last seen device and an error
 // naming it plus the last poll error, so a stalled adoption says where it
@@ -196,8 +204,13 @@ func (c *controllerClient) WaitAdopted(ctx context.Context, site, mac string) (D
 // Device is the subset of a stat/device document the adoption flow reads.
 // The documents carry many more fields; they are ignored.
 type Device struct {
-	MAC     string `json:"mac"`
-	State   int    `json:"state"` // 1=connected, 2=pending, 7=adopt-failed
+	MAC string `json:"mac"`
+	// State is the controller's device state. A healthy classic adoption
+	// was measured to run 2 -> 7 -> 5 -> 1, so despite 7 being widely
+	// documented as "adopt-failed" it is a step on the happy path here
+	// (carrying adopted=true) and must not be read as a verdict: treating
+	// it as terminal fails an adoption that would have completed.
+	State   int    `json:"state"` // 1=connected, 2=pending, 5+7=mid-adoption
 	Adopted bool   `json:"adopted"`
 	Model   string `json:"model"`
 	IP      string `json:"ip"`
@@ -267,25 +280,24 @@ func checkAPIEnvelope(operation string, body []byte) error {
 	return nil
 }
 
-// deviceByMAC GETs url (a stat/device endpoint) and returns the doc for mac,
-// or a "device not found" error when the controller does not list it; hdr
-// carries extra request headers (see postJSON).
-func deviceByMAC(ctx context.Context, hc *http.Client, url string, hdr http.Header, mac string) (Device, error) {
+// devices GETs url (a stat/device endpoint) and returns every doc the
+// controller lists; hdr carries extra request headers (see postJSON).
+func devices(ctx context.Context, hc *http.Client, url string, hdr http.Header) ([]Device, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return Device{}, err
+		return nil, err
 	}
 	for k, vs := range hdr {
 		req.Header[k] = vs
 	}
 	resp, err := hc.Do(req)
 	if err != nil {
-		return Device{}, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return Device{}, fmt.Errorf("emu: GET stat/device: HTTP %d: %s",
+		return nil, fmt.Errorf("emu: GET stat/device: HTTP %d: %s",
 			resp.StatusCode, strings.TrimSpace(string(errBody)))
 	}
 	var reply struct {
@@ -293,16 +305,26 @@ func deviceByMAC(ctx context.Context, hc *http.Client, url string, hdr http.Head
 		Data []Device `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&reply); err != nil {
-		return Device{}, fmt.Errorf("emu: decode stat/device: %w", err)
+		return nil, fmt.Errorf("emu: decode stat/device: %w", err)
 	}
 	if reply.Meta.RC != "" && reply.Meta.RC != "ok" {
 		msg := reply.Meta.Msg
 		if msg == "" {
 			msg = "controller returned meta.rc=" + reply.Meta.RC
 		}
-		return Device{}, fmt.Errorf("emu: GET stat/device: %s", msg)
+		return nil, fmt.Errorf("emu: GET stat/device: %s", msg)
 	}
-	for _, d := range reply.Data {
+	return reply.Data, nil
+}
+
+// deviceByMAC returns the doc for mac, or a "device not found" error when the
+// controller does not list it.
+func deviceByMAC(ctx context.Context, hc *http.Client, url string, hdr http.Header, mac string) (Device, error) {
+	list, err := devices(ctx, hc, url, hdr)
+	if err != nil {
+		return Device{}, err
+	}
+	for _, d := range list {
 		if strings.EqualFold(d.MAC, mac) {
 			return d, nil
 		}

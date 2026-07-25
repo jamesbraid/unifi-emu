@@ -4,5 +4,7 @@ window.__x={"models":{
 "UGWTEST":{"type":"ugw","ports":{"eth0":"WAN","eth1":"LAN"},"linkNegotiation":{"eth0":{"portIdx":1},"eth1":{"portIdx":2}}},
 "UXGTEST":{"type":"uxg","ports":{"eth0":"WAN","eth1":"LAN","standard":[0,1],"psu0":"PSU"},"linkNegotiation":{"eth0":{"portIdx":1,"supportedValues":["autoneg","2500 FDX","1000 FDX"]},"eth1":{"portIdx":2,"supportedValues":["1000 FDX"]}}},
 "UAPBAD":{"type":"uap","radios":{"swift":{"maxPower":20}}},
+"UGWHD4": {"type":"ugw","ports":{"eth0":"0","eth1":"1"},"adoptability":"adoptable"},
+"UGWSOLO":{"type":"ugw","ports":{"eth0":"WAN","eth1":"LAN"},"linkNegotiation":{"eth0":{"portIdx":1},"eth1":{"portIdx":2}},"adoptability":"standalone"},
 "UNVRX":  {"type":"unvr","foo":1}
 }};

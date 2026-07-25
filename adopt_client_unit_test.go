@@ -71,6 +71,16 @@ type fakeClassic struct {
 	adopted  bool
 	sawAdopt []string
 	sawCSRF  []string // X-CSRF-Token value on every authed hit (classic sends none)
+	// forceState, when non-zero, replaces the pending/adopted flip, so a
+	// test can present a controller verdict such as 7 (adopt-failed).
+	forceState int
+}
+
+// setState makes the fake report state unconditionally.
+func (f *fakeClassic) setState(state int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.forceState = state
 }
 
 func newFakeClassic(t *testing.T, mac string) *fakeClassic {
@@ -140,6 +150,9 @@ func (f *fakeClassic) handleStatDevice(w http.ResponseWriter, r *http.Request) {
 	state, adopted := 2, false
 	if f.adopted {
 		state, adopted = 1, true
+	}
+	if f.forceState != 0 {
+		state, adopted = f.forceState, false
 	}
 	f.mu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
@@ -305,6 +318,61 @@ func (f *fakeUOS) sawTokens() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return append([]string(nil), f.sawCSRF...)
+}
+
+// State 7 is widely documented as "adopt-failed", but a healthy classic
+// adoption was measured going 2 -> 7 -> 5 -> 1 with adopted=true from 7
+// onward: it is a step in the adopt-key changeover, not a verdict. WaitAdopted
+// must therefore poll straight through it. Bailing out on 7 failed
+// TestClassicUGWLive two seconds into an adoption that was working.
+func TestClassicWaitAdoptedPollsThroughState7(t *testing.T) {
+	const mac = "00:15:6d:00:00:01"
+	f := newFakeClassic(t, mac)
+	f.setState(7)
+	c := newControllerClient(f.server.URL, classic)
+	ctx := waitCtx(t, 5*time.Second)
+
+	if err := c.Login(ctx, "admin", "admin"); err != nil {
+		t.Fatalf("Login: %v", err)
+	}
+
+	// Waiting out the deadline is the pass condition: it proves the poll
+	// treated 7 as "not there yet" rather than as a failure to report.
+	d, err := c.WaitAdopted(waitCtx(t, 300*time.Millisecond), "default", mac)
+	if err == nil {
+		t.Fatalf("WaitAdopted never reached state 1: want the deadline error, got %+v", d)
+	}
+	if !strings.Contains(err.Error(), "context deadline exceeded") {
+		t.Errorf("WaitAdopted error = %v, want a deadline error rather than a state-7 verdict", err)
+	}
+	if d.State != 7 {
+		t.Errorf("WaitAdopted last device = %+v, want the state-7 doc it kept polling past", d)
+	}
+}
+
+// Devices reports the whole list, which is what a device that never appears
+// needs: "not found" alone cannot say whether the controller dropped one
+// device or listed nothing at all.
+func TestClassicDevicesListsEveryDocument(t *testing.T) {
+	const mac = "00:15:6d:00:00:01"
+	f := newFakeClassic(t, mac)
+	c := newControllerClient(f.server.URL, classic)
+	ctx := waitCtx(t, 5*time.Second)
+
+	if err := c.Login(ctx, "admin", "admin"); err != nil {
+		t.Fatalf("Login: %v", err)
+	}
+
+	list, err := c.Devices(ctx, "default")
+	if err != nil {
+		t.Fatalf("Devices: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("Devices returned %d docs, want 1: %+v", len(list), list)
+	}
+	if list[0].MAC != mac || list[0].State != 2 {
+		t.Errorf("Devices[0] = %+v, want %s pending", list[0], mac)
+	}
 }
 
 func TestClassicAdoptFlow(t *testing.T) {

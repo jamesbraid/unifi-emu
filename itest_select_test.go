@@ -12,25 +12,65 @@ import (
 	emu "github.com/jamesbraid/unifi-emu"
 )
 
-// adoptableModels is the curated pool the random-fleet live test draws from:
-// models with dedicated live coverage, proven to adopt against the sim
-// controller. The registry carries 182 models and only these have been driven
-// to CONNECTED, so drawing from all of them made the gate a lottery — a seed
-// that picked an unproven model failed it. Two gateways, two switches, two APs
-// give the selector variety while every draw is known to reach CONNECTED.
+// adoptableModels is the pool the random-fleet live test draws from. Every
+// entry has been driven to CONNECTED against the sim controller by
+// TestClassicCatalogAdoptionSweepLive, so no draw can fail for want of
+// evidence — which is what made the gate a lottery when it drew from the whole
+// registry and hit UGWHD4.
 //
-// The five models measured never to register at all are gone from the registry
-// (see cmd/modelgen's excludedModels). The pool stays curated anyway: not
-// registering is only the loudest way a model can fail, and the rest of the
-// catalog is proven to register, not to adopt. TestClassicCatalogAdoptionSweepLive
-// is what would promote models into this list on evidence.
+// It is a structural sample rather than the full measured set. 181 of 182
+// models adopt, but each has done so exactly once, and a model that adopts
+// nine times in ten would turn a broad gate flaky rather than thorough. So the
+// pool takes one model per distinct payload shape and leaves the rest to the
+// sweep: for switches that means port count, PoE, and each media type
+// (GE/SFP/SFP+/SFP28/QSFP28); for APs every radio-band combination in the
+// catalog; and all eight gateways, because there are only eight and the
+// selector gives a fleet at most one.
+//
+// Widen this by running the adoption sweep and promoting what it measured, not
+// by adding models that look similar to these.
 var adoptableModels = []string{
-	"UGW3",    // classic gateway (ugw)
-	"UXGENT",  // next-gen gateway (uxg)
-	"USWED74", // switch
-	"USM8P",   // switch
-	"U7MP",    // access point
-	"U7PRO",   // access point
+	// Gateways: the whole family. ugw and uxg compete for a fleet's single
+	// gateway slot, so breadth here costs nothing per run.
+	"UGW3",    // USG, 3 ports
+	"UGW4",    // USG-Pro, 4 ports
+	"UGWXG",   // USG-XG-8
+	"UXG",     // next-gen
+	"UXGB",    // next-gen
+	"UXGPRO",  // next-gen, 1.13.x train
+	"UXGA6AA", // next-gen
+	"UXGENT",  // Gateway Enterprise, 2.5/10GbE mix
+
+	// Switches: spanning 1 to 54 ports, PoE and not, and every media type
+	// the catalog carries.
+	"USPPDUP", // 1 port, a PDU rather than a switch
+	"USWED74", // 4 ports, GE + SFP+
+	"USF5P",   // 5 ports, PoE, Flex
+	"USM8P",   // 8 ports, PoE, hand-curated port metadata in modelgen
+	"USL8A",   // 8 ports, SFP+ only: no GE at all
+	"USL8MP",  // 9 ports, PoE, odd port count
+	"USLP8P",  // 10 ports, PoE, GE + SFP+
+	"USWED98", // 10 ports, a bundle stub with no friendly name
+	"USL16LP", // 16 ports, PoE
+	"USXG",    // 16 ports, GE + SFP+
+	"USPM16P", // 18 ports, PoE, Pro Max
+	"USWF002", // 22 ports, SFP+ and SFP28 only
+	"US24",    // 26 ports, GE + SFP
+	"US24PRO", // 26 ports, PoE, GE + SFP+
+	"USWF004", // 30 ports, QSFP28 + SFP+ + SFP28
+	"US48PRO", // 52 ports, PoE
+	"UDC48X6", // 54 ports, data centre QSFP28/SFP28
+
+	// Access points: every radio-band combination in the catalog, from a
+	// single 2.4GHz radio to WiFi 6E tri-band.
+	"BZ2",     // 1 radio, ng
+	"U5O",     // 1 radio, na
+	"U7MP",    // 2 radios, na+ng, hand-curated radio metadata in modelgen
+	"U6EXT",   // 2 radios, na+ng, 1 port
+	"U7IW",    // 2 radios, 3 ports, 2.5GbE
+	"UHDIW",   // 2 radios, 5 ports
+	"UAPA699", // 2 radios, 6e+na
+	"U7PRO",   // 3 radios, 6e+na+ng
 }
 
 // seedFromEnv returns the fleet-selection seed: SIM_ITEST_SEED when set (so a

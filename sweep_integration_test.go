@@ -17,9 +17,11 @@ package emu_test
 // they must never run as part of the PR gate.
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,6 +30,7 @@ import (
 	"time"
 
 	emu "github.com/jamesbraid/unifi-emu"
+	"github.com/testcontainers/testcontainers-go"
 )
 
 const (
@@ -73,6 +76,58 @@ func requireSweepEnabled(t *testing.T) {
 		t.Skipf("catalog sweep is opt-in: set %s=1 (boots many controllers, takes tens of minutes)",
 			sweepEnableEnv)
 	}
+}
+
+// buildEmulatorImageOnce builds the emulator image a single time for a whole
+// sweep and returns the image to run.
+//
+// Building per batch, which is what starting a harness does by default, makes a
+// sweep depend on the working tree staying unchanged for its entire run: a
+// sweep spans tens of minutes, and a rebuild partway through picks up whatever
+// the checkout holds then. Editing the catalog mid-run therefore breaks later
+// batches with "unknown model", which reads as a controller fault and is not
+// one. Building up front pins every batch to the tree the run started with.
+//
+// An operator-supplied image is honoured as-is; nothing is built in that case.
+func buildEmulatorImageOnce(t *testing.T) string {
+	t.Helper()
+	if prebuilt := loadITestImages().emulator; prebuilt != "" {
+		t.Logf("emulator image: using prebuilt %s", prebuilt)
+		return prebuilt
+	}
+
+	// A run-unique tag: two sweeps on one host must not overwrite each other's
+	// image, which would reintroduce exactly the cross-run bleed this avoids.
+	tag := fmt.Sprintf("sweep-%d", time.Now().UnixNano())
+	request := testcontainers.ContainerRequest{
+		FromDockerfile: testcontainers.FromDockerfile{
+			Context:    ".",
+			Dockerfile: "Dockerfile",
+			Repo:       "unifi-emu-itest",
+			Tag:        tag,
+			BuildArgs:  emulatorBuildArgs(runtime.GOARCH),
+		},
+	}
+
+	// Normally the first harness does this, but the prebuild runs before any
+	// harness exists and the provider cannot find a rootless or Colima socket
+	// without it.
+	configureContainerRuntime(t)
+
+	provider, err := testcontainers.NewDockerProvider()
+	if err != nil {
+		t.Fatalf("connect to the container runtime: %v", err)
+	}
+	defer func() { _ = provider.Close() }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	image, err := provider.BuildImage(ctx, &request)
+	if err != nil {
+		t.Fatalf("build the emulator image: %v", err)
+	}
+	t.Logf("emulator image: built %s once for every batch", image)
+	return image
 }
 
 // adoptionExceptions are models a controller deliberately refuses to adopt for
@@ -183,6 +238,9 @@ func runCatalogSweep(t *testing.T, tier string, defaultBatch int) {
 	t.Logf("%s sweep: %d models, %d batches of up to %d, %d controllers at a time",
 		tier, len(models), len(batches), batchSize, parallel)
 
+	// Built before any batch starts, so every batch runs the same emulator.
+	emulatorImage := buildEmulatorImageOnce(t)
+
 	var mu sync.Mutex
 	var outcomes []sweepOutcome
 	slots := make(chan struct{}, parallel)
@@ -196,7 +254,7 @@ func runCatalogSweep(t *testing.T, tier string, defaultBatch int) {
 				slots <- struct{}{}
 				defer func() { <-slots }()
 
-				got := runSweepBatch(t, tier, batch, typeOf)
+				got := runSweepBatch(t, tier, batch, typeOf, emulatorImage)
 				mu.Lock()
 				outcomes = append(outcomes, got...)
 				mu.Unlock()
@@ -204,7 +262,7 @@ func runCatalogSweep(t *testing.T, tier string, defaultBatch int) {
 		}
 	})
 
-	outcomes = confirmSweepFailures(t, tier, outcomes)
+	outcomes = confirmSweepFailures(t, tier, outcomes, emulatorImage)
 
 	report := newSweepReport(tier, outcomes)
 	path := filepath.Join(evidenceDir(t.Name()), "sweep-report.json")
@@ -229,6 +287,7 @@ func runSweepBatch(
 	tier string,
 	batch sweepBatch,
 	typeOf func(string) (string, bool),
+	emulatorImage string,
 ) []sweepOutcome {
 	macs, err := macsForModels(itestMACBase, len(batch.Models))
 	if err != nil {
@@ -242,6 +301,7 @@ func runSweepBatch(
 	}
 
 	h := startClassicHarness(t)
+	h.emulatorImage = emulatorImage
 	h.startEmulatorModels(strings.Join(batch.Models, ","))
 	client := newControllerClient(h.apiURL, classic)
 	if err := client.Login(h.ctx, "admin", "admin"); err != nil {
@@ -322,7 +382,12 @@ func markRegistered(
 // model that fails twice, the second time with nothing else present, is
 // evidence about the model itself -- the same paired-then-solo discipline that
 // established UGWHD4.
-func confirmSweepFailures(t *testing.T, tier string, outcomes []sweepOutcome) []sweepOutcome {
+func confirmSweepFailures(
+	t *testing.T,
+	tier string,
+	outcomes []sweepOutcome,
+	emulatorImage string,
+) []sweepOutcome {
 	byModel := make(map[string]int, len(outcomes))
 	var suspects []string
 	for i, outcome := range outcomes {
@@ -354,6 +419,7 @@ func confirmSweepFailures(t *testing.T, tier string, outcomes []sweepOutcome) []
 				outcome := outcomes[index]
 
 				h := startClassicHarness(t)
+				h.emulatorImage = emulatorImage
 				h.startEmulatorModels(model)
 				client := newControllerClient(h.apiURL, classic)
 				if err := client.Login(h.ctx, "admin", "admin"); err != nil {

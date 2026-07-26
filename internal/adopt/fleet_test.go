@@ -3,6 +3,8 @@ package adopt
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -81,6 +83,47 @@ func TestFleetRetriesCannotAdopt(t *testing.T) {
 	}
 	if saw := f.sawAdopts(); len(saw) != 3 {
 		t.Errorf("controller saw %d adopts, want 3 (two rejected, one accepted)", len(saw))
+	}
+}
+
+// TestFleetRetriesThroughTheNetworkAppPlaceholder is the cold start that
+// outlives login. On ucore the login lands against the OS while the Network
+// App behind /proxy/network is still starting, so an authenticated call can
+// still meet the boot placeholder. It arrives as an HTML body under HTTP 200,
+// which is neither a rejection nor CannotAdopt, so a narrow retry loop calls
+// it fatal and fails an adoption that had not started yet.
+func TestFleetRetriesThroughTheNetworkAppPlaceholder(t *testing.T) {
+	const mac = "00:15:6d:00:00:01"
+	f := newFakeClassic(t, mac)
+	f.placeholderAdopts = 2
+	c := loginTo(t, f.server.URL)
+
+	if err := Fleet(waitCtx(t, 5*time.Second), c, "default", []string{mac}, fastOptions()); err != nil {
+		t.Fatalf("Fleet through a starting Network App: %v", err)
+	}
+	if saw := f.sawAdopts(); len(saw) != 3 {
+		t.Errorf("controller saw %d adopts, want 3 (two placeholders, one accepted)", len(saw))
+	}
+}
+
+// TestDeviceByMACReportsTheBootPlaceholder keeps the poll loops' timeout
+// message honest. They already tolerate a failing read, so the placeholder
+// costs nothing there — but the last error is what the timeout reports, and
+// "invalid character '<'" reads like a broken client rather than a
+// controller that never came up.
+func TestDeviceByMACReportsTheBootPlaceholder(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writePlaceholder(w)
+	}))
+	t.Cleanup(srv.Close)
+
+	c := newClient(srv.URL, Classic, time.Millisecond, 2*time.Millisecond)
+	_, err := c.DeviceByMAC(waitCtx(t, 5*time.Second), "default", "00:15:6d:00:00:01")
+	if err == nil {
+		t.Fatal("DeviceByMAC against a booting controller: want an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "not the JSON a running controller answers with") {
+		t.Errorf("error %q does not say the controller is still starting", err)
 	}
 }
 

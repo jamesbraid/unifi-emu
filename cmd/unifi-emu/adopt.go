@@ -184,6 +184,9 @@ func runAdopt(parent context.Context, cfg adoptConfig, macs []string) error {
 	defer cancel()
 
 	client := adopt.New(cfg.url, cfg.dialect)
+	client.OnWaiting = func(detail string) {
+		log.Printf("adopt: controller not ready yet, waiting: %s", detail)
+	}
 	if err := client.Login(ctx, cfg.username, cfg.password); err != nil {
 		return fmt.Errorf("controller login: %w", err)
 	}

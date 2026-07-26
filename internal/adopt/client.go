@@ -13,6 +13,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -33,6 +34,16 @@ type Client struct {
 	dialect Dialect
 	hc      *http.Client
 	csrf    *csrfToken
+
+	// waitMin and waitMax bound the backoff Login uses while the controller
+	// is still starting. go-retryablehttp keeps its own copy for the failures
+	// it can see; the boot placeholder is not one of them (see notReady).
+	waitMin, waitMax time.Duration
+
+	// OnWaiting, when set, reports each answer from a controller that has
+	// not finished starting. The wait it narrates can run for minutes, and
+	// an unexplained silence there is indistinguishable from a hang.
+	OnWaiting func(detail string)
 }
 
 // newSessionClient returns an http.Client with a cookie jar and TLS
@@ -81,6 +92,8 @@ func newClient(baseURL string, d Dialect, waitMin, waitMax time.Duration) *Clien
 		base:    strings.TrimRight(baseURL, "/"),
 		dialect: d,
 		csrf:    &csrfToken{},
+		waitMin: waitMin,
+		waitMax: waitMax,
 	}
 	inner := newSessionClient()
 	inner.Transport = &csrfSniffer{base: inner.Transport, tok: c.csrf}
@@ -123,13 +136,55 @@ func (c *Client) authHeader() http.Header {
 	return nil
 }
 
-// Login authenticates against the dialect's login path; the session cookie
-// rides in the jar from then on. Classic verifies the meta.rc==ok envelope;
+// notReady marks an answer from a controller that has not finished starting.
+// It is a distinct type because that distinction decides whether to wait or
+// to fail: retrying a real rejection burns the whole adopt budget on a fault
+// visible in the first answer, and failing on a boot placeholder reports a
+// controller that was merely slow to start as a failed adoption.
+type notReady struct{ detail string }
+
+func (e notReady) Error() string { return e.detail }
+
+// Login authenticates against the dialect's login path, waiting out a
+// controller that is still booting; the session cookie rides in the jar from
+// then on.
+//
+// The wait is what makes the emulator usable as a container service started
+// alongside its controller. go-retryablehttp already covers the failures a
+// status code describes (429, 5xx, transport errors), but an early-boot
+// controller serves an HTML placeholder on every path under HTTP 200 — a
+// success by every measure except the body. So the retrying happens here,
+// bounded by the caller's context, which is the adopt budget.
+func (c *Client) Login(ctx context.Context, user, pass string) error {
+	wait := c.waitMin
+	for {
+		err := c.login(ctx, user, pass)
+		var booting notReady
+		if !errors.As(err, &booting) {
+			return err
+		}
+		if c.OnWaiting != nil {
+			c.OnWaiting(booting.detail)
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("emu: controller never became ready: %w (last answer: %s)", ctx.Err(), booting.detail)
+		case <-time.After(wait):
+		}
+		wait = min(2*wait, c.waitMax)
+	}
+}
+
+// login is one login attempt. Classic verifies the meta.rc==ok envelope;
 // UniFiOS also requires the CSRF token the csrfSniffer captures from the
 // login response header (a 200 without it would 403 every proxied call, so a
 // tokenless login is no login). Non-200 (bad credentials) is an error
 // carrying the response body, where the controller puts the real reason.
-func (c *Client) Login(ctx context.Context, user, pass string) error {
+//
+// checkReady runs before any of that, because on a controller that has not
+// finished starting none of it means anything — including, on UniFiOS, the
+// missing CSRF token, which the placeholder cannot carry either.
+func (c *Client) login(ctx context.Context, user, pass string) error {
 	body, err := json.Marshal(map[string]string{"username": user, "password": pass})
 	if err != nil {
 		return err
@@ -144,6 +199,9 @@ func (c *Client) Login(ctx context.Context, user, pass string) error {
 		return err
 	}
 	defer resp.Body.Close()
+	if err := checkReady(resp); err != nil {
+		return err
+	}
 	if resp.StatusCode != http.StatusOK {
 		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return fmt.Errorf("emu: POST %s: HTTP %d: %s",
@@ -254,6 +312,9 @@ func postJSON(ctx context.Context, hc *http.Client, url string, hdr http.Header,
 		return err
 	}
 	defer resp.Body.Close()
+	if err := checkReady(resp); err != nil {
+		return err
+	}
 	if resp.StatusCode != http.StatusOK {
 		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return fmt.Errorf("emu: POST %s: HTTP %d: %s",
@@ -264,6 +325,34 @@ func postJSON(ctx context.Context, hc *http.Client, url string, hdr http.Header,
 		return fmt.Errorf("emu: POST %s: read response: %w", url, err)
 	}
 	return checkAPIEnvelope("POST "+url, reply)
+}
+
+// checkReady returns notReady when resp did not come from a running
+// controller. Every answer a running controller gives is JSON — rejections
+// included, and with a charset parameter attached — so a body that is not
+// JSON is not a verdict on the request. It is the placeholder the controller
+// serves on every path until it has finished starting, and the status is no
+// help in spotting it: the placeholder comes back as HTTP 200.
+//
+// The body is drained rather than reported. It is an HTML page, and pasting
+// a <!DOCTYPE> into a log line buries the one fact that matters.
+func checkReady(resp *http.Response) error {
+	contentType := resp.Header.Get("Content-Type")
+	if isJSON(contentType) {
+		return nil
+	}
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20)) // drain so the connection is reused
+	if contentType == "" {
+		contentType = "no content type"
+	}
+	return notReady{fmt.Sprintf("HTTP %d %s, not the JSON a running controller answers with",
+		resp.StatusCode, contentType)}
+}
+
+// isJSON reports whether a Content-Type header names a JSON body, ignoring
+// any charset parameter the controller appends.
+func isJSON(contentType string) bool {
+	return strings.Contains(strings.ToLower(contentType), "application/json")
 }
 
 type apiEnvelope struct {
@@ -308,6 +397,9 @@ func devices(ctx context.Context, hc *http.Client, url string, hdr http.Header) 
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if err := checkReady(resp); err != nil {
+		return nil, err
+	}
 	if resp.StatusCode != http.StatusOK {
 		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return nil, fmt.Errorf("emu: GET stat/device: HTTP %d: %s",

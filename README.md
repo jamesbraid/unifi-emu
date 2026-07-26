@@ -234,6 +234,46 @@ flagships resolve). Facts the bundle can't express live in
 an unknown radio band, say — is skipped and logged, never emitted wrong. An AP
 with no resolved ethernet keeps a 1×GbE default, also logged.
 
+### Device capabilities
+
+A controller gates whole features on bitmaps the device reports — `udapi_caps`,
+`switch_caps`, `hw_caps`. Ask for BGP on a gateway that never reported
+`UNIFI_UDAPI_CAP_ROUTES_BGP` and `bgp/config` answers 404
+`api.err.BgpUnsupportedDevice`.
+
+The bit names live only in the controller's Java device model, so
+[`capability_bits.json`](capability_bits.json) is read back out of it. Both
+controller images are checked and must agree:
+
+```sh
+scripts/extract-caps.sh     # needs docker and a JDK for javap
+```
+
+Which model has which capability is a different question, and the controller
+cannot answer it — it believes whatever the device reports. That comes from
+Ubiquiti's published support matrix, curated per model in `model_overrides.json`
+with the citation alongside. `modelgen` resolves the named bits to a mask. An
+unknown name fails the build rather than quietly claiming nothing.
+
+Today one model claims one bit: UXG-Enterprise reports routing/BGP, because it
+is the only gateway that adopts by inform and supports BGP. The consoles that
+also support it (EFG, UDM, UCG, UDW) run the Network app themselves and never
+adopt, so they aren't in this catalog. Every other gateway reports no UDAPI keys
+and gets the same 404 real hardware gets. To measure that rather than trust it,
+the adoption sweep probes `bgp/config` against each adopted gateway:
+
+```sh
+UNIFI_EMU_ITEST_SWEEP=1 UNIFI_EMU_ITEST_SWEEP_MODELS=UXGENT,UXG,UXGB,UXGPRO \
+  go test -tags integration -run TestClassicCatalogAdoptionSweepLive -v -count=1 .
+```
+
+Declaring `udapi_version` has a cost worth knowing: it puts the controller into
+UDAPI provisioning mode, so each config push logs a run of `UDAPI feature <path>
+is defined, but is not supported by firmware` warnings. Both keys must go out
+together — a device on firmware 4.1.0 or newer that sends the bitmap without a
+version has its whole capability update skipped, and ends up looking less
+capable than one that claimed nothing.
+
 ## More
 
 - [`docs/DESIGN.md`](docs/DESIGN.md) — what it is, the verified inform-protocol

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	emu "github.com/jamesbraid/unifi-emu"
+	"github.com/jamesbraid/unifi-emu/internal/adopt"
 )
 
 func TestClassicUGWLive(t *testing.T) {
@@ -21,7 +22,7 @@ func TestClassicUGWLive(t *testing.T) {
 	}
 	h.startEmulator([]emu.DeviceSpec{spec})
 
-	client := newControllerClient(h.apiURL, classic)
+	client := adopt.New(h.apiURL, adopt.Classic)
 	if err := client.Login(h.ctx, "admin", "admin"); err != nil {
 		t.Fatalf("login: %v", err)
 	}
@@ -44,7 +45,7 @@ func TestClassicUXGLive(t *testing.T) {
 	}
 	h.startEmulator([]emu.DeviceSpec{spec})
 
-	client := newControllerClient(h.apiURL, classic)
+	client := adopt.New(h.apiURL, adopt.Classic)
 	if err := client.Login(h.ctx, "admin", "admin"); err != nil {
 		t.Fatalf("login: %v", err)
 	}
@@ -66,7 +67,7 @@ func TestClassicFleetLive(t *testing.T) {
 	h := startClassicHarness(t)
 	h.startEmulator(fleetSpecs)
 
-	client := newControllerClient(h.apiURL, classic)
+	client := adopt.New(h.apiURL, adopt.Classic)
 	if err := client.Login(h.ctx, "admin", "admin"); err != nil {
 		t.Fatalf("login: %v", err)
 	}
@@ -99,7 +100,7 @@ func TestClassicRandomFleetLive(t *testing.T) {
 	h := startClassicHarness(t)
 	h.startEmulatorModels(strings.Join(models, ","))
 
-	client := newControllerClient(h.apiURL, classic)
+	client := adopt.New(h.apiURL, adopt.Classic)
 	if err := client.Login(h.ctx, "admin", "admin"); err != nil {
 		t.Fatalf("login: %v", err)
 	}
@@ -121,7 +122,7 @@ func TestUOSAPUpgradeLive(t *testing.T) {
 	}
 	h.startEmulator([]emu.DeviceSpec{spec})
 
-	client := newControllerClient(h.apiURL, unifiOS)
+	client := adopt.New(h.apiURL, adopt.UniFiOS)
 	if err := client.Login(h.ctx, "admin", "admin"); err != nil {
 		t.Fatalf("login: %v", err)
 	}
@@ -139,9 +140,9 @@ func TestUOSAPUpgradeLive(t *testing.T) {
 // application and UniFi OS clients.
 type adopter interface {
 	Adopt(ctx context.Context, site, mac string) error
-	DeviceByMAC(ctx context.Context, site, mac string) (Device, error)
-	Devices(ctx context.Context, site string) ([]Device, error)
-	WaitAdopted(ctx context.Context, site, mac string) (Device, error)
+	DeviceByMAC(ctx context.Context, site, mac string) (adopt.Device, error)
+	Devices(ctx context.Context, site string) ([]adopt.Device, error)
+	WaitAdopted(ctx context.Context, site, mac string) (adopt.Device, error)
 }
 
 // adoptAndWaitConnected drives one device through the complete live flow:
@@ -160,7 +161,7 @@ func adoptAndWaitConnected(
 	client adopter,
 	model string,
 	mac string,
-) Device {
+) adopt.Device {
 	t.Helper()
 	device, err := adoptAndWait(t, ctx, h, client, model, mac)
 	if err != nil {
@@ -180,14 +181,14 @@ func adoptAndWait(
 	client adopter,
 	model string,
 	mac string,
-) (Device, error) {
+) (adopt.Device, error) {
 	t.Helper()
 	const site = "default"
 	dev := fmt.Sprintf("%s %s", model, mac)
 
 	pendingCtx, stop := context.WithTimeout(ctx, 2*time.Minute)
 	defer stop()
-	var last Device
+	var last adopt.Device
 	seen := false
 	for {
 		device, err := client.DeviceByMAC(pendingCtx, site, mac)
@@ -222,7 +223,7 @@ func adoptAndWait(
 			break
 		}
 		if !strings.Contains(strings.ToLower(err.Error()), "cannotadopt") {
-			return Device{}, fmt.Errorf("adopt %s: %w", dev, err)
+			return adopt.Device{}, fmt.Errorf("adopt %s: %w", dev, err)
 		}
 		if device, lookupErr := client.DeviceByMAC(adoptCtx, site, mac); lookupErr == nil && device.Adopted {
 			t.Logf("%s adopt returned CannotAdopt but the document is adopted; continuing", dev)
@@ -232,7 +233,7 @@ func adoptAndWait(
 		h.requireEmulatorRunning()
 		select {
 		case <-adoptCtx.Done():
-			return Device{}, fmt.Errorf("%s never adopted: %v (last adopt error %v)", dev, adoptCtx.Err(), err)
+			return adopt.Device{}, fmt.Errorf("%s never adopted: %v (last adopt error %v)", dev, adoptCtx.Err(), err)
 		case <-time.After(10 * time.Second):
 		}
 	}

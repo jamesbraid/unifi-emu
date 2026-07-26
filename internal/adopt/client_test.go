@@ -31,6 +31,13 @@ func writeOK(w http.ResponseWriter) {
 	_, _ = w.Write([]byte(`{"meta":{"rc":"ok"},"data":[]}`))
 }
 
+// writePlaceholder mirrors the HTML page a controller serves under HTTP 200
+// on every path until it has finished starting.
+func writePlaceholder(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "text/html")
+	_, _ = w.Write([]byte("<html><body>UniFi is starting</body></html>"))
+}
+
 // writeErr mirrors the real controller's error envelope: the msg field
 // carries the api.err.* reason the client needs for live debugging.
 func writeErr(w http.ResponseWriter, status int, msg string) {
@@ -73,6 +80,13 @@ type fakeClassic struct {
 	// failN adopt commands, so a test can drive the retry path.
 	adoptErr string
 	failN    int
+
+	// placeholderAdopts is how many adopt commands are answered with the
+	// boot placeholder instead of a reply. On ucore the login lands against
+	// the OS while the Network App behind /proxy/network is still starting,
+	// so an authenticated call can meet the placeholder long after login
+	// succeeded.
+	placeholderAdopts int
 
 	mu       sync.Mutex
 	adopted  map[string]bool
@@ -149,6 +163,11 @@ func (f *fakeClassic) handleDevmgr(w http.ResponseWriter, r *http.Request) {
 	}
 	f.mu.Lock()
 	f.sawAdopt = append(f.sawAdopt, cmd.MAC)
+	if len(f.sawAdopt) <= f.placeholderAdopts {
+		f.mu.Unlock()
+		writePlaceholder(w)
+		return
+	}
 	reject := f.adoptErr != "" && len(f.sawAdopt) <= f.failN
 	if !reject {
 		for _, mac := range f.macs {
@@ -634,6 +653,132 @@ func TestLoginDoesNotRetryRejectedCredentials(t *testing.T) {
 	}
 	if elapsed > time.Second {
 		t.Errorf("Login took %s to reject a bad password; it should fail on the first answer", elapsed)
+	}
+}
+
+// bootingLogin answers the first n requests with the HTML placeholder a
+// controller serves under HTTP 200 on every path while it is still starting,
+// then hands over to ready. It also reports how many requests it saw, so a
+// test can prove the retrying actually happened.
+func bootingLogin(n int, ready http.HandlerFunc) (http.HandlerFunc, func() int) {
+	var mu sync.Mutex
+	seen := 0
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		seen++
+		booting := seen <= n
+		mu.Unlock()
+		if booting {
+			w.Header().Set("Content-Type", "text/html")
+			_, _ = w.Write([]byte("<html><body>UniFi is starting</body></html>"))
+			return
+		}
+		ready(w, r)
+	}
+	return handler, func() int {
+		mu.Lock()
+		defer mu.Unlock()
+		return seen
+	}
+}
+
+// TestClassicLoginRetriesThroughTheBootPlaceholder covers the cold start no
+// status-code rule can catch: a controller that has not finished booting
+// serves an HTML page under HTTP 200, so the retrying go-retryablehttp does
+// for 429/5xx never fires and login fails on the first answer with a JSON
+// decode error. That reports a controller which was merely still starting as
+// a failed adoption, and kills a container started alongside its controller.
+func TestClassicLoginRetriesThroughTheBootPlaceholder(t *testing.T) {
+	handler, seen := bootingLogin(3, func(w http.ResponseWriter, _ *http.Request) {
+		http.SetCookie(w, &http.Cookie{Name: "unifises", Value: "test-session", Path: "/"})
+		writeOK(w)
+	})
+	srv := httptest.NewServer(http.HandlerFunc(handler))
+	t.Cleanup(srv.Close)
+
+	c := newClient(srv.URL, Classic, time.Millisecond, 2*time.Millisecond)
+	if err := c.Login(waitCtx(t, 5*time.Second), "admin", "admin"); err != nil {
+		t.Fatalf("Login through a booting controller: %v", err)
+	}
+	if got := seen(); got != 4 {
+		t.Errorf("controller saw %d login attempts, want 4 (3 placeholders then the real one)", got)
+	}
+}
+
+// TestUOSLoginRetriesThroughTheBootPlaceholder is the same cold start on
+// ucore, where the placeholder fails differently — 200 with no CSRF header —
+// but just as fatally.
+func TestUOSLoginRetriesThroughTheBootPlaceholder(t *testing.T) {
+	handler, seen := bootingLogin(3, func(w http.ResponseWriter, _ *http.Request) {
+		http.SetCookie(w, &http.Cookie{Name: "uos_session", Value: "test-session", Path: "/"})
+		w.Header().Set("x-updated-csrf-token", uosTokenV1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"uos-user"}`))
+	})
+	srv := httptest.NewServer(http.HandlerFunc(handler))
+	t.Cleanup(srv.Close)
+
+	c := newClient(srv.URL, UniFiOS, time.Millisecond, 2*time.Millisecond)
+	if err := c.Login(waitCtx(t, 5*time.Second), "admin", "admin"); err != nil {
+		t.Fatalf("Login through a booting controller: %v", err)
+	}
+	if got := seen(); got != 4 {
+		t.Errorf("controller saw %d login attempts, want 4 (3 placeholders then the real one)", got)
+	}
+}
+
+// TestLoginReportsEveryWait keeps a cold start from being a silent one. The
+// wait can run for minutes, and an operator watching a container that has
+// said nothing cannot tell a booting controller from a hung one.
+func TestLoginReportsEveryWait(t *testing.T) {
+	handler, _ := bootingLogin(2, func(w http.ResponseWriter, _ *http.Request) {
+		http.SetCookie(w, &http.Cookie{Name: "unifises", Value: "test-session", Path: "/"})
+		writeOK(w)
+	})
+	srv := httptest.NewServer(http.HandlerFunc(handler))
+	t.Cleanup(srv.Close)
+
+	c := newClient(srv.URL, Classic, time.Millisecond, 2*time.Millisecond)
+	var waits []string
+	c.OnWaiting = func(detail string) { waits = append(waits, detail) }
+
+	if err := c.Login(waitCtx(t, 5*time.Second), "admin", "admin"); err != nil {
+		t.Fatalf("Login through a booting controller: %v", err)
+	}
+	if len(waits) != 2 {
+		t.Fatalf("OnWaiting fired %d times, want 2 (one per placeholder): %q", len(waits), waits)
+	}
+	if !strings.Contains(waits[0], "200") || !strings.Contains(waits[0], "text/html") {
+		t.Errorf("report %q does not describe the placeholder answer", waits[0])
+	}
+}
+
+// TestLoginTimeoutNamesTheBootPlaceholder covers a controller that never
+// finishes starting. The budget has to be what stops the wait, and the error
+// has to say the answer was a placeholder — otherwise the operator is left
+// with a JSON decode error and no hint that the controller never came up.
+func TestLoginTimeoutNamesTheBootPlaceholder(t *testing.T) {
+	handler, seen := bootingLogin(1<<30, nil) // never ready
+	srv := httptest.NewServer(http.HandlerFunc(handler))
+	t.Cleanup(srv.Close)
+
+	c := newClient(srv.URL, Classic, time.Millisecond, 2*time.Millisecond)
+	const budget = 300 * time.Millisecond
+	start := time.Now()
+	err := c.Login(waitCtx(t, budget), "admin", "admin")
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("Login against a controller that never finishes booting: want an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "never became ready") {
+		t.Errorf("error %q does not say the controller never came up", err)
+	}
+	if elapsed < budget/2 {
+		t.Errorf("Login gave up after %s of a %s budget; the context should be what stops it", elapsed, budget)
+	}
+	if got := seen(); got < 10 {
+		t.Errorf("controller saw %d attempts in %s; retrying stopped early", got, elapsed)
 	}
 }
 

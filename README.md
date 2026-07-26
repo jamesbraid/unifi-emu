@@ -43,12 +43,12 @@ anonymously pullable — and the module is on the Go proxy. Image tags drop the
 `v` that module tags keep:
 
 ```sh
-docker pull ghcr.io/jamesbraid/unifi-emu:0.3   # also :0.3.1, :latest
-go get github.com/jamesbraid/unifi-emu@v0.3.1
+docker pull ghcr.io/jamesbraid/unifi-emu:0.4   # also :0.4.0, :latest
+go get github.com/jamesbraid/unifi-emu@v0.4.0
 ```
 
-`-adopt` is **not in a release yet**. The newest tag is 0.3.1, which informs
-only. Build the image from the checkout until the next tag ships.
+`-adopt` arrived in 0.4.0, which is also where the model registry drops to
+182. Anything on 0.3.x informs only.
 
 ### Quick start
 

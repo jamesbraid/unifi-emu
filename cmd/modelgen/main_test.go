@@ -170,7 +170,7 @@ func TestHarvestBundleFiltersAndDerives(t *testing.T) {
 	ov := overrides{Models: map[string]modelOverride{
 		"UAPTEST": {Eth: &ethOverride{Count: 1, Media: "2.5GbE"}},
 	}}
-	cat, err := harvestBundle(bundle, map[string]string{"USTEST": "Test Switch"}, fw, ov, "10.4.57")
+	cat, err := harvestBundle(bundle, map[string]string{"USTEST": "Test Switch"}, fw, ov, testCaps(), "10.4.57")
 	if err != nil {
 		t.Fatalf("harvest: %v", err)
 	}
@@ -214,7 +214,7 @@ func TestHarvestBundleDropsModelsThatCannotAdopt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cat, err := harvestBundle(bundle, nil, firmwareIndex{}, overrides{}, "10.4.57")
+	cat, err := harvestBundle(bundle, nil, firmwareIndex{}, overrides{}, testCaps(), "10.4.57")
 	if err != nil {
 		t.Fatalf("harvest: %v", err)
 	}
@@ -240,7 +240,7 @@ func TestHarvestBundleDropsModelsThatCannotAdopt(t *testing.T) {
 func TestHarvestBundleAPWithoutEthDefaultsGE(t *testing.T) {
 	bundle, _ := os.ReadFile("testdata/bundle.js")
 	fw := firmwareIndex{}
-	cat, err := harvestBundle(bundle, nil, fw, overrides{}, "10.4.57")
+	cat, err := harvestBundle(bundle, nil, fw, overrides{}, testCaps(), "10.4.57")
 	if err != nil {
 		t.Fatalf("harvest: %v", err)
 	}
@@ -258,7 +258,7 @@ func TestHarvestBundleSkipsModelsItCannotExpress(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cat, err := harvestBundle(bundle, nil, firmwareIndex{}, overrides{}, "10.4.57")
+	cat, err := harvestBundle(bundle, nil, firmwareIndex{}, overrides{}, testCaps(), "10.4.57")
 	if err != nil {
 		t.Fatalf("harvest: %v", err)
 	}

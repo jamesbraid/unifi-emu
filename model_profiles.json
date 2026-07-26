@@ -20689,6 +20689,8 @@
       "model_display": "Gateway Enterprise",
       "type": "uxg",
       "version": "5.0.16.30689",
+      "udapi_version": "2.0.0",
+      "udapi_caps": 4194304,
       "ports": [
         {
           "ifname": "eth0",

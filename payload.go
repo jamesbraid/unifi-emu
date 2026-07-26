@@ -9,26 +9,6 @@ import (
 	"time"
 )
 
-// udapiCapRoutesBGP is UNIFI_UDAPI_CAP_ROUTES_BGP in the controller's
-// device model, one bit of the udapi_caps bitmap the controller gates whole
-// features on (its neighbour 1 << 18 is routes/OSPFv2). Without it
-// POST /v2/api/site/<site>/bgp/config answers 404
-// api.err.BgpUnsupportedDevice and stores nothing.
-const udapiCapRoutesBGP = 1 << 22 // 4194304
-
-// udapiCaps is what a UXG-family gateway reports for udapi_caps. Only the
-// routing bits are claimed: every bit here is a feature the controller will
-// then offer in the UI, so claiming one the emulator cannot service is a
-// worse lie than not claiming it.
-const udapiCaps = udapiCapRoutesBGP
-
-// udapiVersion is the UDAPI config-plane schema version reported alongside
-// the capability bitmap. The controller only requires the object to be
-// non-empty; versionDetail entries (path -> schema version, e.g.
-// "routes/bgp/raw": 1) additionally gate UDAPI config *generation*, which
-// an emulated device never has to service.
-const udapiVersion = "2.0.0"
-
 // buildPayload renders the inform payload for the device's current state:
 // a sparse pending shape before adoption, the full per-type shape after,
 // with any provisioned config received via setstate merged over the top.
@@ -58,18 +38,24 @@ func (d *device) buildPayload() []byte {
 		"locating":       false,
 		"selfrun_beacon": true,
 	}
-	// A UXG-family gateway runs the UDAPI config plane and reports its
-	// schema version and capability bitmap on every inform, adopted or
-	// not. Both keys are needed together: for a device on firmware >= 4.1.0
-	// that reports no udapi_version the controller skips its entire
-	// capability-update pass ("Skip updating capability for device [..] due
-	// to empty udapi_version" in server.log) and stores none of fw_caps,
-	// hw_caps, switch_caps or udapi_caps — so the bitmap alone is silently
-	// dropped. The pre-UniFi-OS gateways (type ugw, the USG line) have no
-	// UDAPI at all and must keep reporting neither.
-	if d.profile.Type == "uxg" {
-		m["udapi_version"] = map[string]any{"version": udapiVersion}
-		m["udapi_caps"] = udapiCaps
+	// A device that runs the UDAPI config plane reports its schema version
+	// and capability bitmap on every inform, adopted or not. Both keys go
+	// out together, from the one condition: for a device on firmware
+	// >= 4.1.0 that reports no udapi_version the controller skips its
+	// entire capability-update pass ("Skip updating capability for device
+	// [..] due to empty udapi_version" in server.log) and stores none of
+	// fw_caps, hw_caps, switch_caps or udapi_caps — so a bitmap sent alone
+	// is silently dropped and the device looks less capable than before.
+	//
+	// Which models have it is a per-model fact from Ubiquiti's published
+	// matrix, carried in the profile (see model_overrides.json), not a
+	// property of the type: of the gateways that adopt by inform only
+	// UXG-Enterprise has UDAPI routing, and the USG line has no UDAPI at
+	// all. The controller offers every claimed capability against the
+	// device, so claiming one it cannot service is the worse lie.
+	if d.profile.UDAPIVersion != "" {
+		m["udapi_version"] = map[string]any{"version": d.profile.UDAPIVersion}
+		m["udapi_caps"] = d.profile.UDAPICaps
 	}
 	if d.adopted {
 		// Device-side state 4 means managed/adopted; it is not the same

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	emu "github.com/jamesbraid/unifi-emu"
+	"github.com/jamesbraid/unifi-emu/internal/adopt"
 	"github.com/testcontainers/testcontainers-go"
 	tcnetwork "github.com/testcontainers/testcontainers-go/network"
 )
@@ -27,9 +28,10 @@ type itestHarness struct {
 	emulator     testcontainers.Container
 	evidence     string
 	apiURL       string
+	apiPort      string // controller API port inside the network, e.g. "8443"
 	controllerIP string
-	pending      []Device
-	final        []Device
+	pending      []adopt.Device
+	final        []adopt.Device
 	// emulatorImage, when set before the emulator starts, is used instead of
 	// building the image from the checkout. A single test builds once anyway,
 	// but a sweep starts one emulator per batch over tens of minutes, and
@@ -126,6 +128,7 @@ func (h *itestHarness) startController(request testcontainers.ContainerRequest, 
 		h.t.Fatalf("start controller container: %v", err)
 	}
 	h.apiURL = h.mappedHTTPSURL(apiPort)
+	h.apiPort, _, _ = strings.Cut(apiPort, "/")
 	h.controllerIP, err = controller.ContainerIP(h.ctx)
 	if err != nil {
 		h.t.Fatalf("resolve controller container IPv4: %v", err)
@@ -162,6 +165,29 @@ func (h *itestHarness) startEmulator(specs []emu.DeviceSpec) {
 	}
 }
 
+// startEmulatorAdopting launches the emulator with adoption switched on, so
+// it informs and then adopts its own fleet without the test doing either.
+// The adopt URL is the controller's API port at the same on-network address
+// the inform URL uses, because only the API port is mapped to the host and
+// the emulator container cannot reach that.
+func (h *itestHarness) startEmulatorAdopting(specs []emu.DeviceSpec) {
+	h.t.Helper()
+	informURL := "http://" + h.controllerIP + ":8080/inform"
+	adoptURL := "https://" + h.controllerIP + ":" + h.apiPort
+	request := emulatorAdoptRequest(
+		h.network.Name, loadITestImages(), informURL, specs,
+		adoptURL, itestControllerUser, itestControllerPassword,
+	)
+	emulator, err := testcontainers.GenericContainer(h.ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: request,
+		Started:          true,
+	})
+	h.emulator = emulator
+	if err != nil {
+		h.t.Fatalf("start emulator container: %v", err)
+	}
+}
+
 // startEmulatorModels launches the emulator from a terse SIM_MODELS list so
 // the live test exercises the CLI selector and MAC/IP expansion end to end.
 func (h *itestHarness) startEmulatorModels(modelsCSV string) {
@@ -178,7 +204,7 @@ func (h *itestHarness) startEmulatorModels(modelsCSV string) {
 	}
 }
 
-func (h *itestHarness) recordPending(device Device) {
+func (h *itestHarness) recordPending(device adopt.Device) {
 	h.pending = append(h.pending, device)
 	if err := writeJSON(filepath.Join(h.evidence, "pending-devices.json"), h.pending); err != nil {
 		h.t.Errorf("write pending device evidence: %v", err)
@@ -212,7 +238,7 @@ func (h *itestHarness) recordListing(client adopter, site string) string {
 	return fmt.Sprintf("controller listed %d devices: %s", len(list), strings.Join(summary, ", "))
 }
 
-func (h *itestHarness) recordFinal(device Device) {
+func (h *itestHarness) recordFinal(device adopt.Device) {
 	h.final = append(h.final, device)
 	if err := writeJSON(filepath.Join(h.evidence, "final-devices.json"), h.final); err != nil {
 		h.t.Errorf("write final device evidence: %v", err)

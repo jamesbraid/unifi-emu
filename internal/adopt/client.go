@@ -1,10 +1,12 @@
-package emu_test
-
-// This file is the emulator's own adoption harness: a single controller
-// client the unit and integration tests use to drive an emulated device to
-// adoption the way the controller UI does — login, devmgr adopt, poll
-// stat/device. It lives in _test.go so neither it nor its go-retryablehttp
-// dependency leaks into the public package emu or its importers.
+// Package adopt drives a device to adoption against a real controller the
+// way the controller UI does — login, devmgr adopt, poll stat/device.
+//
+// It is internal on purpose. The exported ClassicClient/UOSClient this code
+// grew from were removed in a53d613 because they had no non-test callers and
+// pulled go-retryablehttp into every importer of package emu. As an internal
+// package the emulator's own CLI can adopt while importers of package emu
+// still cannot reach this code and still do not link its dependencies.
+package adopt
 
 import (
 	"bytes"
@@ -22,25 +24,13 @@ import (
 	retryablehttp "github.com/hashicorp/go-retryablehttp"
 )
 
-// dialect selects which controller front end the client talks to: the
-// classic Network App API (:8443, cookie auth, /api/s/<site>/…) or the newer
-// UniFi OS proxy (:443, /api/auth/login + rotating CSRF, paths under
-// /proxy/network). The wire flow is otherwise identical, so one client
-// covers both.
-type dialect int
-
-const (
-	classic dialect = iota
-	unifiOS
-)
-
-// controllerClient drives adoption against either dialect. hc wraps a
-// cookie-jar session in go-retryablehttp so login survives UniFi OS's global
-// login rate-limiting (429 + 5xx are retried, Retry-After honored). csrf is
-// empty until Login and only meaningful for the unifiOS dialect.
-type controllerClient struct {
+// Client drives adoption against either dialect. hc wraps a cookie-jar
+// session in go-retryablehttp so login survives UniFi OS's global login
+// rate-limiting (429 + 5xx are retried, Retry-After honored). csrf is
+// empty until Login and only meaningful for the UniFiOS dialect.
+type Client struct {
 	base    string
-	dialect dialect
+	dialect Dialect
 	hc      *http.Client
 	csrf    *csrfToken
 }
@@ -60,13 +50,34 @@ func newSessionClient() *http.Client {
 	}
 }
 
-// newControllerClient returns a client for the controller at baseURL. The
-// cookie-jar session's transport is wrapped in a csrfSniffer (harmless for
-// classic — it simply never sees a token) and the whole thing in
+// Retry backoff bounds, and a retry ceiling that exists only as a
+// runaway backstop. The real deadline is the caller's context:
+// go-retryablehttp stops the moment the request context is done, so a
+// controller that is still booting keeps being retried for exactly as long
+// as the caller allows. A small RetryMax would instead give up early —
+// after roughly two minutes at these bounds — and report a controller that
+// simply had not finished starting as a failed adoption.
+const (
+	retryWaitMin = time.Second
+	retryWaitMax = 30 * time.Second
+	retryMax     = 1000
+)
+
+// New returns a client for the controller at baseURL, retrying transport
+// errors and 429/5xx until the caller's context expires.
+func New(baseURL string, d Dialect) *Client {
+	return newClient(baseURL, d, retryWaitMin, retryWaitMax)
+}
+
+// newClient is New with the backoff bounds exposed, so tests can prove the
+// context governs the retrying without waiting out real backoff.
+//
+// The cookie-jar session's transport is wrapped in a csrfSniffer (harmless
+// for Classic — it simply never sees a token) and the whole thing in
 // go-retryablehttp; the cookie jar and CSRF sniffing stay on the inner
 // client, which retryablehttp drives per attempt.
-func newControllerClient(baseURL string, d dialect) *controllerClient {
-	c := &controllerClient{
+func newClient(baseURL string, d Dialect, waitMin, waitMax time.Duration) *Client {
+	c := &Client{
 		base:    strings.TrimRight(baseURL, "/"),
 		dialect: d,
 		csrf:    &csrfToken{},
@@ -76,15 +87,17 @@ func newControllerClient(baseURL string, d dialect) *controllerClient {
 
 	rc := retryablehttp.NewClient()
 	rc.HTTPClient = inner
-	rc.Logger = nil // no test log spam
-	rc.RetryMax = 8
+	rc.Logger = nil // no log spam
+	rc.RetryWaitMin = waitMin
+	rc.RetryWaitMax = waitMax
+	rc.RetryMax = retryMax
 	c.hc = rc.StandardClient()
 	return c
 }
 
 // loginPath is where each dialect authenticates.
-func (c *controllerClient) loginPath() string {
-	if c.dialect == unifiOS {
+func (c *Client) loginPath() string {
+	if c.dialect == UniFiOS {
 		return "/api/auth/login"
 	}
 	return "/api/login"
@@ -93,9 +106,9 @@ func (c *controllerClient) loginPath() string {
 // apiURL builds the full URL for a Network App endpoint (e.g. "stat/device")
 // in site, adding the /proxy/network prefix ucore puts in front of the
 // proxied Network App API.
-func (c *controllerClient) apiURL(site, endpoint string) string {
+func (c *Client) apiURL(site, endpoint string) string {
 	prefix := ""
-	if c.dialect == unifiOS {
+	if c.dialect == UniFiOS {
 		prefix = "/proxy/network"
 	}
 	return c.base + prefix + "/api/s/" + site + "/" + endpoint
@@ -103,20 +116,20 @@ func (c *controllerClient) apiURL(site, endpoint string) string {
 
 // authHeader carries the token ucore demands on every proxied call; the
 // classic API authenticates by cookie alone, so it gets no extra header.
-func (c *controllerClient) authHeader() http.Header {
-	if c.dialect == unifiOS {
+func (c *Client) authHeader() http.Header {
+	if c.dialect == UniFiOS {
 		return http.Header{"X-CSRF-Token": {c.csrf.get()}}
 	}
 	return nil
 }
 
 // Login authenticates against the dialect's login path; the session cookie
-// rides in the jar from then on. classic verifies the meta.rc==ok envelope;
-// unifiOS also requires the CSRF token the csrfSniffer captures from the
+// rides in the jar from then on. Classic verifies the meta.rc==ok envelope;
+// UniFiOS also requires the CSRF token the csrfSniffer captures from the
 // login response header (a 200 without it would 403 every proxied call, so a
 // tokenless login is no login). Non-200 (bad credentials) is an error
 // carrying the response body, where the controller puts the real reason.
-func (c *controllerClient) Login(ctx context.Context, user, pass string) error {
+func (c *Client) Login(ctx context.Context, user, pass string) error {
 	body, err := json.Marshal(map[string]string{"username": user, "password": pass})
 	if err != nil {
 		return err
@@ -136,7 +149,7 @@ func (c *controllerClient) Login(ctx context.Context, user, pass string) error {
 		return fmt.Errorf("emu: POST %s: HTTP %d: %s",
 			c.loginPath(), resp.StatusCode, strings.TrimSpace(string(errBody)))
 	}
-	if c.dialect == unifiOS {
+	if c.dialect == UniFiOS {
 		_, _ = io.Copy(io.Discard, resp.Body) // drain so the connection is reused; the token rode in on a header
 		if c.csrf.get() == "" {
 			return fmt.Errorf("emu: login 200 but no X-Updated-Csrf-Token or X-Csrf-Token header")
@@ -152,7 +165,7 @@ func (c *controllerClient) Login(ctx context.Context, user, pass string) error {
 
 // Adopt issues the devmgr adopt command for mac in site, the same call the
 // controller UI makes when the user clicks Adopt.
-func (c *controllerClient) Adopt(ctx context.Context, site, mac string) error {
+func (c *Client) Adopt(ctx context.Context, site, mac string) error {
 	return postJSON(ctx, c.hc, c.apiURL(site, "cmd/devmgr"), c.authHeader(), map[string]string{
 		"cmd": "adopt",
 		"mac": mac,
@@ -161,7 +174,7 @@ func (c *controllerClient) Adopt(ctx context.Context, site, mac string) error {
 
 // DeviceByMAC returns the stat/device doc for mac in site, or a "device not
 // found" error when the controller does not list it.
-func (c *controllerClient) DeviceByMAC(ctx context.Context, site, mac string) (Device, error) {
+func (c *Client) DeviceByMAC(ctx context.Context, site, mac string) (Device, error) {
 	return deviceByMAC(ctx, c.hc, c.apiURL(site, "stat/device"), c.authHeader(), mac)
 }
 
@@ -169,7 +182,7 @@ func (c *controllerClient) DeviceByMAC(ctx context.Context, site, mac string) (D
 // reports only "not found", which cannot distinguish a controller that
 // dropped this one device from a controller that listed nothing at all; the
 // full list is what tells those apart after the fact.
-func (c *controllerClient) Devices(ctx context.Context, site string) ([]Device, error) {
+func (c *Client) Devices(ctx context.Context, site string) ([]Device, error) {
 	return devices(ctx, c.hc, c.apiURL(site, "stat/device"), c.authHeader())
 }
 
@@ -177,7 +190,7 @@ func (c *controllerClient) Devices(ctx context.Context, site string) ([]Device, 
 // and adopted. On ctx timeout it returns the last seen device and an error
 // naming it plus the last poll error, so a stalled adoption says where it
 // stalled.
-func (c *controllerClient) WaitAdopted(ctx context.Context, site, mac string) (Device, error) {
+func (c *Client) WaitAdopted(ctx context.Context, site, mac string) (Device, error) {
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
 	var last Device
@@ -219,7 +232,7 @@ type Device struct {
 }
 
 // postJSON sends payload to url and errors on a non-200 status; hdr carries
-// extra request headers (unifiOS sends its CSRF token on every authed call).
+// extra request headers (UniFiOS sends its CSRF token on every authed call).
 // The error carries the response body (capped at 512 bytes): the controller
 // puts the real failure reason there (api.err.*), and without it a failed
 // adopt is undebuggable against a live controller.

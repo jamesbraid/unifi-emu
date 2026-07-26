@@ -2,6 +2,7 @@ package adopt
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -143,10 +144,12 @@ func waitPending(ctx context.Context, c *Client, site, mac string, opts Options)
 	}
 }
 
-// adoptWithRetry issues the adopt command, retrying only while the
-// controller answers CannotAdopt — its way of saying the device document is
-// too young. Any other reason will not improve with time, so it fails at
-// once and carries the controller's own message.
+// adoptWithRetry issues the adopt command, retrying only the two answers that
+// improve with time: CannotAdopt, the controller's way of saying the device
+// document is too young, and the boot placeholder from a Network App that has
+// not finished starting — which on ucore outlives the login, because that
+// lands against the OS in front of it. Any other reason will not improve with
+// time, so it fails at once and carries the controller's own message.
 func adoptWithRetry(ctx context.Context, c *Client, site, mac string, opts Options) error {
 	tick := time.NewTicker(opts.retryInterval())
 	defer tick.Stop()
@@ -155,7 +158,8 @@ func adoptWithRetry(ctx context.Context, c *Client, site, mac string, opts Optio
 		if err == nil {
 			return nil
 		}
-		if !strings.Contains(strings.ToLower(err.Error()), "cannotadopt") {
+		var booting notReady
+		if !errors.As(err, &booting) && !strings.Contains(strings.ToLower(err.Error()), "cannotadopt") {
 			return fmt.Errorf("adopt %s: %w", mac, err)
 		}
 		// CannotAdopt can also mean the adopt already landed and the

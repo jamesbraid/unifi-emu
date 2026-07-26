@@ -22,6 +22,32 @@ import "sort"
 // is why the controller knows the code, no hardware reports it, and it has
 // neither a firmware bundle nor a friendly name.
 var excludedModels = map[string]string{
+	// Found by the catalog sweep (TestClassicCatalogSweepLive): each missed in
+	// a batch and again alone on a fresh controller, so the miss is a fact
+	// about the model, not about a busy controller or a co-tenant device.
+	"UAPA6BE": "no hardware reports this code: absent from Ubiquiti's fingerprint DB " +
+		"entirely, from bundles.json, and from the firmware index, so it has no " +
+		"friendly name and only a per-type default version. Measured against sim " +
+		"controller 10.4.57: never listed, in a batch or alone",
+	"UAPA6BF": "no hardware reports this code: absent from Ubiquiti's fingerprint DB " +
+		"entirely, from bundles.json, and from the firmware index, so it has no " +
+		"friendly name and only a per-type default version. Measured against sim " +
+		"controller 10.4.57: never listed, in a batch or alone",
+	// Unlike the others, these two are real shipped hardware -- the original
+	// 2013 802.11ac APs, with genuine fingerprint sysids (U7E e920/e900, U7O
+	// e910). The controller is what dropped them, so this exclusion is scoped
+	// to a controller version rather than to the product: regenerating the
+	// catalog against an older controller should revisit it.
+	"U7E": "UniFi AP-AC (real hardware, fingerprint sysids e920/e900) that sim " +
+		"controller 10.4.57 never lists. Measured: no document in a batch, alone, " +
+		"or when reporting a plausible gen1 build (4.0.21.x) instead of the " +
+		"catalog's default, while a U7PRO registered in the same boot -- so the " +
+		"controller rejects the model code, and no version rescues it",
+	"U7O": "UniFi AP-AC Outdoor (real hardware, fingerprint sysid e910) that sim " +
+		"controller 10.4.57 never lists. Measured: no document in a batch, alone, " +
+		"or when reporting a plausible gen1 build (4.0.21.x) instead of the " +
+		"catalog's default, while a U7PRO registered in the same boot -- so the " +
+		"controller rejects the model code, and no version rescues it",
 	"UGWHD4": "no hardware reports this code. Ubiquiti's fingerprint DB files it " +
 		"as an alias on the USG product record with an empty sysids list, while " +
 		"real USG hardware identifies as UGW3 (sysid ee21); it has no firmware " +

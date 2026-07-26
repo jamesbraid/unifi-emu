@@ -145,6 +145,73 @@ type adopter interface {
 	WaitAdopted(ctx context.Context, site, mac string) (adopt.Device, error)
 }
 
+// The credentials every controller image under test ships with.
+const (
+	itestControllerUser     = "admin"
+	itestControllerPassword = "admin"
+)
+
+// liveAdoptTimeout budgets one device's whole trip from informing to
+// connected when the container is the one adopting it.
+const liveAdoptTimeout = 6 * time.Minute
+
+// TestClassicContainerAdoptLive is the proof that the container adopts its
+// own devices: the emulator runs with SIM_ADOPT and this test never issues
+// an adopt command, only watching the controller until the fleet reports
+// connected. Two devices, so the sequential fleet loop is exercised rather
+// than a single lucky adopt.
+func TestClassicContainerAdoptLive(t *testing.T) {
+	h := startClassicHarness(t)
+	specs := []emu.DeviceSpec{
+		{MAC: "00:27:22:e0:00:41", Model: "U7PRO", IP: "192.168.1.181"},
+		{MAC: "00:27:22:e0:00:42", Model: "USM8P", IP: "192.168.1.182"},
+	}
+	h.startEmulatorAdopting(specs)
+
+	client := adopt.New(h.apiURL, adopt.Classic)
+	if err := client.Login(h.ctx, itestControllerUser, itestControllerPassword); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	for _, spec := range specs {
+		device := waitContainerAdopted(t, h, client, spec.MAC)
+		h.recordFinal(device)
+		t.Logf("%s adopted by the container: state=%d adopted=%v model=%s ip=%s",
+			device.MAC, device.State, device.Adopted, device.Model, device.IP)
+	}
+}
+
+// waitContainerAdopted watches the controller until mac reports connected,
+// checking on every poll that the emulator is still alive. That check is the
+// point: a container whose adoption fails exits non-zero, so its status
+// carries the real diagnosis and there is no reason to wait out the clock.
+func waitContainerAdopted(t *testing.T, h *itestHarness, client *adopt.Client, mac string) adopt.Device {
+	t.Helper()
+	ctx, stop := context.WithTimeout(h.ctx, liveAdoptTimeout)
+	defer stop()
+	tick := time.NewTicker(2 * time.Second)
+	defer tick.Stop()
+	var last adopt.Device
+	var lastErr error
+	for {
+		device, err := client.DeviceByMAC(ctx, "default", mac)
+		if err == nil {
+			last, lastErr = device, nil
+			if device.State == 1 && device.Adopted {
+				return device
+			}
+		} else {
+			lastErr = err
+		}
+		h.requireEmulatorRunning()
+		select {
+		case <-ctx.Done():
+			t.Fatalf("%s never adopted by the container: %v (last state %d adopted=%v, last error %v)",
+				mac, ctx.Err(), last.State, last.Adopted, lastErr)
+		case <-tick.C:
+		}
+	}
+}
+
 // adoptAndWaitConnected drives one device through the complete live flow:
 // wait for the pending document, adopt with the controller's known
 // too-young-document retry, then require controller state 1/adopted and a

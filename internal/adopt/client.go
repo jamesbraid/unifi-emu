@@ -50,12 +50,33 @@ func newSessionClient() *http.Client {
 	}
 }
 
-// New returns a client for the controller at baseURL. The cookie-jar
-// session's transport is wrapped in a csrfSniffer (harmless for Classic — it
-// simply never sees a token) and the whole thing in go-retryablehttp; the
-// cookie jar and CSRF sniffing stay on the inner client, which retryablehttp
-// drives per attempt.
+// Retry backoff bounds, and a retry ceiling that exists only as a
+// runaway backstop. The real deadline is the caller's context:
+// go-retryablehttp stops the moment the request context is done, so a
+// controller that is still booting keeps being retried for exactly as long
+// as the caller allows. A small RetryMax would instead give up early —
+// after roughly two minutes at these bounds — and report a controller that
+// simply had not finished starting as a failed adoption.
+const (
+	retryWaitMin = time.Second
+	retryWaitMax = 30 * time.Second
+	retryMax     = 1000
+)
+
+// New returns a client for the controller at baseURL, retrying transport
+// errors and 429/5xx until the caller's context expires.
 func New(baseURL string, d Dialect) *Client {
+	return newClient(baseURL, d, retryWaitMin, retryWaitMax)
+}
+
+// newClient is New with the backoff bounds exposed, so tests can prove the
+// context governs the retrying without waiting out real backoff.
+//
+// The cookie-jar session's transport is wrapped in a csrfSniffer (harmless
+// for Classic — it simply never sees a token) and the whole thing in
+// go-retryablehttp; the cookie jar and CSRF sniffing stay on the inner
+// client, which retryablehttp drives per attempt.
+func newClient(baseURL string, d Dialect, waitMin, waitMax time.Duration) *Client {
 	c := &Client{
 		base:    strings.TrimRight(baseURL, "/"),
 		dialect: d,
@@ -67,7 +88,9 @@ func New(baseURL string, d Dialect) *Client {
 	rc := retryablehttp.NewClient()
 	rc.HTTPClient = inner
 	rc.Logger = nil // no log spam
-	rc.RetryMax = 8
+	rc.RetryWaitMin = waitMin
+	rc.RetryWaitMax = waitMax
+	rc.RetryMax = retryMax
 	c.hc = rc.StandardClient()
 	return c
 }

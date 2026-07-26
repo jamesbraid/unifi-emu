@@ -578,6 +578,65 @@ func TestUOSAdoptFlow(t *testing.T) {
 	}
 }
 
+// TestLoginRetriesUntilTheContextExpires pins the behaviour a container
+// service depends on: started before its controller, it must keep trying for
+// as long as the adopt budget allows. A fixed attempt ceiling would give up
+// while the caller still had minutes left and report a controller that had
+// merely not finished booting as a failed adoption.
+func TestLoginRetriesUntilTheContextExpires(t *testing.T) {
+	var mu sync.Mutex
+	attempts := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		attempts++
+		mu.Unlock()
+		http.Error(w, "still starting", http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(srv.Close)
+
+	// Backoff in milliseconds, so a fixed ceiling would be exhausted long
+	// before the deadline and the two causes stay distinguishable.
+	c := newClient(srv.URL, Classic, time.Millisecond, 2*time.Millisecond)
+	const budget = 300 * time.Millisecond
+	start := time.Now()
+	err := c.Login(waitCtx(t, budget), "admin", "admin")
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("Login against a controller that never comes up: want an error, got nil")
+	}
+	if elapsed < budget/2 {
+		t.Errorf("Login gave up after %s of a %s budget; the context should be what stops it", elapsed, budget)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if attempts < 10 {
+		t.Errorf("controller saw %d attempts in %s; retrying stopped early", attempts, elapsed)
+	}
+}
+
+// TestLoginDoesNotRetryRejectedCredentials is the other half: a password the
+// controller refuses will be refused again, so retrying it would burn the
+// whole budget before reporting a fault visible on the first attempt.
+func TestLoginDoesNotRetryRejectedCredentials(t *testing.T) {
+	f := newFakeClassic(t, "00:15:6d:00:00:01")
+	c := newClient(f.server.URL, Classic, time.Millisecond, 2*time.Millisecond)
+
+	start := time.Now()
+	err := c.Login(waitCtx(t, 5*time.Second), "admin", "wrong")
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("Login with a bad password: want an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "api.err.InvalidCredential") {
+		t.Errorf("error %q lost the controller's reason to a retry loop", err)
+	}
+	if elapsed > time.Second {
+		t.Errorf("Login took %s to reject a bad password; it should fail on the first answer", elapsed)
+	}
+}
+
 func TestUOSLoginFailure(t *testing.T) {
 	f := newFakeUOS(t, "00:15:6d:00:00:01")
 	c := New(f.server.URL, UniFiOS)

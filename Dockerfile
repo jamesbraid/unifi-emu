@@ -7,10 +7,16 @@
 #     -e SIM_MODELS=U7PRO,USM8P:2,UGW3                                   # pick models
 #   docker run --rm unifi-emu:dev -inform http://CTRL:8080/inform -mac 00:27:22:e0:00:31  # one device
 #
+# Adding SIM_ADOPT makes the container adopt what it informs, reaching the
+# controller's API port as well as its inform port:
+#   docker run --rm -e SIM_ADOPT=1 -e SIM_ADOPT_URL=https://CTRL:8443 \
+#     -e SIM_ADOPT_USERNAME=admin -e SIM_ADOPT_PASSWORD=admin \
+#     unifi-emu:dev -inform http://CTRL:8080/inform
+#
 # The CA bundle comes along from the build stage. It is inert while TLS
-# verification is off (the adopt helper skips verification against
-# self-signed controller certs); kept so enabling verification later is
-# a one-line change.
+# verification is off (adoption skips verification against self-signed
+# controller certs); kept so enabling verification later is a one-line
+# change.
 # Build on the native BUILDPLATFORM and cross-compile to TARGETOS/TARGETARCH
 # (CGO is off, so no emulation needed — buildx multi-arch stays fast). VERSION
 # stamps the CLI so `docker run ... -V` reports the release version.

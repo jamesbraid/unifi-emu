@@ -30,6 +30,7 @@ import (
 	"time"
 
 	emu "github.com/jamesbraid/unifi-emu"
+	"github.com/jamesbraid/unifi-emu/internal/adopt"
 	"github.com/testcontainers/testcontainers-go"
 )
 
@@ -303,7 +304,7 @@ func runSweepBatch(
 	h := startClassicHarness(t)
 	h.emulatorImage = emulatorImage
 	h.startEmulatorModels(strings.Join(batch.Models, ","))
-	client := newControllerClient(h.apiURL, classic)
+	client := adopt.New(h.apiURL, adopt.Classic)
 	if err := client.Login(h.ctx, "admin", "admin"); err != nil {
 		t.Fatalf("login: %v", err)
 	}
@@ -421,7 +422,7 @@ func confirmSweepFailures(
 				h := startClassicHarness(t)
 				h.emulatorImage = emulatorImage
 				h.startEmulatorModels(model)
-				client := newControllerClient(h.apiURL, classic)
+				client := adopt.New(h.apiURL, adopt.Classic)
 				if err := client.Login(h.ctx, "admin", "admin"); err != nil {
 					t.Fatalf("login: %v", err)
 				}

@@ -1,10 +1,9 @@
-package emu_test
+package adopt
 
-// Unit coverage for the collapsed controllerClient against in-memory fakes:
-// both dialects' login, CSRF capture and mid-session rotation (unifiOS),
-// adopt carrying the CSRF header on unifiOS and none on classic,
-// DeviceByMAC found/not-found, the meta.rc!=ok envelope check, and
-// WaitAdopted settling on state 1.
+// Unit coverage for the Client against in-memory fakes: both dialects'
+// login, CSRF capture and mid-session rotation (UniFiOS), adopt carrying the
+// CSRF header on UniFiOS and none on Classic, DeviceByMAC found/not-found,
+// the meta.rc!=ok envelope check, and WaitAdopted settling on state 1.
 
 import (
 	"context"
@@ -18,8 +17,7 @@ import (
 )
 
 // waitCtx returns a context that cancels after d and is cleaned up with the
-// test. package emu has its own copy; this one serves the external
-// package emu_test.
+// test.
 func waitCtx(t *testing.T, d time.Duration) context.Context {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), d)
@@ -46,29 +44,38 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 // deviceDoc is a stat/device response carrying dozens of fields the client
 // must ignore; state/adopted reflect whether the fake has seen the adopt.
 func deviceDoc(mac string, state int, adopted bool) map[string]any {
+	return map[string]any{"data": []map[string]any{deviceEntry(mac, state, adopted)}}
+}
+
+// deviceEntry is one device inside a stat/device list.
+func deviceEntry(mac string, state int, adopted bool) map[string]any {
 	return map[string]any{
-		"data": []map[string]any{{
-			"mac":     mac,
-			"state":   state,
-			"adopted": adopted,
-			"model":   "U7MP",
-			"ip":      "10.0.0.57",
-			"name":    "emu",
-			"uptime":  12345,
-			"version": "7.6.42",
-		}},
+		"mac":     mac,
+		"state":   state,
+		"adopted": adopted,
+		"model":   "U7MP",
+		"ip":      "10.0.0.57",
+		"name":    "emu",
+		"uptime":  12345,
+		"version": "7.6.42",
 	}
 }
 
 // fakeClassic is an in-memory classic Network App controller: cookie login,
-// devmgr adopt, and a stat/device list that flips the configured device to
-// state 1 / adopted once an adopt command for its MAC has been seen.
+// devmgr adopt, and a stat/device list that flips a configured device to
+// state 1 / adopted once an adopt command for its MAC has been seen. It
+// lists every MAC it was built with, so a fleet test can drive several.
 type fakeClassic struct {
 	server *httptest.Server
-	mac    string
+	macs   []string
+
+	// adoptErr, when non-empty, is the meta.msg returned for the first
+	// failN adopt commands, so a test can drive the retry path.
+	adoptErr string
+	failN    int
 
 	mu       sync.Mutex
-	adopted  bool
+	adopted  map[string]bool
 	sawAdopt []string
 	sawCSRF  []string // X-CSRF-Token value on every authed hit (classic sends none)
 	// forceState, when non-zero, replaces the pending/adopted flip, so a
@@ -83,9 +90,9 @@ func (f *fakeClassic) setState(state int) {
 	f.forceState = state
 }
 
-func newFakeClassic(t *testing.T, mac string) *fakeClassic {
+func newFakeClassic(t *testing.T, macs ...string) *fakeClassic {
 	t.Helper()
-	f := &fakeClassic{mac: mac}
+	f := &fakeClassic{macs: macs, adopted: map[string]bool{}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/login", f.handleLogin)
 	mux.HandleFunc("POST /api/s/{site}/cmd/devmgr", f.handleDevmgr)
@@ -93,6 +100,14 @@ func newFakeClassic(t *testing.T, mac string) *fakeClassic {
 	f.server = httptest.NewServer(mux)
 	t.Cleanup(f.server.Close)
 	return f
+}
+
+// markAdopted pre-adopts mac, so a test can present a device that is already
+// connected before anything calls Adopt.
+func (f *fakeClassic) markAdopted(mac string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.adopted[mac] = true
 }
 
 func (f *fakeClassic) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -134,10 +149,20 @@ func (f *fakeClassic) handleDevmgr(w http.ResponseWriter, r *http.Request) {
 	}
 	f.mu.Lock()
 	f.sawAdopt = append(f.sawAdopt, cmd.MAC)
-	if cmd.MAC == f.mac {
-		f.adopted = true
+	reject := f.adoptErr != "" && len(f.sawAdopt) <= f.failN
+	if !reject {
+		for _, mac := range f.macs {
+			if mac == cmd.MAC {
+				f.adopted[mac] = true
+			}
+		}
 	}
+	adoptErr := f.adoptErr
 	f.mu.Unlock()
+	if reject {
+		writeErr(w, http.StatusBadRequest, adoptErr)
+		return
+	}
 	writeOK(w)
 }
 
@@ -147,16 +172,20 @@ func (f *fakeClassic) handleStatDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f.mu.Lock()
-	state, adopted := 2, false
-	if f.adopted {
-		state, adopted = 1, true
-	}
-	if f.forceState != 0 {
-		state, adopted = f.forceState, false
+	entries := make([]map[string]any, 0, len(f.macs))
+	for _, mac := range f.macs {
+		state, adopted := 2, false
+		if f.adopted[mac] {
+			state, adopted = 1, true
+		}
+		if f.forceState != 0 {
+			state, adopted = f.forceState, false
+		}
+		entries = append(entries, deviceEntry(mac, state, adopted))
 	}
 	f.mu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(deviceDoc(f.mac, state, adopted))
+	_ = json.NewEncoder(w).Encode(map[string]any{"data": entries})
 }
 
 func (f *fakeClassic) sawAdopts() []string {
@@ -329,7 +358,7 @@ func TestClassicWaitAdoptedPollsThroughState7(t *testing.T) {
 	const mac = "00:15:6d:00:00:01"
 	f := newFakeClassic(t, mac)
 	f.setState(7)
-	c := newControllerClient(f.server.URL, classic)
+	c := New(f.server.URL, Classic)
 	ctx := waitCtx(t, 5*time.Second)
 
 	if err := c.Login(ctx, "admin", "admin"); err != nil {
@@ -356,7 +385,7 @@ func TestClassicWaitAdoptedPollsThroughState7(t *testing.T) {
 func TestClassicDevicesListsEveryDocument(t *testing.T) {
 	const mac = "00:15:6d:00:00:01"
 	f := newFakeClassic(t, mac)
-	c := newControllerClient(f.server.URL, classic)
+	c := New(f.server.URL, Classic)
 	ctx := waitCtx(t, 5*time.Second)
 
 	if err := c.Login(ctx, "admin", "admin"); err != nil {
@@ -378,7 +407,7 @@ func TestClassicDevicesListsEveryDocument(t *testing.T) {
 func TestClassicAdoptFlow(t *testing.T) {
 	const mac = "00:15:6d:00:00:01"
 	f := newFakeClassic(t, mac)
-	c := newControllerClient(f.server.URL, classic)
+	c := New(f.server.URL, Classic)
 	ctx := waitCtx(t, 5*time.Second)
 
 	if err := c.Login(ctx, "admin", "admin"); err != nil {
@@ -419,7 +448,7 @@ func TestClassicAdoptFlow(t *testing.T) {
 func TestClassicLoginFailure(t *testing.T) {
 	const mac = "00:15:6d:00:00:01"
 	f := newFakeClassic(t, mac)
-	c := newControllerClient(f.server.URL, classic)
+	c := New(f.server.URL, Classic)
 	ctx := waitCtx(t, 5*time.Second)
 
 	// The controller puts the real reason in the body's msg field; the
@@ -444,7 +473,7 @@ func TestClassicLoginFailure(t *testing.T) {
 
 func TestClassicDeviceByMACNotFound(t *testing.T) {
 	f := newFakeClassic(t, "00:15:6d:00:00:01")
-	c := newControllerClient(f.server.URL, classic)
+	c := New(f.server.URL, Classic)
 	ctx := waitCtx(t, 5*time.Second)
 	if err := c.Login(ctx, "admin", "admin"); err != nil {
 		t.Fatalf("Login: %v", err)
@@ -461,7 +490,7 @@ func TestClassicDeviceByMACNotFound(t *testing.T) {
 func TestClassicWaitAdoptedTimeout(t *testing.T) {
 	const mac = "00:15:6d:00:00:01"
 	f := newFakeClassic(t, mac) // nobody ever clicks Adopt
-	c := newControllerClient(f.server.URL, classic)
+	c := New(f.server.URL, Classic)
 	if err := c.Login(context.Background(), "admin", "admin"); err != nil {
 		t.Fatalf("Login: %v", err)
 	}
@@ -482,7 +511,7 @@ func TestClassicRejectsHTTP200ErrorEnvelopes(t *testing.T) {
 		writeErr(w, http.StatusOK, "api.err.InvalidTarget")
 	}))
 	t.Cleanup(s.Close)
-	c := newControllerClient(s.URL, classic)
+	c := New(s.URL, Classic)
 	ctx := waitCtx(t, 5*time.Second)
 
 	if err := c.Login(ctx, "admin", "admin"); err == nil ||
@@ -502,7 +531,7 @@ func TestClassicRejectsHTTP200ErrorEnvelopes(t *testing.T) {
 func TestUOSAdoptFlow(t *testing.T) {
 	const mac = "00:15:6d:00:00:01"
 	f := newFakeUOS(t, mac)
-	c := newControllerClient(f.server.URL, unifiOS)
+	c := New(f.server.URL, UniFiOS)
 	ctx := waitCtx(t, 5*time.Second)
 
 	if err := c.Login(ctx, "admin", "admin"); err != nil {
@@ -549,9 +578,68 @@ func TestUOSAdoptFlow(t *testing.T) {
 	}
 }
 
+// TestLoginRetriesUntilTheContextExpires pins the behaviour a container
+// service depends on: started before its controller, it must keep trying for
+// as long as the adopt budget allows. A fixed attempt ceiling would give up
+// while the caller still had minutes left and report a controller that had
+// merely not finished booting as a failed adoption.
+func TestLoginRetriesUntilTheContextExpires(t *testing.T) {
+	var mu sync.Mutex
+	attempts := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		attempts++
+		mu.Unlock()
+		http.Error(w, "still starting", http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(srv.Close)
+
+	// Backoff in milliseconds, so a fixed ceiling would be exhausted long
+	// before the deadline and the two causes stay distinguishable.
+	c := newClient(srv.URL, Classic, time.Millisecond, 2*time.Millisecond)
+	const budget = 300 * time.Millisecond
+	start := time.Now()
+	err := c.Login(waitCtx(t, budget), "admin", "admin")
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("Login against a controller that never comes up: want an error, got nil")
+	}
+	if elapsed < budget/2 {
+		t.Errorf("Login gave up after %s of a %s budget; the context should be what stops it", elapsed, budget)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if attempts < 10 {
+		t.Errorf("controller saw %d attempts in %s; retrying stopped early", attempts, elapsed)
+	}
+}
+
+// TestLoginDoesNotRetryRejectedCredentials is the other half: a password the
+// controller refuses will be refused again, so retrying it would burn the
+// whole budget before reporting a fault visible on the first attempt.
+func TestLoginDoesNotRetryRejectedCredentials(t *testing.T) {
+	f := newFakeClassic(t, "00:15:6d:00:00:01")
+	c := newClient(f.server.URL, Classic, time.Millisecond, 2*time.Millisecond)
+
+	start := time.Now()
+	err := c.Login(waitCtx(t, 5*time.Second), "admin", "wrong")
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("Login with a bad password: want an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "api.err.InvalidCredential") {
+		t.Errorf("error %q lost the controller's reason to a retry loop", err)
+	}
+	if elapsed > time.Second {
+		t.Errorf("Login took %s to reject a bad password; it should fail on the first answer", elapsed)
+	}
+}
+
 func TestUOSLoginFailure(t *testing.T) {
 	f := newFakeUOS(t, "00:15:6d:00:00:01")
-	c := newControllerClient(f.server.URL, unifiOS)
+	c := New(f.server.URL, UniFiOS)
 	ctx := waitCtx(t, 5*time.Second)
 
 	// ucore puts the real reason in the body; the client error must surface
@@ -568,7 +656,7 @@ func TestUOSLoginFailure(t *testing.T) {
 func TestUOSLoginMissingToken(t *testing.T) {
 	f := newFakeUOS(t, "00:15:6d:00:00:01")
 	f.omitCSRF = true // 200 but no x-updated-csrf-token header
-	c := newControllerClient(f.server.URL, unifiOS)
+	c := New(f.server.URL, UniFiOS)
 
 	err := c.Login(waitCtx(t, 5*time.Second), "admin", "admin")
 	if err == nil {
@@ -582,7 +670,7 @@ func TestUOSLoginMissingToken(t *testing.T) {
 func TestUOSLoginAcceptsLegacyCSRFHeader(t *testing.T) {
 	f := newFakeUOS(t, "00:15:6d:00:00:01")
 	f.legacyCSRF = true
-	c := newControllerClient(f.server.URL, unifiOS)
+	c := New(f.server.URL, UniFiOS)
 	if err := c.Login(waitCtx(t, 5*time.Second), "admin", "admin"); err != nil {
 		t.Fatalf("Login with X-Csrf-Token: %v", err)
 	}
@@ -594,7 +682,7 @@ func TestUOSLoginAcceptsLegacyCSRFHeader(t *testing.T) {
 func TestUOSAuthedCallsNeedLogin(t *testing.T) {
 	const mac = "00:15:6d:00:00:01"
 	f := newFakeUOS(t, mac)
-	c := newControllerClient(f.server.URL, unifiOS) // no Login: no cookie, no CSRF token
+	c := New(f.server.URL, UniFiOS) // no Login: no cookie, no CSRF token
 	ctx := waitCtx(t, 5*time.Second)
 
 	// ucore 403s proxied calls without cookie + token, so both must fail.
@@ -610,7 +698,7 @@ func TestUOSAuthedCallsNeedLogin(t *testing.T) {
 
 func TestUOSDeviceByMACNotFound(t *testing.T) {
 	f := newFakeUOS(t, "00:15:6d:00:00:01")
-	c := newControllerClient(f.server.URL, unifiOS)
+	c := New(f.server.URL, UniFiOS)
 	ctx := waitCtx(t, 5*time.Second)
 	if err := c.Login(ctx, "admin", "admin"); err != nil {
 		t.Fatalf("Login: %v", err)
@@ -627,7 +715,7 @@ func TestUOSDeviceByMACNotFound(t *testing.T) {
 func TestUOSWaitAdoptedTimeout(t *testing.T) {
 	const mac = "00:15:6d:00:00:01"
 	f := newFakeUOS(t, mac) // nobody ever clicks Adopt
-	c := newControllerClient(f.server.URL, unifiOS)
+	c := New(f.server.URL, UniFiOS)
 	if err := c.Login(context.Background(), "admin", "admin"); err != nil {
 		t.Fatalf("Login: %v", err)
 	}

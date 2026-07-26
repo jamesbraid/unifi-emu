@@ -43,13 +43,15 @@ anonymously pullable — and the module is on the Go proxy. Image tags drop the
 `v` that module tags keep:
 
 ```sh
-docker pull ghcr.io/jamesbraid/unifi-emu:0.4   # also :0.4.1, :latest
-go get github.com/jamesbraid/unifi-emu@v0.4.1
+docker pull ghcr.io/jamesbraid/unifi-emu:0.4   # also :0.4.2, :latest
+go get github.com/jamesbraid/unifi-emu@v0.4.2
 ```
 
 `-adopt` arrived in 0.4.0, which is also where the model registry drops to
 182. Anything on 0.3.x informs only. Adopting against a controller that is
 still starting needs 0.4.1: 0.4.0 exits instead of waiting for it.
+Configuring BGP against an emulated UXG-Enterprise needs 0.4.2; earlier
+releases get the same 404 every other gateway still gets.
 
 ### Quick start
 

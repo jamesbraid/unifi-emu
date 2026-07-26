@@ -31,6 +31,8 @@ type catalogModel struct {
 	ModelDisplay string         `json:"model_display"`
 	Type         string         `json:"type"`
 	Version      string         `json:"version"`
+	UDAPIVersion string         `json:"udapi_version,omitempty"`
+	UDAPICaps    int            `json:"udapi_caps,omitempty"`
 	Ports        []catalogPort  `json:"ports,omitempty"`
 	Radios       []catalogRadio `json:"radios,omitempty"`
 }
@@ -239,7 +241,7 @@ func deriveLayout(m *catalogModel, meta deviceDBModel) error {
 // firmware index supplies versions, the display map supplies friendly names,
 // and overrides patch the AP ethernet layout and per-band spatial streams that
 // the bundle cannot express.
-func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, ov overrides, ver string) (catalogFile, error) {
+func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, ov overrides, caps capsFile, ver string) (catalogFile, error) {
 	out := catalogFile{
 		ControllerVersion: ver,
 		IdentitySource:    "controller hardware DB bundle (swai.js)",
@@ -303,6 +305,18 @@ func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, o
 		o, hasOverride := ov.Models[model]
 		if hasOverride {
 			applyOverride(&m, o)
+			if o.UDAPI != nil {
+				mask, err := caps.udapiMask(model, o.UDAPI.Caps)
+				if err != nil {
+					return catalogFile{}, err
+				}
+				// Both keys or neither. A device reporting the bitmap
+				// with no version has its whole capability update
+				// skipped by the controller, so half an override is
+				// worse than none.
+				m.UDAPIVersion = o.UDAPI.Version
+				m.UDAPICaps = mask
+			}
 		}
 		if err := validateModel(&m); err != nil {
 			skipped = append(skipped, fmt.Sprintf("%s (%v)", model, err))
@@ -773,6 +787,7 @@ func run(args []string) error {
 	bundlesJSONPath := fs.String("bundles-json", "", "bundles.json model->display map, used with -bundle")
 	firmwareJSONPath := fs.String("firmware-json", "", "saved firmware-latest.json response, used with -bundle")
 	overridesPath := fs.String("overrides", "model_overrides.json", "model overrides file, used with -bundle")
+	capsPath := fs.String("caps", "capability_bits.json", "capability bit names from scripts/extract-caps.sh, used with -bundle")
 	catalogPath := fs.String("catalog", "model_profiles.json", "reduced model catalog")
 	version := fs.String("controller-version", "", "source controller version (required with -input or -bundle)")
 	fetchEth := fs.Bool("fetch-eth", false, "pull AP ethernet from Tech Specs into -overrides (needs -bundle and -fingerprint)")
@@ -829,7 +844,11 @@ func run(args []string) error {
 		if err != nil {
 			return err
 		}
-		catalog, err = harvestBundle(bundleBytes, display, fw, ov, *version)
+		caps, err := loadCaps(*capsPath)
+		if err != nil {
+			return err
+		}
+		catalog, err = harvestBundle(bundleBytes, display, fw, ov, caps, *version)
 		if err != nil {
 			return err
 		}

@@ -38,6 +38,25 @@ func (d *device) buildPayload() []byte {
 		"locating":       false,
 		"selfrun_beacon": true,
 	}
+	// A device that runs the UDAPI config plane reports its schema version
+	// and capability bitmap on every inform, adopted or not. Both keys go
+	// out together, from the one condition: for a device on firmware
+	// >= 4.1.0 that reports no udapi_version the controller skips its
+	// entire capability-update pass ("Skip updating capability for device
+	// [..] due to empty udapi_version" in server.log) and stores none of
+	// fw_caps, hw_caps, switch_caps or udapi_caps — so a bitmap sent alone
+	// is silently dropped and the device looks less capable than before.
+	//
+	// Which models have it is a per-model fact from Ubiquiti's published
+	// matrix, carried in the profile (see model_overrides.json), not a
+	// property of the type: of the gateways that adopt by inform only
+	// UXG-Enterprise has UDAPI routing, and the USG line has no UDAPI at
+	// all. The controller offers every claimed capability against the
+	// device, so claiming one it cannot service is the worse lie.
+	if d.profile.UDAPIVersion != "" {
+		m["udapi_version"] = map[string]any{"version": d.profile.UDAPIVersion}
+		m["udapi_caps"] = d.profile.UDAPICaps
+	}
 	if d.adopted {
 		// Device-side state 4 means managed/adopted; it is not the same
 		// state enum as stat/device. OpenUniFi sends 4 for every adopted

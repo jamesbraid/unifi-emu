@@ -59,8 +59,9 @@ implement login-rate-limit retries.
 ## Harness structure
 
 Container request construction, readiness polling, evidence capture, and
-cleanup live in integration-tagged Go helpers. Tests use the existing `Emu`,
-`ClassicClient`, and `UOSClient` APIs for behavior assertions.
+cleanup live in integration-tagged Go helpers. Tests drive behaviour through
+the `Emu` API and `internal/adopt`, whose `Fleet` runs the pending-adopt-wait
+sequence the emulator's own `-adopt` mode uses.
 
 Testcontainers cleanup hooks terminate emulator and controller containers and
 remove the network even after a failed assertion. Helpers return ordinary

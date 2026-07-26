@@ -30,6 +30,23 @@ type itestHarness struct {
 	controllerIP string
 	pending      []Device
 	final        []Device
+	// emulatorImage, when set before the emulator starts, is used instead of
+	// building the image from the checkout. A single test builds once anyway,
+	// but a sweep starts one emulator per batch over tens of minutes, and
+	// rebuilding each time would make every batch depend on the working tree
+	// still holding what the run started with.
+	emulatorImage string
+}
+
+// images resolves the images this harness should use: the environment's, with
+// a prebuilt emulator image overriding the from-checkout build when one was
+// handed to the harness.
+func (h *itestHarness) images() itestImages {
+	images := loadITestImages()
+	if h.emulatorImage != "" {
+		images.emulator = h.emulatorImage
+	}
+	return images
 }
 
 func startClassicHarness(t *testing.T) *itestHarness {
@@ -134,7 +151,7 @@ func (h *itestHarness) mappedHTTPSURL(port string) string {
 func (h *itestHarness) startEmulator(specs []emu.DeviceSpec) {
 	h.t.Helper()
 	informURL := "http://" + h.controllerIP + ":8080/inform"
-	request := emulatorContainerRequest(h.network.Name, loadITestImages(), informURL, specs)
+	request := emulatorContainerRequest(h.network.Name, h.images(), informURL, specs)
 	emulator, err := testcontainers.GenericContainer(h.ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: request,
 		Started:          true,
@@ -150,7 +167,7 @@ func (h *itestHarness) startEmulator(specs []emu.DeviceSpec) {
 func (h *itestHarness) startEmulatorModels(modelsCSV string) {
 	h.t.Helper()
 	informURL := "http://" + h.controllerIP + ":8080/inform"
-	request := emulatorModelsRequest(h.network.Name, loadITestImages(), informURL, modelsCSV)
+	request := emulatorModelsRequest(h.network.Name, h.images(), informURL, modelsCSV)
 	emulator, err := testcontainers.GenericContainer(h.ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: request,
 		Started:          true,

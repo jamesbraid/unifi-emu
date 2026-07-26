@@ -189,7 +189,7 @@ and its API.
 ## Model registry
 
 The registry covers the full current UniFi AP / switch / gateway lineup —
-**187 models** at controller 10.4.57. [`model_profiles.json`](model_profiles.json)
+**182 models** at controller 10.4.57. [`model_profiles.json`](model_profiles.json)
 is the checked-in reduced catalog, embedded with `go:embed` and parsed at
 startup. There is no generated Go to commit, so `go build` and `go test` need
 no extra step.

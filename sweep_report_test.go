@@ -20,9 +20,15 @@ type sweepOutcome struct {
 	// omitting the field would record it as indistinguishable from a model
 	// nobody measured. The report-level count keeps omitempty, where absence
 	// genuinely means "this tier never checked adoption".
-	Adopted bool   `json:"adopted"`
-	Batch   int    `json:"batch"`
-	Note    string `json:"note,omitempty"`
+	Adopted bool `json:"adopted"`
+	// BGP is the capability probe's answer for an adopted gateway:
+	// accepted, unsupported, or probe-failed. Empty means not measured --
+	// a non-gateway, a device that never adopted, or a registration-tier
+	// run. Kept distinct from "unsupported" so an unprobed model never
+	// reads as a refusal.
+	BGP   string `json:"bgp,omitempty"`
+	Batch int    `json:"batch"`
+	Note  string `json:"note,omitempty"`
 }
 
 // sweepReport is one whole sweep run.

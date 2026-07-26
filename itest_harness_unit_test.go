@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	emu "github.com/jamesbraid/unifi-emu"
+	"github.com/jamesbraid/unifi-emu/internal/adopt"
 )
 
 func TestEvidenceDirUsesSafeTestName(t *testing.T) {
@@ -20,7 +21,7 @@ func TestEvidenceDirUsesSafeTestName(t *testing.T) {
 
 func TestWriteJSONPreservesDeviceDocument(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "pending-devices.json")
-	devices := []Device{{
+	devices := []adopt.Device{{
 		MAC:     "00:27:22:e0:00:01",
 		State:   2,
 		Adopted: false,

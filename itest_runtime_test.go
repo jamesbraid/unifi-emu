@@ -14,6 +14,7 @@ import (
 	"time"
 
 	emu "github.com/jamesbraid/unifi-emu"
+	"github.com/jamesbraid/unifi-emu/internal/adopt"
 	"github.com/testcontainers/testcontainers-go"
 	tcnetwork "github.com/testcontainers/testcontainers-go/network"
 )
@@ -28,8 +29,8 @@ type itestHarness struct {
 	evidence     string
 	apiURL       string
 	controllerIP string
-	pending      []Device
-	final        []Device
+	pending      []adopt.Device
+	final        []adopt.Device
 	// emulatorImage, when set before the emulator starts, is used instead of
 	// building the image from the checkout. A single test builds once anyway,
 	// but a sweep starts one emulator per batch over tens of minutes, and
@@ -178,7 +179,7 @@ func (h *itestHarness) startEmulatorModels(modelsCSV string) {
 	}
 }
 
-func (h *itestHarness) recordPending(device Device) {
+func (h *itestHarness) recordPending(device adopt.Device) {
 	h.pending = append(h.pending, device)
 	if err := writeJSON(filepath.Join(h.evidence, "pending-devices.json"), h.pending); err != nil {
 		h.t.Errorf("write pending device evidence: %v", err)
@@ -212,7 +213,7 @@ func (h *itestHarness) recordListing(client adopter, site string) string {
 	return fmt.Sprintf("controller listed %d devices: %s", len(list), strings.Join(summary, ", "))
 }
 
-func (h *itestHarness) recordFinal(device Device) {
+func (h *itestHarness) recordFinal(device adopt.Device) {
 	h.final = append(h.final, device)
 	if err := writeJSON(filepath.Join(h.evidence, "final-devices.json"), h.final); err != nil {
 		h.t.Errorf("write final device evidence: %v", err)

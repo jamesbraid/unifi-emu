@@ -330,6 +330,7 @@ func runSweepBatch(
 				continue
 			}
 			outcomes[i].Adopted = device.State == 1 && device.Adopted
+			probeGatewayBGP(t, h.ctx, client, &outcomes[i])
 		}
 	}
 	return outcomes
@@ -453,6 +454,7 @@ func confirmSweepFailures(
 						outcome.Note = fmt.Sprintf("registered alone but did not adopt: %v", err)
 					} else {
 						outcome.Adopted = device.State == 1 && device.Adopted
+						probeGatewayBGP(t, h.ctx, client, &outcome)
 					}
 				}
 				outcomes[index] = outcome

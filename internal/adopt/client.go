@@ -261,6 +261,49 @@ func (c *Client) Devices(ctx context.Context, site string) ([]Device, error) {
 	return devices(ctx, c.hc, c.apiURL(site, "stat/device"), c.authHeader())
 }
 
+// PostRaw sends an authenticated POST to a controller path and returns the
+// status and body without interpreting either.
+//
+// The typed methods above cover the /api/s/<site>/ endpoints adoption needs.
+// Several capability-gated features live on the v2 API instead
+// (/v2/api/site/<site>/bgp/config), whose paths and error shapes do not fit
+// that mould, and whose refusals are the interesting answer rather than a
+// failure -- a gateway without the capability answers 404 with
+// api.err.BgpUnsupportedDevice, and a caller checking a capability wants to
+// see that, not an error. So the status comes back intact and only transport
+// faults are errors.
+//
+// path is the controller path with its leading slash; the UniFi OS proxy
+// prefix and the CSRF header are added here.
+func (c *Client) PostRaw(ctx context.Context, path string, payload any) (int, []byte, error) {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return 0, nil, err
+	}
+	url := c.base + path
+	if c.dialect == UniFiOS {
+		url = c.base + "/proxy/network" + path
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return 0, nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for k, vs := range c.authHeader() {
+		req.Header[k] = vs
+	}
+	resp, err := c.hc.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+	reply, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return resp.StatusCode, nil, fmt.Errorf("emu: POST %s: read response: %w", url, err)
+	}
+	return resp.StatusCode, reply, nil
+}
+
 // WaitAdopted polls stat/device every 2s until the device reports state 1
 // and adopted. On ctx timeout it returns the last seen device and an error
 // naming it plus the last poll error, so a stalled adoption says where it

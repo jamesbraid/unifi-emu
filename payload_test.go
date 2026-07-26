@@ -196,6 +196,74 @@ func TestAdoptedPayloadUAPWithSSIDs(t *testing.T) {
 	}
 }
 
+// udapiKeys reports the udapi_caps bitmap and whether each of the two keys
+// is present. The controller drops the whole capability update when the
+// bitmap arrives without a version, so tests care about each separately.
+func udapiKeys(t *testing.T, m map[string]any) (caps float64, hasCaps, hasVersion bool) {
+	t.Helper()
+	if raw, ok := m["udapi_caps"]; ok {
+		hasCaps = true
+		caps, ok = raw.(float64)
+		if !ok {
+			t.Fatalf("udapi_caps is not numeric: %v", m["udapi_caps"])
+		}
+	}
+	if raw, ok := m["udapi_version"]; ok {
+		hasVersion = true
+		v, ok := raw.(map[string]any)
+		if !ok {
+			t.Fatalf("udapi_version is not an object: %v", raw)
+		}
+		if s, ok := v["version"].(string); !ok || s == "" {
+			t.Errorf("udapi_version.version missing or empty: %v", v)
+		}
+	}
+	return caps, hasCaps, hasVersion
+}
+
+// UNIFI_UDAPI_CAP_ROUTES_BGP, the one bit the catalog claims. Spelled out
+// rather than read from the profile so a wrong regeneration fails here
+// instead of agreeing with itself.
+const udapiCapRoutesBGP = 1 << 22
+
+// A real gateway reports its UDAPI capabilities on every inform, adopted
+// or not, so the controller knows what it is before anyone adopts it.
+func TestUXGEnterprisePayloadReportsUDAPICaps(t *testing.T) {
+	d := mustDevice(t, DeviceSpec{MAC: "00:27:22:e0:00:02", Model: "UXGENT", IP: "10.0.0.2"})
+	for _, adopted := range []bool{false, true} {
+		name := "pending"
+		if adopted {
+			markAdopted(d)
+			name = "adopted"
+		}
+		t.Run(name, func(t *testing.T) {
+			caps, hasCaps, hasVersion := udapiKeys(t, decodePayload(t, d))
+			if !hasCaps || !hasVersion {
+				t.Fatalf("udapi_caps present=%v, udapi_version present=%v; want both", hasCaps, hasVersion)
+			}
+			if caps != float64(udapiCapRoutesBGP) {
+				t.Errorf("udapi_caps = %v, want %d (routes/BGP alone)", caps, udapiCapRoutesBGP)
+			}
+		})
+	}
+}
+
+// Only UXG-Enterprise has UDAPI routing among the gateways that adopt by
+// inform. Claiming it elsewhere makes the controller offer BGP against a
+// device that answers 404 for it -- worse than not claiming it.
+func TestOtherGatewaysReportNoUDAPICaps(t *testing.T) {
+	for _, model := range []string{"UXG", "UXGB", "UXGA6AA", "UXGPRO", "UGW3", "UGW4", "UGWXG"} {
+		t.Run(model, func(t *testing.T) {
+			d := mustDevice(t, DeviceSpec{MAC: "00:27:22:e0:00:03", Model: model, IP: "10.0.0.3"})
+			markAdopted(d)
+			_, hasCaps, hasVersion := udapiKeys(t, decodePayload(t, d))
+			if hasCaps || hasVersion {
+				t.Errorf("udapi_caps present=%v, udapi_version present=%v; want neither", hasCaps, hasVersion)
+			}
+		})
+	}
+}
+
 func TestNewDeviceRejectsUnknownModel(t *testing.T) {
 	if _, err := newDevice(DeviceSpec{MAC: "00:15:6d:00:00:09", Model: "NOPE"}, testInformURL); err == nil {
 		t.Fatal("newDevice with unknown model: want error, got nil")
@@ -320,6 +388,16 @@ func TestModelRegistryPayloads(t *testing.T) {
 			d := mustDevice(t, DeviceSpec{MAC: "02:00:00:00:00:01", Model: model, IP: "10.0.0.99"})
 			markAdopted(d)
 			m := decodePayload(t, d)
+			// Both keys or neither, for every model of every type: a
+			// device on firmware >= 4.1.0 that sends the bitmap without
+			// a version has its whole capability update skipped, so the
+			// bitmap is dropped and the device looks less capable than
+			// one that claimed nothing.
+			_, hasCaps, hasVersion := udapiKeys(t, m)
+			if hasCaps != hasVersion {
+				t.Errorf("%s: udapi_caps present=%v but udapi_version present=%v; the controller needs both or neither",
+					model, hasCaps, hasVersion)
+			}
 			switch profile.Type {
 			case "uap":
 				table(t, m, "radio_table")

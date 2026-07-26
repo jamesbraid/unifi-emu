@@ -237,6 +237,15 @@
       },
       "source": "USW-Ultra PoE++ input is 1GbE RJ45, not SFP+"
     },
+    "UXGENT": {
+      "udapi": {
+        "version": "2.0.0",
+        "caps": [
+          "UNIFI_UDAPI_CAP_ROUTES_BGP"
+        ]
+      },
+      "source": "help.ui.com/hc/en-us/articles/16271338193559 (UniFi BGP): of the gateways that adopt by inform, only UXG-Enterprise supports BGP, on firmware 4.1.8 or newer. Every other device on that list (EFG, EF-Core, UDM/UCG/UDW) is a standalone console that runs the Network app and never adopts, so none are in this catalog"
+    },
     "UXSDM": {
       "eth": {
         "count": 1,

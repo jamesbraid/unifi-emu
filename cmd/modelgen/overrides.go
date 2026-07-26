@@ -14,7 +14,21 @@ type modelOverride struct {
 	Eth    *ethOverride             `json:"eth,omitempty"`
 	Radios map[string]radioOverride `json:"radios,omitempty"`
 	Ports  map[string]portOverride  `json:"ports,omitempty"`
+	UDAPI  *udapiOverride           `json:"udapi,omitempty"`
 	Source string                   `json:"source,omitempty"`
+}
+
+// udapiOverride is what a model reports for the UDAPI config plane.
+// Which models really have which capability is a fact about hardware
+// that exists nowhere in the controller -- it learns the bitmap from the
+// device -- so it is curated here from Ubiquiti's published support
+// matrix, with the citation in the entry's source.
+//
+// Caps names bits from capability_bits.json rather than a number, so
+// the entry says what it claims and a typo fails the build.
+type udapiOverride struct {
+	Version string   `json:"version"`
+	Caps    []string `json:"caps"`
 }
 
 type ethOverride struct {

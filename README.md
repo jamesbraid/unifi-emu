@@ -133,6 +133,19 @@ that starts ahead of its controller therefore adopts as soon as that
 controller answers. Rejected credentials still fail on the first answer,
 instead of burning the budget.
 
+Readiness is the body, not the status. Early in boot a controller serves an
+HTML placeholder under HTTP 200 on every path, so the status alone cannot
+spot it; every answer from a running controller is JSON, a refusal included,
+so the wait is for a JSON body. The adopt command waits the same way, because
+on UniFi OS the login lands against the OS while the Network App behind it is
+still starting — there the placeholder outlives the login. Each wait is
+logged: a cold controller can take minutes, and a silent container looks like
+a hung one.
+
+Pointing `SIM_ADOPT_URL` at the inform port still fails immediately rather
+than waiting. That mistake reaches a controller that answers, and a
+controller that answers answers in JSON.
+
 Restarting against a controller that still holds the fleet succeeds, leaving
 the already-adopted devices alone.
 

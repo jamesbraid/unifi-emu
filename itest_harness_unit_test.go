@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -43,6 +44,55 @@ func TestWriteJSONPreservesDeviceDocument(t *testing.T) {
 		if !strings.Contains(string(body), want) {
 			t.Fatalf("%s does not contain %q:\n%s", path, want, body)
 		}
+	}
+}
+
+// TestEmulatorAdoptRequestKeepsTheFleet guards the merge: the adopt
+// settings and the fleet definition share one Env map, and dropping
+// SIM_DEVICES would boot the image's baked default fleet instead of the
+// devices the test asked for — which still adopts, so the test would pass
+// while proving nothing.
+func TestEmulatorAdoptRequestKeepsTheFleet(t *testing.T) {
+	specs := []emu.DeviceSpec{
+		{MAC: "00:27:22:e0:00:41", Model: "U7PRO", IP: "192.168.1.181"},
+		{MAC: "00:27:22:e0:00:42", Model: "USM8P", IP: "192.168.1.182"},
+	}
+	request := emulatorAdoptRequest(
+		"itest-network", itestImages{emulator: "example/emu:test"},
+		"http://10.0.0.2:8080/inform", specs,
+		"https://10.0.0.2:8443", "admin", "s3cret",
+	)
+
+	if got := request.Env["SIM_DEVICES"]; !strings.Contains(got, "00:27:22:e0:00:41") {
+		t.Errorf("SIM_DEVICES = %q, want the requested fleet", got)
+	}
+	for key, want := range map[string]string{
+		"SIM_ADOPT":          "1",
+		"SIM_ADOPT_URL":      "https://10.0.0.2:8443",
+		"SIM_ADOPT_USERNAME": "admin",
+		"SIM_ADOPT_PASSWORD": "s3cret",
+	} {
+		if got := request.Env[key]; got != want {
+			t.Errorf("%s = %q, want %q", key, got, want)
+		}
+	}
+}
+
+// TestEmulatorAdoptRequestSingleDevice covers the other branch: one device
+// is configured by command-line flags, leaving the Env map nil until the
+// adopt settings create it.
+func TestEmulatorAdoptRequestSingleDevice(t *testing.T) {
+	specs := []emu.DeviceSpec{{MAC: "00:27:22:e0:00:41", Model: "U7PRO", IP: "192.168.1.181"}}
+	request := emulatorAdoptRequest(
+		"itest-network", itestImages{emulator: "example/emu:test"},
+		"http://10.0.0.2:8080/inform", specs,
+		"https://10.0.0.2:8443", "admin", "admin",
+	)
+	if request.Env["SIM_ADOPT"] != "1" {
+		t.Errorf("SIM_ADOPT = %q, want 1", request.Env["SIM_ADOPT"])
+	}
+	if !slices.Contains(request.Cmd, "00:27:22:e0:00:41") {
+		t.Errorf("command %v does not carry the device MAC", request.Cmd)
 	}
 }
 

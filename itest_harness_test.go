@@ -199,6 +199,33 @@ func emulatorContainerRequest(
 	return request
 }
 
+// emulatorAdoptRequest launches the emulator with its own adoption switched
+// on, so the container drives the fleet to connected and the test issues no
+// adopt of its own.
+//
+// adoptURL is the controller's API port on the shared container network —
+// a different port from the inform URL, and the one thing adoption needs
+// that informing does not.
+func emulatorAdoptRequest(
+	networkName string,
+	images itestImages,
+	informURL string,
+	specs []emu.DeviceSpec,
+	adoptURL, user, password string,
+) testcontainers.ContainerRequest {
+	request := emulatorContainerRequest(networkName, images, informURL, specs)
+	// A single-device fleet rides on the command line and leaves Env unset;
+	// a multi-device one already holds SIM_DEVICES, which must survive.
+	if request.Env == nil {
+		request.Env = map[string]string{}
+	}
+	request.Env["SIM_ADOPT"] = "1"
+	request.Env["SIM_ADOPT_URL"] = adoptURL
+	request.Env["SIM_ADOPT_USERNAME"] = user
+	request.Env["SIM_ADOPT_PASSWORD"] = password
+	return request
+}
+
 func emulatorBuildArgs(goarch string) map[string]*string {
 	buildPlatform := "linux/" + goarch
 	targetOS := "linux"

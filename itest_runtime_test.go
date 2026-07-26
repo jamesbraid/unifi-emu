@@ -28,6 +28,7 @@ type itestHarness struct {
 	emulator     testcontainers.Container
 	evidence     string
 	apiURL       string
+	apiPort      string // controller API port inside the network, e.g. "8443"
 	controllerIP string
 	pending      []adopt.Device
 	final        []adopt.Device
@@ -127,6 +128,7 @@ func (h *itestHarness) startController(request testcontainers.ContainerRequest, 
 		h.t.Fatalf("start controller container: %v", err)
 	}
 	h.apiURL = h.mappedHTTPSURL(apiPort)
+	h.apiPort, _, _ = strings.Cut(apiPort, "/")
 	h.controllerIP, err = controller.ContainerIP(h.ctx)
 	if err != nil {
 		h.t.Fatalf("resolve controller container IPv4: %v", err)
@@ -153,6 +155,29 @@ func (h *itestHarness) startEmulator(specs []emu.DeviceSpec) {
 	h.t.Helper()
 	informURL := "http://" + h.controllerIP + ":8080/inform"
 	request := emulatorContainerRequest(h.network.Name, h.images(), informURL, specs)
+	emulator, err := testcontainers.GenericContainer(h.ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: request,
+		Started:          true,
+	})
+	h.emulator = emulator
+	if err != nil {
+		h.t.Fatalf("start emulator container: %v", err)
+	}
+}
+
+// startEmulatorAdopting launches the emulator with adoption switched on, so
+// it informs and then adopts its own fleet without the test doing either.
+// The adopt URL is the controller's API port at the same on-network address
+// the inform URL uses, because only the API port is mapped to the host and
+// the emulator container cannot reach that.
+func (h *itestHarness) startEmulatorAdopting(specs []emu.DeviceSpec) {
+	h.t.Helper()
+	informURL := "http://" + h.controllerIP + ":8080/inform"
+	adoptURL := "https://" + h.controllerIP + ":" + h.apiPort
+	request := emulatorAdoptRequest(
+		h.network.Name, loadITestImages(), informURL, specs,
+		adoptURL, itestControllerUser, itestControllerPassword,
+	)
 	emulator, err := testcontainers.GenericContainer(h.ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: request,
 		Started:          true,

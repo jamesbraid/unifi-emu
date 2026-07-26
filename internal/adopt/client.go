@@ -157,22 +157,39 @@ func (e notReady) Error() string { return e.detail }
 // bounded by the caller's context, which is the adopt budget.
 func (c *Client) Login(ctx context.Context, user, pass string) error {
 	wait := c.waitMin
+	lastAnswer := ""
 	for {
 		err := c.login(ctx, user, pass)
 		var booting notReady
 		if !errors.As(err, &booting) {
+			// The budget can just as easily expire inside a request as
+			// between two, and then the transport reports its own
+			// cancellation, which says nothing about the controller. Which
+			// side of that boundary it lands on is a matter of load, so the
+			// diagnosis must not depend on it: if the controller had been
+			// answering with the placeholder, that is still the reason.
+			if err != nil && ctx.Err() != nil && lastAnswer != "" {
+				return notReadyTimeout(ctx, lastAnswer)
+			}
 			return err
 		}
+		lastAnswer = booting.detail
 		if c.OnWaiting != nil {
 			c.OnWaiting(booting.detail)
 		}
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("emu: controller never became ready: %w (last answer: %s)", ctx.Err(), booting.detail)
+			return notReadyTimeout(ctx, lastAnswer)
 		case <-time.After(wait):
 		}
 		wait = min(2*wait, c.waitMax)
 	}
+}
+
+// notReadyTimeout reports a budget spent waiting on a controller that never
+// finished starting, naming the last thing it answered.
+func notReadyTimeout(ctx context.Context, lastAnswer string) error {
+	return fmt.Errorf("emu: controller never became ready: %w (last answer: %s)", ctx.Err(), lastAnswer)
 }
 
 // login is one login attempt. Classic verifies the meta.rc==ok envelope;

@@ -74,7 +74,7 @@ var deviceSpecKeys = map[string]bool{
 // UnmarshalYAML lets a fleet-list entry be a bare model string ("U7PRO") or
 // a full mapping. A scalar becomes {Model: scalar}; a mapping decodes the
 // known keys and rejects any other. JSON files parse through the same YAML
-// decoder, so both formats get this behavior.
+// decoder, so both formats get this behaviour.
 func (d *DeviceSpec) UnmarshalYAML(node *yaml.Node) error {
 	if node.Kind == yaml.ScalarNode {
 		d.Model = node.Value

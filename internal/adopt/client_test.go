@@ -782,6 +782,48 @@ func TestLoginTimeoutNamesTheBootPlaceholder(t *testing.T) {
 	}
 }
 
+// TestLoginTimeoutDuringARequestStillNamesTheController covers the deadline
+// landing inside a request rather than inside the wait between them. The
+// transport reports its own cancellation, which says nothing about the
+// controller, so without the last placeholder answer carried forward the
+// operator is told "context deadline exceeded" and left to guess why. Which
+// side of that boundary the deadline falls on is a matter of load, so the
+// diagnosis cannot depend on it.
+func TestLoginTimeoutDuringARequestStillNamesTheController(t *testing.T) {
+	var mu sync.Mutex
+	seen := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		seen++
+		first := seen == 1
+		mu.Unlock()
+		if first {
+			writePlaceholder(w)
+			return
+		}
+		// Outlive the budget so it expires mid-request, but never outlive
+		// the test: the server does not always observe the client's
+		// cancellation, and Close waits on this handler.
+		select {
+		case <-r.Context().Done():
+		case <-time.After(2 * time.Second):
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	c := newClient(srv.URL, Classic, time.Millisecond, 2*time.Millisecond)
+	err := c.Login(waitCtx(t, 250*time.Millisecond), "admin", "admin")
+	if err == nil {
+		t.Fatal("Login against a controller that never answers: want an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "never became ready") {
+		t.Errorf("error %q does not say the controller never came up", err)
+	}
+	if !strings.Contains(err.Error(), "text/html") {
+		t.Errorf("error %q lost the placeholder answer that diagnoses it", err)
+	}
+}
+
 func TestUOSLoginFailure(t *testing.T) {
 	f := newFakeUOS(t, "00:15:6d:00:00:01")
 	c := New(f.server.URL, UniFiOS)

@@ -276,6 +276,45 @@ together — a device on firmware 4.1.0 or newer that sends the bitmap without a
 version has its whole capability update skipped, and ends up looking less
 capable than one that claimed nothing.
 
+### Firmware evidence
+
+`fwextract` inspects the device side of that contract. It verifies official
+firmware by SHA-256, walks the Ubiquiti containers and embedded archives, and
+writes a deterministic JSON inventory of inform fields, command names,
+capability families, identifiers, and their byte offsets.
+
+The normal path starts from Ubiquiti's current release catalogue and downloads
+only the selected platform:
+
+```sh
+go run ./cmd/fwextract \
+  -index-url 'https://fw-update.ui.com/api/firmware-latest?filter=eq~~product~~unifi-firmware&filter=eq~~channel~~release' \
+  -cache tmp/firmware -platform U7PRO \
+  -out tmp/u7pro-firmware-evidence.json
+```
+
+Local images are offline and require explicit provenance:
+
+```sh
+go run ./cmd/fwextract -image firmware.bin \
+  -sha256 '<expected sha256>' -platform U7PRO -version 8.6.11.18870 \
+  -out firmware-evidence.json
+```
+
+Add `-live mca-dump.json` to compare static observations with a sanitized live
+device dump. Firmware images, cache entries, and unpacked files stay outside
+Git. Evidence also stays separate from `model_profiles.json`: a string in a
+binary is useful evidence, but it is not enough to change emulated behaviour
+without an exact static layout or live-device confirmation.
+
+For a single image, add `-rootfs-tar rootfs.tar -rootfs-json rootfs.json` to
+publish the deterministic consumer bundle. The tar preserves vendor bytes,
+modes, directories, symlinks, and hardlinks. It contains no runtime shims or
+modified files; the JSON holds only source and tar provenance.
+
+See [`docs/FIRMWARE-EXTRACTION.md`](docs/FIRMWARE-EXTRACTION.md) for supported
+formats, the evidence schema, limits, and the real-image smoke-test recipe.
+
 ## More
 
 - [`docs/DESIGN.md`](docs/DESIGN.md) — what it is, the verified inform-protocol

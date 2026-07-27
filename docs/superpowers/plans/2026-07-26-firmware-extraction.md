@@ -11,8 +11,9 @@ The internal package models byte-range artifacts, recursively decodes bounded
 containers, classifies management-agent strings, and writes stable manifests.
 Catalogue and local-image sources converge on the same analyzer.
 
-**Technology:** Go 1.25, standard library, `github.com/ulikunitz/xz/lzma` for
-legacy LZMA streams.
+**Technology:** Go 1.25+, standard library, u-root for CPIO/FIT, maintained Go
+compression packages, `github.com/CalebQ42/squashfs`, and the reference `lzop`
+executable for lzop framing.
 
 ---
 
@@ -58,8 +59,8 @@ legacy LZMA streams.
 1. Write failing tests for `newc` files, alignment, malformed headers, absolute
    paths, traversal, entry limits, and expanded-size limits.
 2. Add shared extraction limits and bounded artifact types.
-3. Implement a byte-oriented CPIO reader that returns regular files without
-   writing them to disk.
+3. Preflight the complete archive, then use u-root's `newc` reader to return
+   regular files without writing them to disk.
 4. Run focused tests and commit.
 
 ## Task 4: Firmware container decoders
@@ -76,8 +77,8 @@ legacy LZMA streams.
 1. Generate minimal valid records in tests.
 2. Pin offsets, names, compression metadata, checksums, malformed lengths, and
    truncated input.
-3. Implement UBNT record traversal, legacy uImage parsing, and a minimal
-   read-only flattened-device-tree parser for FIT `/images` data nodes.
+3. Implement UBNT record traversal and legacy uImage parsing; use u-root's
+   device-tree library for FIT `/images` data nodes and hash verification.
 4. Run focused tests and commit.
 
 ## Task 5: Recursive decoding and compression
@@ -91,11 +92,11 @@ legacy LZMA streams.
 
 1. Write failing nested fixtures for gzip, LZMA, tar, uImage-to-CPIO, and
    FIT-to-CPIO.
-2. Pin depth and expanded-byte failures and unsupported LZO reporting.
+2. Pin depth and expanded-byte failures and missing-lzop reporting.
 3. Implement recursive format detection and decoding with absolute offsets
    preserved where possible.
-4. Add the pure-Go LZMA dependency and leave LZO as a typed unsupported node
-   unless a small maintained pure-Go decoder passes a real-image smoke test.
+4. Add Go compression/SquashFS libraries. Use the reference `lzop` executable,
+   matching u-root's own strategy, for lzop-framed streams.
 5. Run focused tests and commit.
 
 ## Task 6: Evidence analysis and live comparison
@@ -108,10 +109,11 @@ legacy LZMA streams.
 - Test: `internal/firmware/live_test.go`
 
 1. Write failing tests for printable-string boundaries, classification,
-   offsets, likely-agent preference, and exact deduplication.
+   offsets, all-file coverage, false capability symbols, and exact deduplication.
 2. Write failing tests for sanitized live JSON/text ingestion and static/live
    agreement reports.
-3. Implement the fixed evidence vocabulary and comparison model.
+3. Implement the evidence vocabulary, complete typed live JSON paths, exact
+   bitmap values, controller bit-name decoding, and comparison model.
 4. Run focused tests and commit.
 
 ## Task 7: End-to-end pipeline and CLI
@@ -154,5 +156,5 @@ legacy LZMA streams.
 5. Run `git diff --check`.
 6. Review the complete diff for safety, deterministic output, and accidental
    firmware artifacts.
-7. Commit remaining documentation or review fixes, push the branch, and open a
-   PR with verification receipts and known LZO limitations stated explicitly.
+7. Commit remaining documentation or review fixes, push the branch, and open an
+   internal PR with verification receipts and the explicit `lzop` dependency.

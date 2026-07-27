@@ -17,8 +17,7 @@ again in the source image.
 
 Binwalk, `dumpimage`, `lzop`, and filesystem-specific utilities cover many of
 the formats in the current firmware catalogue. This is the quickest exploratory
-path, but it makes results depend on host packages and tool versions. It is a
-poor foundation for tests and CI.
+path, but it makes results depend on host packages and tool versions.
 
 ### Make the complete reverse-engineering stack pure Go
 
@@ -31,9 +30,11 @@ work before producing useful evidence.
 
 This is the selected approach. Go owns catalogue ingestion, downloads,
 deduplication, checksum verification, safe container traversal, common archive
-decoding, string analysis, provenance, and deterministic output. Small Go
-libraries may provide compression codecs. Optional external analyzers can add
-future enrichment, but canonical extraction must not depend on them.
+decoding, string analysis, provenance, and deterministic output. Maintained Go
+libraries provide CPIO, FIT/FDT, compression, and SquashFS support. The one
+exception is lzop framing: u-root itself invokes the reference `lzop` program,
+and no maintained pure-Go reader provides the same stream contract. The
+dependency is explicit and absence is a normal per-artifact failure.
 
 This gets deterministic results for the firmware families already inspected
 without turning the project into a general-purpose decompiler.
@@ -67,8 +68,9 @@ legacy AP, and modern AP images:
 - Ubiquiti `UBNT` containers and their `PART`, `EMMC`, and trailer records;
 - U-Boot legacy images;
 - FIT images and their embedded payload descriptions;
-- gzip, LZMA, and LZO payloads;
+- gzip, bzip2, LZ4, Zstandard, XZ, LZMA, and lzop payloads;
 - `newc` CPIO archives;
+- SquashFS filesystems through an `io/fs` reader;
 - tar archives;
 - opaque ESP32 application images, which still support whole-image string
   analysis.
@@ -83,9 +85,9 @@ cause unbounded work or path traversal.
 
 ## Evidence analysis
 
-Analysis starts with likely management agents such as `usr/bin/mcad`. When a
-filesystem is not available, it analyzes the relevant firmware partition or
-whole image.
+Analysis covers every extracted regular file. Management agents such as
+`usr/bin/mcad` remain especially useful, but do not suppress board data,
+scripts, libraries, or kernel modules.
 
 Printable strings are classified into a deliberately small vocabulary:
 
@@ -96,9 +98,9 @@ Printable strings are classified into a deliberately small vocabulary:
 - board, product, and sysid identifiers;
 - state and adoption terms.
 
-The analyzer reports observed strings, not guessed semantics. Adjacent values or
-binary constants can be added later as typed evidence once a decoder proves
-their layout.
+The analyzer reports observed strings with bounded context, not guessed
+semantics. Only an explicit capability-field vocabulary is classified as a
+bitmap; function symbols that merely end in `_caps` remain unclassified.
 
 Each observation records:
 
@@ -106,6 +108,7 @@ Each observation records:
 - nested artifact path;
 - absolute image offset when it is known;
 - extraction stages used to reach the artifact;
+- artifact SHA-256 and bounded surrounding context;
 - evidence kind and value;
 - confidence based on direct observation, not model-family inference.
 
@@ -123,13 +126,23 @@ must not silently change emulator behaviour. A later model generation step may
 consume only facts marked as verified by an exact static layout or a live
 device observation. Family-level inference remains visible as inference.
 
+The filesystem consumer boundary is a pair: a deterministic `rootfs.tar` plus
+`rootfs.json`. The tar preserves directories, permission modes, symlinks,
+hardlinks, and exact vendor file bytes while normalizing ordering, timestamps,
+and ownership. It never contains runtime shims, metadata helpers, or modified
+vendor files. The JSON records the source firmware digest, platform, version,
+nested artifact path, tar digest, and entry count.
+
 ## Live validation
 
 The pipeline can ingest sanitized output captured from a real device, including
 the existing `mca-dump` surface, and attach it as a second evidence source.
 Remote login, credential handling, and automated device access are out of scope.
 
-Static and live observations use the same vocabulary. A comparison report shows
+JSON live input also preserves the complete typed path tree and exact integer
+values. The repository's controller-derived capability definitions can turn
+observed masks into named set bits and an unknown mask. Static and live
+observations use the same vocabulary. A comparison report shows
 facts that agree, facts seen only in firmware, and facts seen only at runtime.
 This makes a live device an oracle without making it a build dependency.
 

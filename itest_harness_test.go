@@ -161,6 +161,13 @@ func emulatorModelsRequest(networkName string, images itestImages, informURL, mo
 	return request
 }
 
+// flagsExpress reports whether every field this spec sets has a matching
+// single-device CLI flag. Add a DeviceSpec field with no flag and this
+// returns false, which routes the spec to SIM_DEVICES rather than losing it.
+func flagsExpress(spec emu.DeviceSpec) bool {
+	return spec.FWCaps == nil && len(spec.SSIDs) == 0 && spec.Ports == 0
+}
+
 func emulatorContainerRequest(
 	networkName string,
 	images itestImages,
@@ -169,7 +176,13 @@ func emulatorContainerRequest(
 ) testcontainers.ContainerRequest {
 	request := baseEmulatorRequest(networkName, images, informURL)
 
-	if len(specs) == 1 {
+	// One device goes through the CLI flags, which is the point: it
+	// exercises the single-device path end to end. But the flags cannot
+	// express every spec field, and a field they drop is dropped in
+	// silence -- a test then runs green having measured the default
+	// instead of what it asked for. Anything the flags cannot carry
+	// takes the SIM_DEVICES route instead.
+	if len(specs) == 1 && flagsExpress(specs[0]) {
 		spec := specs[0]
 		request.Cmd = append(request.Cmd,
 			"-mac", spec.MAC,

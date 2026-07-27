@@ -33,7 +33,7 @@ func (d *device) buildPayload() []byte {
 		"default":        !d.adopted,
 		"_default_key":   !d.adopted,
 		"state":          1,
-		"fw_caps":        3,
+		"fw_caps":        d.fwCaps(),
 		"isolated":       false,
 		"locating":       false,
 		"selfrun_beacon": true,
@@ -106,6 +106,28 @@ func (d *device) buildPayload() []byte {
 		return nil // unreachable: only JSON-safe values above
 	}
 	return b
+}
+
+// placeholderFWCaps is what a device reports when nobody has captured a
+// real bitmap for its firmware. It sets bits 0 and 1, and the controller
+// tests neither -- of the 22 distinct literals it masks against fw_caps,
+// those two are absent -- so it is equivalent to reporting 0 or omitting
+// the key. It stays as the fallback rather than becoming an omission
+// because equivalent-in-effect is not the same as measured, and no
+// captured value exists for most firmware.
+const placeholderFWCaps = 3
+
+// fwCaps resolves the firmware capability bitmap: an explicit spec value
+// beats the model's captured one, which beats the placeholder.
+func (d *device) fwCaps() int {
+	switch {
+	case d.spec.FWCaps != nil:
+		return *d.spec.FWCaps
+	case d.profile.FWCaps != 0:
+		return d.profile.FWCaps
+	default:
+		return placeholderFWCaps
+	}
 }
 
 // ports returns the spec port-count override synthesized in the profile's

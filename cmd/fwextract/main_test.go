@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -43,7 +44,11 @@ func TestRunWritesFixedExtractionContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tarFile.Close()
+	t.Cleanup(func() {
+		if err := tarFile.Close(); err != nil {
+			t.Errorf("close rootfs tar: %v", err)
+		}
+	})
 	reader := tar.NewReader(tarFile)
 	header, err := reader.Next()
 	if err != nil {
@@ -101,8 +106,7 @@ func TestReadFirmwareRejectsSparseOversizedFileBeforeAllocation(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := file.Truncate((1 << 30) + 1); err != nil {
-		file.Close()
-		t.Fatal(err)
+		t.Fatal(closeFile(file, "oversized test image", err))
 	}
 	if err := file.Close(); err != nil {
 		t.Fatal(err)
@@ -111,6 +115,21 @@ func TestReadFirmwareRejectsSparseOversizedFileBeforeAllocation(t *testing.T) {
 	_, err = readFirmware(path)
 	if err == nil || !strings.Contains(err.Error(), "exceeds limit 1073741824") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestCloseFilePreservesPrimaryAndCleanupErrors(t *testing.T) {
+	file, err := os.CreateTemp(t.TempDir(), "closed")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	primary := errors.New("primary failure")
+	err = closeFile(file, "test file", primary)
+	if !errors.Is(err, primary) || !strings.Contains(err.Error(), "close test file") {
+		t.Fatalf("joined error = %v", err)
 	}
 }
 

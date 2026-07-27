@@ -2,6 +2,7 @@ package fwextract
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -110,7 +111,11 @@ func parseSquashFS(data []byte, limits limits) (files []decodedFile, err error) 
 	if err != nil {
 		return nil, fmt.Errorf("open SquashFS: %w", err)
 	}
-	defer reader.Close()
+	defer func() {
+		if closeErr := reader.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close SquashFS: %w", closeErr))
+		}
+	}()
 
 	root, err := reader.Open(".")
 	if err != nil {

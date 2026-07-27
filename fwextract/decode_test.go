@@ -271,8 +271,17 @@ func TestDecompressLZOPWithCommandReportsExitError(t *testing.T) {
 	}
 }
 
+func TestCloseDecompressorPreservesPrimaryAndCloseErrors(t *testing.T) {
+	primary := errors.New("read failure")
+	closeErr := errors.New("close failure")
+	err := closeDecompressor(func() error { return closeErr }, primary)
+	if !errors.Is(err, primary) || !errors.Is(err, closeErr) {
+		t.Fatalf("joined error = %v", err)
+	}
+}
+
 func TestDecodeReportsDepthAndExpansionLimits(t *testing.T) {
-	var nested []byte = append(newcEntry("file", []byte("12345"), 0o100644), newcEntry("TRAILER!!!", nil, 0)...)
+	nested := append(newcEntry("file", []byte("12345"), 0o100644), newcEntry("TRAILER!!!", nil, 0)...)
 	var gz bytes.Buffer
 	gw := gzip.NewWriter(&gz)
 	_, _ = gw.Write(nested)

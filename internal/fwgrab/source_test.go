@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -149,6 +150,21 @@ func TestCacheFetchRejectsCorruptAndOversizedData(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestCloseFilePreservesPrimaryAndCleanupErrors(t *testing.T) {
+	file, err := os.CreateTemp(t.TempDir(), "closed")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	primary := errors.New("primary failure")
+	err = closeFile(file, "test file", primary)
+	if !errors.Is(err, primary) || !strings.Contains(err.Error(), "close test file") {
+		t.Fatalf("joined error = %v", err)
 	}
 }
 

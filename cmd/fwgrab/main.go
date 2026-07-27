@@ -125,8 +125,12 @@ func readCatalogue(ctx context.Context, path, url string, client *http.Client) (
 		if err != nil {
 			return nil, fmt.Errorf("open firmware catalogue: %w", err)
 		}
-		defer file.Close()
-		return readLimitedCatalogue(file)
+		data, readErr := readLimitedCatalogue(file)
+		closeErr := file.Close()
+		if closeErr != nil {
+			closeErr = fmt.Errorf("close firmware catalogue: %w", closeErr)
+		}
+		return data, errors.Join(readErr, closeErr)
 	}
 	if client == nil {
 		client = &http.Client{Timeout: 2 * time.Minute}

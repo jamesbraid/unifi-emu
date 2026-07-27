@@ -3,6 +3,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -58,17 +59,18 @@ func run(args []string, stderr io.Writer) error {
 		return err
 	}
 	tarTempPath := tarTemp.Name()
-	defer os.Remove(tarTempPath)
+	defer func() {
+		// The staged file has either been renamed or is abandoned cleanup.
+		_ = os.Remove(tarTempPath)
+	}()
 	metadata, err := fwextract.Extract(image, fwextract.Source{
 		Digest: strings.ToLower(*digest), Platform: *platform, Version: *version,
 	}, tarTemp)
 	if err != nil {
-		tarTemp.Close()
-		return err
+		return closeFile(tarTemp, "rootfs tar", err)
 	}
 	if err := tarTemp.Chmod(0o644); err != nil {
-		tarTemp.Close()
-		return fmt.Errorf("chmod rootfs tar: %w", err)
+		return closeFile(tarTemp, "rootfs tar", fmt.Errorf("chmod rootfs tar: %w", err))
 	}
 	if err := tarTemp.Close(); err != nil {
 		return fmt.Errorf("close rootfs tar: %w", err)
@@ -132,8 +134,8 @@ func publishWithOps(
 		return fmt.Errorf("open staged rootfs tar: %w", err)
 	}
 	if err := ops.syncFile(tarTemp); err != nil {
-		tarTemp.Close()
-		return fmt.Errorf("sync staged rootfs tar: %w", err)
+		return closeFile(tarTemp, "staged rootfs tar",
+			fmt.Errorf("sync staged rootfs tar: %w", err))
 	}
 	if err := tarTemp.Close(); err != nil {
 		return fmt.Errorf("close staged rootfs tar: %w", err)
@@ -144,18 +146,21 @@ func publishWithOps(
 		return err
 	}
 	jsonTempPath := jsonTemp.Name()
-	defer os.Remove(jsonTempPath)
+	defer func() {
+		// The staged file has either been renamed or is abandoned cleanup.
+		_ = os.Remove(jsonTempPath)
+	}()
 	if err := fwextract.WriteMetadata(jsonTemp, metadata); err != nil {
-		jsonTemp.Close()
-		return fmt.Errorf("write rootfs metadata: %w", err)
+		return closeFile(jsonTemp, "rootfs metadata",
+			fmt.Errorf("write rootfs metadata: %w", err))
 	}
 	if err := jsonTemp.Chmod(0o644); err != nil {
-		jsonTemp.Close()
-		return fmt.Errorf("chmod rootfs metadata: %w", err)
+		return closeFile(jsonTemp, "rootfs metadata",
+			fmt.Errorf("chmod rootfs metadata: %w", err))
 	}
 	if err := ops.syncFile(jsonTemp); err != nil {
-		jsonTemp.Close()
-		return fmt.Errorf("sync staged rootfs json: %w", err)
+		return closeFile(jsonTemp, "rootfs metadata",
+			fmt.Errorf("sync staged rootfs json: %w", err))
 	}
 	if err := jsonTemp.Close(); err != nil {
 		return fmt.Errorf("close rootfs metadata: %w", err)
@@ -193,10 +198,17 @@ func syncDirectory(path string) error {
 		return err
 	}
 	if err := dir.Sync(); err != nil {
-		dir.Close()
-		return err
+		return closeFile(dir, "directory", err)
 	}
 	return dir.Close()
+}
+
+func closeFile(file *os.File, description string, primary error) error {
+	closeErr := file.Close()
+	if closeErr != nil {
+		closeErr = fmt.Errorf("close %s: %w", description, closeErr)
+	}
+	return errors.Join(primary, closeErr)
 }
 
 func createOutputTemp(dir, pattern string) (*os.File, error) {

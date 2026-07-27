@@ -3,6 +3,7 @@ package fwgrab
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -73,25 +74,27 @@ func (c Cache) fetch(
 		return "", fmt.Errorf("create firmware cache entry: %w", err)
 	}
 	tmpName := tmp.Name()
-	defer os.Remove(tmpName)
+	defer func() {
+		// The partial file has either been renamed or is abandoned cleanup.
+		_ = os.Remove(tmpName)
+	}()
 
 	hasher := sha256.New()
 	size, err := io.Copy(io.MultiWriter(tmp, hasher), io.LimitReader(resp.Body, limit+1))
 	if err != nil {
-		tmp.Close()
-		return "", fmt.Errorf("download firmware body: %w", err)
+		return "", closeFile(tmp, "firmware cache entry",
+			fmt.Errorf("download firmware body: %w", err))
 	}
 	if err := verifyImage(size, fmt.Sprintf("%x", hasher.Sum(nil)), image, limit); err != nil {
-		tmp.Close()
-		return "", err
+		return "", closeFile(tmp, "firmware cache entry", err)
 	}
 	if err := tmp.Chmod(0o644); err != nil {
-		tmp.Close()
-		return "", fmt.Errorf("chmod firmware cache entry: %w", err)
+		return "", closeFile(tmp, "firmware cache entry",
+			fmt.Errorf("chmod firmware cache entry: %w", err))
 	}
 	if err := tmp.Sync(); err != nil {
-		tmp.Close()
-		return "", fmt.Errorf("sync firmware cache entry: %w", err)
+		return "", closeFile(tmp, "firmware cache entry",
+			fmt.Errorf("sync firmware cache entry: %w", err))
 	}
 	if err := tmp.Close(); err != nil {
 		return "", fmt.Errorf("close firmware cache entry: %w", err)
@@ -111,18 +114,19 @@ func syncDirectory(path string) error {
 		return err
 	}
 	if err := dir.Sync(); err != nil {
-		dir.Close()
-		return err
+		return closeFile(dir, "firmware cache directory", err)
 	}
 	return dir.Close()
 }
 
-func verifyCachedFile(path string, image SelectedImage, limit int64) error {
+func verifyCachedFile(path string, image SelectedImage, limit int64) (err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		err = closeFile(file, "cached firmware", err)
+	}()
 	info, err := file.Stat()
 	if err != nil {
 		return err
@@ -139,6 +143,14 @@ func verifyCachedFile(path string, image SelectedImage, limit int64) error {
 		return err
 	}
 	return verifyImage(size, fmt.Sprintf("%x", hasher.Sum(nil)), image, limit)
+}
+
+func closeFile(file *os.File, description string, primary error) error {
+	closeErr := file.Close()
+	if closeErr != nil {
+		closeErr = fmt.Errorf("close %s: %w", description, closeErr)
+	}
+	return errors.Join(primary, closeErr)
 }
 
 func verifyImage(size int64, digest string, image SelectedImage, limit int64) error {

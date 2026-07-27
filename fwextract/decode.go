@@ -6,6 +6,7 @@ import (
 	"compress/bzip2"
 	"compress/gzip"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -336,14 +337,15 @@ func (s *decoderState) chargeEntries(entries []decodedFile) error {
 
 func (s *decoderState) decompress(data []byte, kind string) ([]byte, error) {
 	var reader io.Reader
+	var closeReader func() error
 	switch kind {
 	case "gzip":
 		gz, err := gzip.NewReader(bytes.NewReader(data))
 		if err != nil {
 			return nil, fmt.Errorf("open gzip stream: %w", err)
 		}
-		defer gz.Close()
 		reader = gz
+		closeReader = gz.Close
 	case "bzip2":
 		reader = bzip2.NewReader(bytes.NewReader(data))
 	case "lz4":
@@ -387,10 +389,14 @@ func (s *decoderState) decompress(data []byte, kind string) ([]byte, error) {
 	}
 	remaining := s.limits.MaxExpandedBytes - s.expanded
 	if remaining < 0 {
-		return nil, fmt.Errorf("expanded bytes exceed limit %d", s.limits.MaxExpandedBytes)
+		return nil, closeDecompressor(closeReader,
+			fmt.Errorf("expanded bytes exceed limit %d", s.limits.MaxExpandedBytes))
 	}
 	decoded, err := io.ReadAll(io.LimitReader(reader, remaining+1))
 	if err != nil {
+		return nil, closeDecompressor(closeReader, fmt.Errorf("decompress %s: %w", kind, err))
+	}
+	if err := closeDecompressor(closeReader, nil); err != nil {
 		return nil, fmt.Errorf("decompress %s: %w", kind, err)
 	}
 	s.expanded += int64(len(decoded))
@@ -398,6 +404,17 @@ func (s *decoderState) decompress(data []byte, kind string) ([]byte, error) {
 		return nil, fmt.Errorf("expanded bytes exceed limit %d", s.limits.MaxExpandedBytes)
 	}
 	return decoded, nil
+}
+
+func closeDecompressor(closeReader func() error, primary error) error {
+	if closeReader == nil {
+		return primary
+	}
+	closeErr := closeReader()
+	if closeErr != nil {
+		closeErr = fmt.Errorf("close compressed stream: %w", closeErr)
+	}
+	return errors.Join(primary, closeErr)
 }
 
 func (s *decoderState) fail(artifact, stage string, err error) {
@@ -472,7 +489,7 @@ func parseTar(data []byte, limits limits) ([]decodedFile, error) {
 		}
 		entry := decodedFile{Path: entryName, Mode: header.Mode & 0o7777}
 		switch header.Typeflag {
-		case tar.TypeReg, tar.TypeRegA:
+		case tar.TypeReg:
 			entry.Kind = "regular"
 		case tar.TypeDir:
 			entry.Kind = "directory"

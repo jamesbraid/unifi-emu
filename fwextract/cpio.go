@@ -168,7 +168,7 @@ func preflightCPIOArchivesMode(data []byte, limits limits, allowTrailingData boo
 
 	for {
 		if offset == len(data) {
-			return nil, fmt.Errorf("CPIO archive is missing TRAILER!!!")
+			return nil, fmt.Errorf("cpio archive is missing trailer record")
 		}
 		headerEnd, ok := boundedEnd(offset, newcHeaderSize, len(data))
 		if !ok {

@@ -35,10 +35,16 @@ type ModelProfile struct {
 	// with no version has its whole capability update dropped by the
 	// controller. Set only for models Ubiquiti documents as having the
 	// capability, so most profiles carry neither.
-	UDAPIVersion string      `json:"udapi_version,omitempty"`
-	UDAPICaps    int         `json:"udapi_caps,omitempty"`
-	Ports        []PortSpec  `json:"ports"`  // usw + ugw + uxg + uap (eth port)
-	Radios       []RadioSpec `json:"radios"` // uap only
+	UDAPIVersion string `json:"udapi_version,omitempty"`
+	UDAPICaps    int    `json:"udapi_caps,omitempty"`
+	// FWCaps is the firmware capability bitmap, captured from real
+	// hardware on this model's firmware. Unset for a firmware nobody has
+	// captured, which leaves the device on the built-in placeholder --
+	// the controller reads an absent bitmap as 0 and the placeholder sets
+	// only bits it never tests, so the two are equivalent to it.
+	FWCaps int         `json:"fw_caps,omitempty"`
+	Ports  []PortSpec  `json:"ports"`  // usw + ugw + uxg + uap (eth port)
+	Radios []RadioSpec `json:"radios"` // uap only
 }
 
 // modelRegistry is loaded from the embedded model_profiles.json. That

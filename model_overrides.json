@@ -1,5 +1,15 @@
 {
   "_source_note": "facts absent from the hardware DB bundle; eth entries are populated by `modelgen -fetch-eth`, others hand-curated.",
+  "firmware_caps": {
+    "uap@8.6.11.18870": {
+      "fw_caps": -402850113,
+      "source": "0xE7FCFEBF, captured from a real UniFi AP reporting firmware 8.6.11.18870 (gneitzke/UnifiOptimizer, model UAPA6A9). Measured against controller 10.4.57 by TestClassicAPFirmwareCapsProbeLive: rebuilds port_table from 4 keys to 17 and drops port_stats, breaks no write that works on the placeholder, and unblocks an empty port_overrides PUT"
+    },
+    "ugw@4.4.57.5578372": {
+      "fw_caps": 4378627,
+      "source": "0x0042D003, captured from a real USG-3P reporting firmware 4.4.57.5578372 (jdrew82/nautobot-app-ssot-unifi fixtures, model UGW3). Sets neither UTERM nor QCASWITCH. Measured against controller 10.4.57: no observable change at all, and all five probe writes keep succeeding"
+    }
+  },
   "models": {
     "U6ENT": {
       "eth": {

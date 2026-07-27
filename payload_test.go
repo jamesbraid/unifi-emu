@@ -264,6 +264,53 @@ func TestOtherGatewaysReportNoUDAPICaps(t *testing.T) {
 	}
 }
 
+// fw_caps is keyed by firmware branch, so a model on a captured build
+// reports the captured bitmap and one on any other build keeps the
+// placeholder rather than borrowing a neighbour's.
+func TestFWCapsFollowsTheFirmwareBranch(t *testing.T) {
+	cases := []struct {
+		model string
+		want  int
+		why   string
+	}{
+		{"U7PRO", -402850113, "uap on the captured 8.6.11.18870"},
+		{"UGW3", 4378627, "ugw on the captured 4.4.57.5578372"},
+		{"UGW4", 4378627, "same ugw firmware as UGW3"},
+		{"UGWXG", placeholderFWCaps, "ugw on 4.4.57.5578378, which nobody captured"},
+		{"U7MP", placeholderFWCaps, "uap on 6.8.2.15592, not the captured AP build"},
+		{"UXGENT", placeholderFWCaps, "no uxg capture exists at all"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.model, func(t *testing.T) {
+			d := mustDevice(t, DeviceSpec{MAC: "00:27:22:e0:00:31", Model: tc.model, IP: "10.0.0.31"})
+			m := decodePayload(t, d)
+			if got := m["fw_caps"]; got != float64(tc.want) {
+				t.Errorf("fw_caps = %v, want %d (%s)", got, tc.want, tc.why)
+			}
+		})
+	}
+}
+
+// An explicit spec value beats the profile's, which is what let the live
+// probe measure both arms against one model.
+func TestFWCapsSpecOverrideWins(t *testing.T) {
+	want := 12345
+	d := mustDevice(t, DeviceSpec{
+		MAC: "00:27:22:e0:00:32", Model: "U7PRO", IP: "10.0.0.32", FWCaps: &want,
+	})
+	if got := decodePayload(t, d)["fw_caps"]; got != float64(want) {
+		t.Errorf("fw_caps = %v, want the spec override %d", got, want)
+	}
+	// Zero is a real claim, distinct from "unset", so it must survive.
+	zero := 0
+	d = mustDevice(t, DeviceSpec{
+		MAC: "00:27:22:e0:00:33", Model: "U7PRO", IP: "10.0.0.33", FWCaps: &zero,
+	})
+	if got := decodePayload(t, d)["fw_caps"]; got != float64(0) {
+		t.Errorf("fw_caps = %v, want an explicit 0 to survive as 0", got)
+	}
+}
+
 func TestNewDeviceRejectsUnknownModel(t *testing.T) {
 	if _, err := newDevice(DeviceSpec{MAC: "00:15:6d:00:00:09", Model: "NOPE"}, testInformURL); err == nil {
 		t.Fatal("newDevice with unknown model: want error, got nil")

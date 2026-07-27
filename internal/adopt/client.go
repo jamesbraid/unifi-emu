@@ -276,15 +276,27 @@ func (c *Client) Devices(ctx context.Context, site string) ([]Device, error) {
 // path is the controller path with its leading slash; the UniFi OS proxy
 // prefix and the CSRF header are added here.
 func (c *Client) PostRaw(ctx context.Context, path string, payload any) (int, []byte, error) {
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return 0, nil, err
+	return c.DoRaw(ctx, http.MethodPost, path, payload)
+}
+
+// DoRaw is PostRaw for any method. A nil payload sends no body, which is what
+// a GET wants; capability probing reads a device document raw because the
+// typed Device struct keeps only the adoption fields, and the interesting
+// part of a capability change is the shape of everything else.
+func (c *Client) DoRaw(ctx context.Context, method, path string, payload any) (int, []byte, error) {
+	var reader io.Reader
+	if payload != nil {
+		body, err := json.Marshal(payload)
+		if err != nil {
+			return 0, nil, err
+		}
+		reader = bytes.NewReader(body)
 	}
 	url := c.base + path
 	if c.dialect == UniFiOS {
 		url = c.base + "/proxy/network" + path
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, method, url, reader)
 	if err != nil {
 		return 0, nil, err
 	}

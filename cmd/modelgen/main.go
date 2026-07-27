@@ -33,6 +33,7 @@ type catalogModel struct {
 	Version      string         `json:"version"`
 	UDAPIVersion string         `json:"udapi_version,omitempty"`
 	UDAPICaps    int            `json:"udapi_caps,omitempty"`
+	FWCaps       int            `json:"fw_caps,omitempty"`
 	Ports        []catalogPort  `json:"ports,omitempty"`
 	Radios       []catalogRadio `json:"radios,omitempty"`
 }
@@ -301,6 +302,11 @@ func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, o
 		if err := deriveLayout(&m, meta); err != nil {
 			skipped = append(skipped, fmt.Sprintf("%s (%v)", model, err))
 			continue
+		}
+		// fw_caps comes from the firmware branch, so it is looked up by
+		// type@version and applies to every model sharing that build.
+		if fc, ok := ov.FirmwareCaps[m.Type+"@"+m.Version]; ok {
+			m.FWCaps = fc.FWCaps
 		}
 		o, hasOverride := ov.Models[model]
 		if hasOverride {

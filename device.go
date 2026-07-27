@@ -60,6 +60,14 @@ type DeviceSpec struct {
 	// setstate provisions real WLAN config (the setstate echo path
 	// overlays vap_table), so devices inform with an empty vap_table.
 	SSIDs []string `json:"ssids" yaml:"ssids"`
+	// FWCaps overrides the firmware capability bitmap. Every device
+	// reports the same fw_caps today, and the value is a placeholder: the
+	// controller tests 22 distinct bits against fw_caps and not one of
+	// them is a bit the default sets, so what ships is a claim to nothing
+	// rather than a conservative claim. This exists to measure what a
+	// faithful value would change before any is adopted as a default.
+	// Nil leaves the built-in alone; 0 reports the key as zero.
+	FWCaps *int `json:"fwcaps" yaml:"fwcaps"`
 }
 
 // deviceSpecKeys is the set of accepted fleet-file keys. A mapping entry
@@ -69,6 +77,7 @@ type DeviceSpec struct {
 var deviceSpecKeys = map[string]bool{
 	"mac": true, "type": true, "model": true, "modeldisplay": true,
 	"version": true, "name": true, "ip": true, "ports": true, "ssids": true,
+	"fwcaps": true,
 }
 
 // UnmarshalYAML lets a fleet-list entry be a bare model string ("U7PRO") or

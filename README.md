@@ -243,13 +243,28 @@ A controller gates whole features on bitmaps the device reports — `udapi_caps`
 `UNIFI_UDAPI_CAP_ROUTES_BGP` and `bgp/config` answers 404
 `api.err.BgpUnsupportedDevice`.
 
-The bit names live only in the controller's Java device model, so
+The bit names live only in the controller's Java application, so
 [`capability_bits.json`](capability_bits.json) is read back out of it. Both
 controller images are checked and must agree:
 
 ```sh
-scripts/extract-caps.sh     # needs docker and a JDK for javap
+scripts/extract-caps.sh                     # needs docker, nothing else
+
+# same, plus re-check the handful of names lifted from the UI bundle
+SWAI=tmp/harvest-10.4.57/swai.js scripts/extract-caps.sh
 ```
+
+A bit's name comes from one of four places, and `bit_provenance` grades each
+one. A `static final int` constant is the vendor's own identifier and the
+strongest. An enum constant is just as good but invisible to `javap`, because
+the bit is a constructor argument — that is where `stp_caps` and
+`port_table[].speed_caps` come from. The rest, `fw_caps` and `wifi_caps2` among
+them, declare nothing at all: their bits are bare literals, so the name is
+paraphrased from the wrapper method that passes each one
+(`supportsMacBasedVlans` → `MAC_BASED_VLANS`), or taken from the UI bundle
+where it names the bit. A bit nobody names keeps its value in `unnamed_bits`
+rather than getting an invented name, and everything the scan found but could
+not place lands in `unplaced` rather than being dropped.
 
 Which model has which capability is a different question, and the controller
 cannot answer it — it believes whatever the device reports. That comes from

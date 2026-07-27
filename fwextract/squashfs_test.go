@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"io"
 	"io/fs"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/KarpelesLab/squashfs"
@@ -100,20 +98,16 @@ func TestParseSquashFSReadsRawLZ4Blocks(t *testing.T) {
 }
 
 func TestParseSquashFSPreservesSymlinkMetadata(t *testing.T) {
-	dir := t.TempDir()
 	content := []byte("same inode")
-	if err := os.WriteFile(filepath.Join(dir, "a"), content, 0o640); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink("a", filepath.Join(dir, "link")); err != nil {
-		t.Fatal(err)
-	}
 	var image bytes.Buffer
 	writer, err := squashfs.NewWriter(&image)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := writer.AddFS(os.DirFS(dir)); err != nil {
+	if err := writer.AddFile("a", content, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.AddSymlink("link", "a"); err != nil {
 		t.Fatal(err)
 	}
 	if err := writer.Finalize(); err != nil {
@@ -133,7 +127,7 @@ func TestParseSquashFSPreservesSymlinkMetadata(t *testing.T) {
 		t.Fatalf("regular = %+v", entries[0])
 	}
 	if entries[1].Kind != "symlink" || entries[1].Linkname != "a" ||
-		entries[1].Mode != 0o755 {
+		entries[1].Mode != 0o777 {
 		t.Fatalf("symlink = %+v", entries[1])
 	}
 }

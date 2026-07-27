@@ -8,8 +8,16 @@
 #
 #   scripts/extract-caps.sh                     # both default images
 #   OUT=x.json scripts/extract-caps.sh <image>...
+#   SWAI=tmp/harvest-*/swai.js scripts/extract-caps.sh
 #
-# Needs docker and a JDK (javap). Both controller layouts work: the classic
+# A couple of bitmaps are named only by the controller UI, and those names
+# are embedded in caps_to_json.py. Point SWAI at a harvested UI bundle to
+# re-check them against it before they are trusted; without it they are
+# used as-is.
+#
+# Needs docker. Nothing else: the jar is read in-process, because javap
+# cannot say which `iand` an expression feeds and half the bit names are
+# only visible from that. Both controller layouts work: the classic
 # image splits a launcher ace.jar from lib/internal/internal-dependencies.jar,
 # UniFi OS Server ships one Spring Boot fat ace.jar with the application
 # nested under BOOT-INF/lib. Rather than encode either, take the largest jar
@@ -27,12 +35,12 @@ DEFAULT_IMAGES=(
 	ghcr.io/jamesbraid/unifi-network:sim
 )
 OUT=${OUT:-capability_bits.json}
+SWAI=${SWAI:-}
 VERSION_FILE=/usr/lib/unifi/webapps/ROOT/app-unifi/.version
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 command -v docker >/dev/null || { echo "docker not found" >&2; exit 1; }
-command -v javap >/dev/null || { echo "javap not found: install a JDK" >&2; exit 1; }
 
 images=("$@")
 [ ${#images[@]} -gt 0 ] || images=("${DEFAULT_IMAGES[@]}")
@@ -60,5 +68,7 @@ for i in "${!images[@]}"; do
 
 	sources+=(--source "$work/$i.jar" "$image" "$version" "$jar")
 done
+
+[ -z "$SWAI" ] || sources+=(--swai "$SWAI")
 
 python3 "$here/caps_to_json.py" "${sources[@]}" --out "$OUT"

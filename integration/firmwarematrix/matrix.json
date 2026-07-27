@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "images": [
+    {
+      "platform": "U7MP",
+      "version": "6.8.2.15592",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/101e-U7MP-6.8.2-18e7f970-2f2d-4945-b3c8-6ec0bf37c19f.bin",
+      "source_sha256": "3cf8ebe793f74f5ce4aa81131f03f4a4fa9d1b0b0ed915c9ddfa9fac9297474e",
+      "outcome": "rootfs",
+      "nested_artifact_path": "firmware.bin/kernel0/Ubiquiti Linux-4.4.153/embedded.lzma",
+      "tar_sha256": "720c1de02150fc4def968347ba0b861ca3450d59fe013a553eded36f2f864d49",
+      "entry_count": 1592
+    },
+    {
+      "platform": "U7PRO",
+      "version": "8.6.11.18870",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/1718-U7PRO-8.6.11-94862a62-887a-4433-b148-3dcfc93e672f.bin",
+      "source_sha256": "bde9ddea1628b2813fd2c7514c27e5245014ef5005cf04e01734e5d5a63b5def",
+      "outcome": "rootfs",
+      "requires_lzop": true,
+      "nested_artifact_path": "firmware.bin/kernel0/kernel/initramfs",
+      "tar_sha256": "97a0bc10bc04ac707be8cbf885605c3e2d2d2ee32dd86db6ebd04ffa564aee19",
+      "entry_count": 2081
+    },
+    {
+      "platform": "BZ2",
+      "version": "4.3.28.11361",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/8822-BZ2-4.3.28-3a44dd116c8645ef8d4e5dbb91349ea7.bin",
+      "source_sha256": "255736db010c226897c10bb32818992401aaf9b942910caafae7c08d5fab06a7",
+      "outcome": "rootfs",
+      "nested_artifact_path": "firmware.bin/kernel/Ubiquiti Linux-4.4.153/embedded.lzma",
+      "tar_sha256": "6f64d58b5ed21a0297434bf34c77eb66899e2ef9ea7550c7d05a994d9d0174ec",
+      "entry_count": 1247
+    },
+    {
+      "platform": "U7NHD",
+      "version": "6.7.54.15663",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/0d85-U7NHD-6.7.54-048d9cfe-2449-49db-a71f-cbe35332f128.bin",
+      "source_sha256": "9c4414fb082445af539cca359b0247ad282c6bfc568f7cecc505526e05dc370d",
+      "outcome": "rootfs",
+      "nested_artifact_path": "firmware.bin/kernel0/kernel@1/initramfs",
+      "tar_sha256": "9be46e046e489bf32df5adfcfdcca5340a9b4b7c0a503a1aaf848693070da816",
+      "entry_count": 1440
+    },
+    {
+      "platform": "UALR6v2",
+      "version": "6.7.54.15663",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/6450-UALR6v2-6.7.54-223d949c-646e-4b8e-89f7-3f9afebd8ced.bin",
+      "source_sha256": "b5050bcd0e407f58b902b56b895f7747ef38588efb54301958e7bdc6cc8da58c",
+      "outcome": "rootfs",
+      "nested_artifact_path": "firmware.bin/kernel0/kernel@1/initramfs",
+      "tar_sha256": "a7eb7b83381bbe2bcd16663ff1d993a1847760df8b3dcb950ae1ccc87d22a7cf",
+      "entry_count": 1547
+    },
+    {
+      "platform": "U6ENT",
+      "version": "6.8.2.15592",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/9525-U6ENT-6.8.2-53dba281-bb41-4481-892b-c2786b0c0434.bin",
+      "source_sha256": "93347348dcd861c1449a9f4233a0180c88e5d862e7208df70abbaa022d2f6cd5",
+      "outcome": "rootfs",
+      "nested_artifact_path": "firmware.bin/kernel0/kernel@1/initramfs",
+      "tar_sha256": "e5d8c144c8ca3f61976f1e86eadc858cef27287fb1511313b19a8d00b743f449",
+      "entry_count": 1962
+    },
+    {
+      "platform": "UAPA693",
+      "version": "8.6.11.18870",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/6dd6-UAPA693-8.6.11-bc6c6e6a-d23d-40a0-9408-38dcd9171ac8.bin",
+      "source_sha256": "2a6378f7b4631f756d57af6e0fdf81b9fc3e207efbb43b778e84f598d8d939eb",
+      "outcome": "rootfs",
+      "requires_lzop": true,
+      "nested_artifact_path": "firmware.bin/kernel0/kernel/initramfs",
+      "tar_sha256": "53ba92f1ce9f11f7e4d0399ad502134727ca4bcd74a83abe382b881aa3e910f8",
+      "entry_count": 2010
+    },
+    {
+      "platform": "USM8P",
+      "version": "2.1.8.971",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/89e4-USM8P-2.1.8-3c6f8d93-8fc6-4d6e-89bb-0e19f37f431d.bin",
+      "source_sha256": "fee50cb3ba72e9129100549d4d61945e6410407b6e25171a847f6acb768e41cb",
+      "outcome": "no_rootfs",
+      "nested_artifact_path": "",
+      "tar_sha256": "",
+      "entry_count": 0
+    },
+    {
+      "platform": "USMINI",
+      "version": "2.1.6.762",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/9e78-USMINI-2.1.6-4cafc8c9-4830-41cf-afc4-ae678c19afed.bin",
+      "source_sha256": "29b1ee914d2e56f04cb30b52bc02b9fce31a1b06f90855e6a1976939e05a777c",
+      "outcome": "no_rootfs",
+      "nested_artifact_path": "",
+      "tar_sha256": "",
+      "entry_count": 0
+    },
+    {
+      "platform": "USMINI2",
+      "version": "2.1.6.1012",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/4ed6-USMINI2-2.1.6-096c0b64-0711-449e-b812-9efeb6af54ca.bin",
+      "source_sha256": "f96724b03acb3da0f7e3072cd7be9dab739d839699914395e081eaec90ce6b03",
+      "outcome": "no_rootfs",
+      "nested_artifact_path": "",
+      "tar_sha256": "",
+      "entry_count": 0
+    },
+    {
+      "platform": "USWDA25",
+      "version": "1.5.0.378",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/53a2-USWDA25-1.5.0-8778c882-5dcb-4dac-b939-489ba1bcd928.bin",
+      "source_sha256": "cad00eafa514c2c57339079efcb76185f08e0a50b6add0466e7cdb2d84ae968e",
+      "outcome": "no_rootfs",
+      "nested_artifact_path": "",
+      "tar_sha256": "",
+      "entry_count": 0
+    },
+    {
+      "platform": "USF5P",
+      "version": "7.4.1.16850",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/2351-USF5P-7.4.1-88ba2734-f196-4036-84da-76bbbde772cc.bin",
+      "source_sha256": "0d4cebb345024b287d9f6f8934ade09485bbbf50f2081c185841fe971fe0de6c",
+      "outcome": "rootfs",
+      "nested_artifact_path": "firmware.bin/kernel0/kernel@1/embedded.lzma",
+      "tar_sha256": "a05472e6d604afa32094dc15af93c75c559bf40055102555c51bf9901040d1d3",
+      "entry_count": 985
+    },
+    {
+      "platform": "USXG",
+      "version": "7.4.1.16850",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/4721-USXG-7.4.1-39a942b9-3e1c-40cc-b9e8-c23099bb550d.bin",
+      "source_sha256": "10844c47f3be4121d7cd9e8b40c20978683480028b8308b7782e546cefc77cd9",
+      "outcome": "rootfs",
+      "nested_artifact_path": "firmware.bin/kernel0/Ubiquiti 7.4.1.16850/embedded.lzma",
+      "tar_sha256": "32aa1db902caee7ac7b87d3efe8d138346c513f7c184f295bb89f166263bc6c8",
+      "entry_count": 489
+    },
+    {
+      "platform": "USWF001",
+      "version": "7.5.2.16967",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/abf4-USWF001-7.5.2-a72eb76a-c834-49f8-91b2-98fd723681a1.bin",
+      "source_sha256": "8e0cb11ae46b2b27fbd40d1a082043c15e7c8d483196d96cf3daad971ca6dd35",
+      "outcome": "rootfs",
+      "nested_artifact_path": "firmware.bin/kernel0/kernel-1/embedded.lzma",
+      "tar_sha256": "59bfee0bffa6f350836e1a5d5b8e8c51fb70df8c13e73a2e2b31ea29a3118c79",
+      "entry_count": 879
+    },
+    {
+      "platform": "UBB",
+      "version": "v3.3.0+359",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/ede3-UBB-3.3.0-a6c32334-81e5-40a2-8dfd-52a6ce0b5111.bin",
+      "source_sha256": "825929f222bd8777c9268e1607d4079bd607ced4370d3d760aac093ec07a5f1a",
+      "outcome": "rootfs",
+      "nested_artifact_path": "firmware.bin/rootfs",
+      "tar_sha256": "d80e45e53cf37933dfdbe645e79779a06bb3d347d100e92547ba6af6c86649a4",
+      "entry_count": 1241
+    },
+    {
+      "platform": "UCK",
+      "version": "v1.1.19+f4a17b0",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/92f6-UCK-1.1.19-90de918cc6694aafbb92bbcd0b900a6d.bin",
+      "source_sha256": "a429d7d649300d2fd70a1a4b5fd672fcfed6d7f5ba3ffd44da038d5e8099a38f",
+      "outcome": "rootfs",
+      "nested_artifact_path": "firmware.bin/rootfs",
+      "tar_sha256": "7b21984d93519a2370817f2e97a93fa519c7898e5ba18d6d6a29d3544cb62621",
+      "entry_count": 30725
+    },
+    {
+      "platform": "UCKG2",
+      "version": "v2.1.11+a7986ca",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/3708-UCKG2-2.1.11-f3b383a2a42f4a36b2180d3b3c4829e7.bin",
+      "source_sha256": "7a44968260c23555d72cdcb1c73c90608ce30cd6f91b977851c50f82f640436f",
+      "outcome": "rootfs",
+      "nested_artifact_path": "firmware.bin/rootfs",
+      "tar_sha256": "44e774f2b386bddd81517fd5c04ab1729c34e87fe6cf3c2460d97d59bd8e7c42",
+      "entry_count": 34266
+    },
+    {
+      "platform": "UDM",
+      "version": "v1.12.30+4325",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/d34e-UDM-1.12.30-56d2948ad5a04f9faf53bc4a7c492fa2.bin",
+      "source_sha256": "011b0c72fb07635ed7e186af42c9f3b86075b0613c8e40fc05a10f8ddcf9e00f",
+      "outcome": "rootfs",
+      "nested_artifact_path": "firmware.bin/rootfs",
+      "tar_sha256": "834b35db20aa1f2e6a7bf94d7be1018fcda2d4a1f9e586adcced23e6e090b90e",
+      "entry_count": 40278
+    },
+    {
+      "platform": "UXG",
+      "version": "v5.0.16+30689",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/dad0-UXG-5.0.16-996c83e4-42a4-4dc7-bfa3-26894dc59cd7.bin",
+      "source_sha256": "e2e361fc9b4296628f1b4fa10280449695c9df8fb8da95a440a7462044a4765c",
+      "outcome": "rootfs",
+      "nested_artifact_path": "firmware.bin/rootfs",
+      "tar_sha256": "03dc0a192a88af73e502583a8d85da31090acd9348c8d9ca7687be4952285ed7",
+      "entry_count": 21636
+    },
+    {
+      "platform": "UXGPRO",
+      "version": "v1.13.8+4578",
+      "source_url": "https://fw-download.ubnt.com/data/unifi-firmware/2f52-UXGPRO-1.13.8-378df9ffe55644ce988f0f9a8b10c0dd.bin",
+      "source_sha256": "f63da4db3344697f3aca476a073ed9925e61cf0fbce4ae18a029fb57fda8b470",
+      "outcome": "rootfs",
+      "nested_artifact_path": "firmware.bin/rootfs",
+      "tar_sha256": "7e4acb6fd44fdac611f1dc84054c95c167d7b5d8745f6112eed0b1c52aa65a58",
+      "entry_count": 15062
+    }
+  ]
+}

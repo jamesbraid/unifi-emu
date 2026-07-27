@@ -9,7 +9,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"path"
 	"strings"
 
 	"github.com/klauspost/compress/zstd"
@@ -73,7 +72,6 @@ type DecodeResult struct {
 	Artifacts []Artifact
 	Files     []decodedFile
 	Roots     []decodedRoot
-	Warnings  []string
 	Failures  []Failure
 }
 
@@ -207,11 +205,8 @@ func (s *decoderState) walk(name string, data []byte, offset int64, compression 
 		}
 		files, err := parseSquashFS(data, archiveLimits)
 		if err != nil {
-			if !isOptionalNestedSquashFS(name, depth) {
-				s.fail(name, "squashfs", err)
-				return
-			}
-			s.warn(name, "squashfs", err)
+			s.fail(name, "squashfs", err)
+			return
 		}
 		if err := s.chargeEntries(files); err != nil {
 			s.fail(name, "squashfs", err)
@@ -423,19 +418,6 @@ func (s *decoderState) fail(artifact, stage string, err error) {
 	s.result.Failures = append(s.result.Failures, Failure{
 		Stage: stage, Artifact: artifact, Error: err.Error(),
 	})
-}
-
-func (s *decoderState) warn(artifact, stage string, err error) {
-	s.result.Warnings = append(s.result.Warnings,
-		fmt.Sprintf("%s %q: %v", stage, artifact, err))
-}
-
-func isOptionalNestedSquashFS(name string, depth int) bool {
-	if depth == 0 {
-		return false
-	}
-	base := strings.ToLower(path.Base(name))
-	return strings.Contains(base, "wififw")
 }
 
 func detectFormat(data []byte) string {

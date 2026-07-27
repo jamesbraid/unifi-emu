@@ -17,7 +17,7 @@ func AnalyzeImageWithRootFS(image SelectedImage, data []byte, limits Limits) (Im
 		Platforms: append([]string(nil), image.Platforms...),
 		SourceURL: image.URL, SourceURLs: append([]string(nil), image.URLs...),
 		Size: int64(len(data)), Format: detectFormat(data),
-		Artifacts: result.Artifacts, Warnings: result.Warnings, Failures: result.Failures,
+		Artifacts: result.Artifacts, Failures: result.Failures,
 	}
 	evidence.Observations = Analyze(result.Files, limits.withDefaults().MinStringLength)
 	rootfs, err := buildRootFSBundle(result, image)

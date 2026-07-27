@@ -33,11 +33,6 @@ executable is unavailable.
 The SquashFS dependency is MIT-licensed; its default pure-Go LZO support uses
 the GPLv2 `github.com/rasky/go-lzo` package. This project intentionally keeps
 that support enabled so LZO-compressed SquashFS images remain readable.
-Some firmware also carries an ancillary Wi-Fi firmware SquashFS image. If the
-Go reader cannot traverse one of these secondary images, the manifest records
-an explicit warning and retains the artifact and any entries read before the
-error. A top-level or root-filesystem SquashFS traversal error remains a
-structured failure.
 
 ## Catalogue mode
 

@@ -65,9 +65,9 @@ func parseSquashFS(data []byte, limits Limits) (files []decodedFile, err error) 
 		if info.Size() < 0 || info.Size() > limits.MaxExpandedBytes-expanded {
 			return fmt.Errorf("SquashFS expanded bytes exceed limit %d", limits.MaxExpandedBytes)
 		}
-		content, readErr := io.ReadAll(io.LimitReader(opened, info.Size()+1))
+		content, readErr := readSquashFSContent(opened, name, info.Size())
 		if readErr != nil {
-			return fmt.Errorf("read SquashFS entry %q: %w", name, readErr)
+			return readErr
 		}
 		if int64(len(content)) != info.Size() {
 			return fmt.Errorf("short SquashFS entry %q: got %d bytes, want %d", name, len(content), info.Size())
@@ -79,7 +79,21 @@ func parseSquashFS(data []byte, limits Limits) (files []decodedFile, err error) 
 		return nil
 	})
 	if err != nil {
-		return files, fmt.Errorf("walk SquashFS: %w", err)
+		return nil, fmt.Errorf("walk SquashFS: %w", err)
 	}
 	return files, nil
+}
+
+func readSquashFSContent(reader io.Reader, name string, size int64) ([]byte, error) {
+	// CalebQ42/squashfs v1.4.1 initializes a block reader even for an empty
+	// regular file. Such a file has neither data blocks nor a fragment, so its
+	// unconditional Block(0) call reports "invalid block index".
+	if size == 0 {
+		return []byte{}, nil
+	}
+	content, err := io.ReadAll(io.LimitReader(reader, size+1))
+	if err != nil {
+		return nil, fmt.Errorf("read SquashFS entry %q: %w", name, err)
+	}
+	return content, nil
 }

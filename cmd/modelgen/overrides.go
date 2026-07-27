@@ -8,6 +8,22 @@ import (
 
 type overrides struct {
 	Models map[string]modelOverride `json:"models"`
+	// FirmwareCaps is keyed "<type>@<version>", not by model, because
+	// fw_caps is a property of a firmware branch rather than of a SKU:
+	// three switch models on 7.4.1.16850 report byte-identical bitmaps,
+	// and within one AP firmware the whole model-to-model spread is a
+	// bit or two. Keying it per model would imply a precision the
+	// captures do not have, and would leave 96% of the catalog guessing.
+	//
+	// A type@version with no entry gets nothing, so a model on firmware
+	// nobody has captured keeps the placeholder rather than borrowing a
+	// neighbour's bitmap.
+	FirmwareCaps map[string]firmwareCapsOverride `json:"firmware_caps,omitempty"`
+}
+
+type firmwareCapsOverride struct {
+	FWCaps int    `json:"fw_caps"`
+	Source string `json:"source,omitempty"`
 }
 
 type modelOverride struct {

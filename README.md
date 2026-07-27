@@ -309,8 +309,9 @@ without an exact static layout or live-device confirmation.
 
 For a single image, add `-rootfs-tar rootfs.tar -rootfs-json rootfs.json` to
 publish the deterministic consumer bundle. The tar preserves vendor bytes,
-modes, directories, symlinks, and hardlinks. It contains no runtime shims or
-modified files; the JSON holds only source and tar provenance.
+modes, directories, symlinks, hardlinks, device nodes, and FIFOs. Socket
+entries stop extraction with an error. The tar contains no runtime shims or
+modified files. The JSON holds only source and tar provenance.
 
 See [`docs/FIRMWARE-EXTRACTION.md`](docs/FIRMWARE-EXTRACTION.md) for supported
 formats, the evidence schema, limits, and the real-image smoke-test recipe.

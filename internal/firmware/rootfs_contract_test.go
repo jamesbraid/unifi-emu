@@ -31,6 +31,187 @@ func TestParseTarAcceptsCanonicalDirectoryNames(t *testing.T) {
 	}
 }
 
+func TestParseTarCanonicalizesLeadingDotSlashAndSkipsRoot(t *testing.T) {
+	var archive bytes.Buffer
+	writer := tar.NewWriter(&archive)
+	for _, header := range []*tar.Header{
+		{Name: "./", Typeflag: tar.TypeDir, Mode: 0o755},
+		{Name: "./ingssvcd", Typeflag: tar.TypeReg, Mode: 0o755, Size: 3},
+		{Name: "./AR1520A.img", Typeflag: tar.TypeReg, Mode: 0o644, Size: 3},
+	} {
+		if err := writer.WriteHeader(header); err != nil {
+			t.Fatal(err)
+		}
+		if header.Typeflag == tar.TypeReg {
+			if _, err := writer.Write([]byte("gps")); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := parseTar(archive.Bytes(), DefaultLimits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 || entries[0].Path != "ingssvcd" ||
+		entries[1].Path != "AR1520A.img" {
+		t.Fatalf("entries = %+v", entries)
+	}
+}
+
+func TestParseTarStillRejectsTraversalBelowDotSlash(t *testing.T) {
+	var archive bytes.Buffer
+	writer := tar.NewWriter(&archive)
+	if err := writer.WriteHeader(&tar.Header{
+		Name: "./../escape", Typeflag: tar.TypeReg, Mode: 0o644,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := parseTar(archive.Bytes(), DefaultLimits()); err == nil {
+		t.Fatal("accepted tar traversal below ./")
+	}
+}
+
+func TestParseTarPreservesDeviceNodesAndFIFO(t *testing.T) {
+	var archive bytes.Buffer
+	writer := tar.NewWriter(&archive)
+	for _, header := range []*tar.Header{
+		{Name: "dev/null", Typeflag: tar.TypeChar, Mode: 0o666, Devmajor: 1, Devminor: 3},
+		{Name: "dev/mtdblock0", Typeflag: tar.TypeBlock, Mode: 0o640, Devmajor: 31},
+		{Name: "run/events", Typeflag: tar.TypeFifo, Mode: 0o620},
+	} {
+		if err := writer.WriteHeader(header); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := parseTar(archive.Bytes(), DefaultLimits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 3 {
+		t.Fatalf("entries = %+v", entries)
+	}
+	if got := entries[0]; got.Kind != "char-device" || got.DeviceMajor != 1 || got.DeviceMinor != 3 {
+		t.Fatalf("character device = %+v", got)
+	}
+	if got := entries[1]; got.Kind != "block-device" || got.DeviceMajor != 31 || got.DeviceMinor != 0 {
+		t.Fatalf("block device = %+v", got)
+	}
+	if got := entries[2]; got.Kind != "fifo" || got.Mode != 0o620 {
+		t.Fatalf("FIFO = %+v", got)
+	}
+}
+
+func TestParseTarRejectsUnsupportedEntryInsteadOfSkippingIt(t *testing.T) {
+	var archive bytes.Buffer
+	writer := tar.NewWriter(&archive)
+	if err := writer.WriteHeader(&tar.Header{
+		Name: "run/control.sock", Typeflag: tar.TypeGNUSparse, Mode: 0o600,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := parseTar(archive.Bytes(), DefaultLimits()); err == nil {
+		t.Fatal("unsupported tar entry was silently skipped")
+	}
+}
+
+func TestCPIORootFSTarReconcilesSpecialEntriesAndDuplicates(t *testing.T) {
+	var archive []byte
+	archive = append(archive, newcEntryMeta("dev", nil, 0o040755, 1, 1, 0, 0)...)
+	archive = append(archive, newcEntryDevice("dev/console", 0o020600, 5, 1)...)
+	archive = append(archive, newcEntryDevice("dev/console", 0o020660, 5, 1)...)
+	archive = append(archive, newcEntryDevice("dev/mtdblock0", 0o060640, 31, 0)...)
+	archive = append(archive, newcEntryDevice("run/events", 0o010620, 0, 0)...)
+	archive = append(archive, newcEntry("TRAILER!!!", nil, 0)...)
+
+	source, err := parseCPIO(archive, DefaultLimits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(source) != 5 {
+		t.Fatalf("source entries = %d, want 5 including duplicate console", len(source))
+	}
+	bundle, err := buildRootFSBundle(DecodeResult{Roots: []decodedRoot{{
+		Artifact: "firmware.bin/initramfs", Format: "cpio", Entries: source,
+	}}}, SelectedImage{Platforms: []string{"TEST"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bundle.Metadata.EntryCount != 4 {
+		t.Fatalf("output entries = %d, want 4 unique source paths", bundle.Metadata.EntryCount)
+	}
+	reader := tar.NewReader(bytes.NewReader(bundle.Tar))
+	var types []byte
+	for {
+		header, err := reader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		types = append(types, header.Typeflag)
+		if header.Name == "dev/console" &&
+			(header.Mode != 0o660 || header.Devmajor != 5 || header.Devminor != 1) {
+			t.Fatalf("last console entry was not preserved: %+v", header)
+		}
+	}
+	wantTypes := []byte{tar.TypeDir, tar.TypeChar, tar.TypeBlock, tar.TypeFifo}
+	if !bytes.Equal(types, wantTypes) {
+		t.Fatalf("output entry types = %q, want %q", types, wantTypes)
+	}
+}
+
+func TestRootFSTarEmitsDeviceNodesAndFIFO(t *testing.T) {
+	result := DecodeResult{Roots: []decodedRoot{{
+		Artifact: "firmware.bin/rootfs",
+		Entries: []decodedFile{
+			{Path: "dev/null", Kind: "char-device", Mode: 0o666, DeviceMajor: 1, DeviceMinor: 3},
+			{Path: "dev/mtdblock0", Kind: "block-device", Mode: 0o640, DeviceMajor: 31},
+			{Path: "run/events", Kind: "fifo", Mode: 0o620},
+		},
+	}}}
+	bundle, err := buildRootFSBundle(result, SelectedImage{Platforms: []string{"TEST"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader := tar.NewReader(bytes.NewReader(bundle.Tar))
+	want := []struct {
+		name       string
+		kind       byte
+		mode       int64
+		major, min int64
+	}{
+		{"dev/mtdblock0", tar.TypeBlock, 0o640, 31, 0},
+		{"dev/null", tar.TypeChar, 0o666, 1, 3},
+		{"run/events", tar.TypeFifo, 0o620, 0, 0},
+	}
+	for _, expected := range want {
+		header, err := reader.Next()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if header.Name != expected.name || header.Typeflag != expected.kind ||
+			header.Mode != expected.mode || header.Devmajor != expected.major ||
+			header.Devminor != expected.min {
+			t.Fatalf("header = %+v, want %+v", header, expected)
+		}
+	}
+}
+
 func TestRootFSTarWritesHardlinkAfterItsTarget(t *testing.T) {
 	result := DecodeResult{Roots: []decodedRoot{{
 		Artifact: "firmware.bin/rootfs",

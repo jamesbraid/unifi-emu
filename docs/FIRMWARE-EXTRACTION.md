@@ -24,15 +24,19 @@ The expanded-byte budget is cumulative across decompressed streams and
 materialized archive entries; nested and sibling archives do not reset it.
 
 The implementation uses u-root's CPIO and device-tree packages and
-`github.com/CalebQ42/squashfs` for the SquashFS `io/fs` view. Install `lzop`
-when analyzing images that contain an lzop stream. u-root uses the same
-reference executable strategy in its bzImage support; it does not expose a
-general lzop reader. `fwextract` reports a normal decompression failure when the
+`github.com/KarpelesLab/squashfs` for the SquashFS `io/fs` view. The SquashFS
+reader delegates compressed blocks to maintained Go codecs: `anchore/go-lzo`,
+`pierrec/lz4`, `mikelolasagasti/xz`, and `klauspost/compress`.
+
+Install `lzop` when analyzing a standalone lzop stream. u-root uses the same
+reference executable strategy in its bzImage support because it does not expose
+a general lzop reader. `fwextract` reports a decompression failure when the
 executable is unavailable.
 
-The SquashFS dependency is MIT-licensed; its default pure-Go LZO support uses
-the GPLv2 `github.com/rasky/go-lzo` package. This project intentionally keeps
-that support enabled so LZO-compressed SquashFS images remain readable.
+The defaults cover current official gateway and console images: 1 GiB per
+input image, 4 GiB of materialized content, and 100,000 artifacts. The
+corresponding command-line flags remain available for unusually large or
+untrusted inputs.
 
 ## Catalogue mode
 
@@ -115,10 +119,12 @@ go run ./cmd/fwextract ... \
   -rootfs-json tmp/U7PRO/rootfs.json
 ```
 
-`rootfs.tar` is deterministic. Entries are ordered by path; timestamps and
-ownership are normalized; vendor file bytes, permission modes, directories,
-symlinks, and hardlink relationships are preserved. It contains no helper,
-runtime shim, manifest, or modified vendor file.
+`rootfs.tar` is deterministic. Entries are ordered by path. Timestamps and
+ownership are normalized. Vendor file bytes, permission modes, directories,
+symlinks, hardlink relationships, device nodes, and FIFOs are preserved.
+Socket entries stop extraction with an error because tar has no portable socket
+entry type. The archive contains no helper, runtime shim, manifest, or modified
+vendor file.
 
 `rootfs.json` is the commit marker for the pair. It contains exactly the source
 firmware digest, platform, version, selected nested artifact path, tar digest,

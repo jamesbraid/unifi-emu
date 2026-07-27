@@ -43,6 +43,7 @@ func main() {
 func run(ctx context.Context, args []string, stdout, stderr io.Writer, client *http.Client) error {
 	flags := flag.NewFlagSet("fwextract", flag.ContinueOnError)
 	flags.SetOutput(stderr)
+	defaults := firmware.DefaultLimits()
 	var platforms stringList
 	var (
 		imagePath = flags.String("image", "", "analyze one local firmware image")
@@ -57,11 +58,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, client *h
 		rootTar   = flags.String("rootfs-tar", "", "write deterministic extracted rootfs.tar")
 		rootJSON  = flags.String("rootfs-json", "", "write rootfs provenance metadata")
 		all       = flags.Bool("all", false, "select every unique catalogue image")
-		maxImage  = flags.Int64("max-image-bytes", 512<<20, "maximum input image bytes")
-		maxExpand = flags.Int64("max-expanded-bytes", 1<<30, "maximum total decompressed bytes")
-		maxFiles  = flags.Int("max-artifacts", 10000, "maximum decoded artifacts")
-		maxDepth  = flags.Int("max-depth", 12, "maximum nested decoder depth")
-		minString = flags.Int("min-string-length", 4, "minimum printable string length")
+		maxImage  = flags.Int64("max-image-bytes", defaults.MaxImageBytes, "maximum input image bytes")
+		maxExpand = flags.Int64("max-expanded-bytes", defaults.MaxExpandedBytes, "maximum total decompressed bytes")
+		maxFiles  = flags.Int("max-artifacts", defaults.MaxArtifacts, "maximum decoded artifacts")
+		maxDepth  = flags.Int("max-depth", defaults.MaxDepth, "maximum nested decoder depth")
+		minString = flags.Int("min-string-length", defaults.MinStringLength, "minimum printable string length")
 	)
 	flags.Var(&platforms, "platform", "platform to select; repeat or comma-separate")
 	if err := flags.Parse(args); err != nil {

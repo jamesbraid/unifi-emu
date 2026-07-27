@@ -64,8 +64,18 @@ func parseCPIO(data []byte, limits Limits) ([]decodedFile, error) {
 			}
 		case cpio.S_IFLNK:
 			entry.Kind = "symlink"
+		case cpio.S_IFCHR:
+			entry.Kind = "char-device"
+			entry.DeviceMajor, entry.DeviceMinor = int64(record.Rmajor), int64(record.Rminor)
+		case cpio.S_IFBLK:
+			entry.Kind = "block-device"
+			entry.DeviceMajor, entry.DeviceMinor = int64(record.Rmajor), int64(record.Rminor)
+		case cpio.S_IFIFO:
+			entry.Kind = "fifo"
+		case cpio.S_IFSOCK:
+			return nil, fmt.Errorf("unsupported CPIO socket %q", record.Name)
 		default:
-			continue
+			return nil, fmt.Errorf("unsupported CPIO entry mode %#o for %q", record.Mode&cpio.S_IFMT, record.Name)
 		}
 		if entry.Kind == "regular" || entry.Kind == "symlink" {
 			if record.FileSize > uint64(limits.MaxExpandedBytes-expanded) {

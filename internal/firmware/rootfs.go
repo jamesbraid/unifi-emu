@@ -55,6 +55,14 @@ func buildRootFSBundle(result DecodeResult, image SelectedImage) (*RootFSBundle,
 			header.Typeflag, header.Linkname = tar.TypeSymlink, entry.Linkname
 		case "hardlink":
 			header.Typeflag, header.Linkname = tar.TypeLink, entry.Linkname
+		case "char-device":
+			header.Typeflag = tar.TypeChar
+			header.Devmajor, header.Devminor = entry.DeviceMajor, entry.DeviceMinor
+		case "block-device":
+			header.Typeflag = tar.TypeBlock
+			header.Devmajor, header.Devminor = entry.DeviceMajor, entry.DeviceMinor
+		case "fifo":
+			header.Typeflag = tar.TypeFifo
 		default:
 			return nil, fmt.Errorf("unsupported rootfs entry kind %q for %q", entry.Kind, entry.Path)
 		}

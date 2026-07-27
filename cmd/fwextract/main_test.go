@@ -50,6 +50,30 @@ func TestRunLocalImageWritesManifest(t *testing.T) {
 	}
 }
 
+func TestRunReportsDefaultsThatCoverCurrentOfficialImages(t *testing.T) {
+	image := commandUBNTImage([]byte("agent"))
+	sum := fmt.Sprintf("%x", sha256.Sum256(image))
+	path := filepath.Join(t.TempDir(), "firmware.bin")
+	if err := os.WriteFile(path, image, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	if err := run(context.Background(), []string{
+		"-image", path, "-sha256", sum, "-platform", "TEST", "-version", "1",
+	}, &output, &bytes.Buffer{}, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`"max_image_bytes": 1073741824`,
+		`"max_expanded_bytes": 4294967296`,
+		`"max_artifacts": 100000`,
+	} {
+		if !strings.Contains(output.String(), want) {
+			t.Fatalf("manifest missing default %s:\n%s", want, output.String())
+		}
+	}
+}
+
 func TestRunRequiresOneInputModeAndLocalMetadata(t *testing.T) {
 	for name, args := range map[string][]string{
 		"no input":        nil,

@@ -11,9 +11,9 @@ The internal package models byte-range artifacts, recursively decodes bounded
 containers, classifies management-agent strings, and writes stable manifests.
 Catalogue and local-image sources converge on the same analyzer.
 
-**Technology:** Go 1.25+, standard library, u-root for CPIO/FIT, maintained Go
-compression packages, `github.com/CalebQ42/squashfs`, and the reference `lzop`
-executable for lzop framing.
+**Technology:** Go 1.25+, standard library, u-root for CPIO/FIT,
+`github.com/KarpelesLab/squashfs`, maintained Go compression packages, and the
+reference `lzop` executable for lzop framing.
 
 ---
 

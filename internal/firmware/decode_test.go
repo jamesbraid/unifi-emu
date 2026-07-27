@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"hash/adler32"
+	"io"
 	"os/exec"
 	"sort"
 	"strings"
@@ -229,6 +230,75 @@ func TestDecodeCarvesEmbeddedLZMAFromKernel(t *testing.T) {
 	if len(result.Files) != 1 || result.Files[0].Path != "vmlinux/embedded.lzma/usr/bin/mcad" {
 		t.Fatalf("embedded LZMA files = %+v", result.Files)
 	}
+}
+
+func TestDecodeEmbeddedLZMASkipsLaterFalseCandidate(t *testing.T) {
+	cpio := append(newcEntry("usr/bin/mcad", []byte("fw_caps\x00"), 0o100755),
+		newcEntry("TRAILER!!!", nil, 0)...)
+	valid := testLZMAStream(t, cpio)
+	kernel := append(bytes.Repeat([]byte{0xaa}, 19), valid...)
+	kernel = append(kernel, bytes.Repeat([]byte{0xbb}, 23)...)
+	kernel = append(kernel, falseLZMACandidate(t)...)
+
+	result := Decode(kernel, "vmlinux", Limits{
+		MaxArtifacts: 20, MaxExpandedBytes: 1 << 20, MaxDepth: 5,
+	})
+	if len(result.Failures) != 0 {
+		t.Fatalf("later false candidate caused failures: %+v", result.Failures)
+	}
+	if len(result.Files) != 1 ||
+		result.Files[0].Path != "vmlinux/embedded.lzma/usr/bin/mcad" {
+		t.Fatalf("earlier valid LZMA files = %+v", result.Files)
+	}
+}
+
+func TestDecodeEmbeddedLZMAIgnoresIsolatedFalseCandidate(t *testing.T) {
+	kernel := append(bytes.Repeat([]byte{0xaa}, 19), falseLZMACandidate(t)...)
+
+	result := Decode(kernel, "vmlinux", Limits{
+		MaxArtifacts: 20, MaxExpandedBytes: 1 << 20, MaxDepth: 5,
+	})
+	if len(result.Failures) != 0 {
+		t.Fatalf("isolated false candidate caused failures: %+v", result.Failures)
+	}
+	if len(result.Files) != 1 || result.Files[0].Path != "vmlinux" {
+		t.Fatalf("opaque kernel files = %+v", result.Files)
+	}
+}
+
+func testLZMAStream(t *testing.T, content []byte) []byte {
+	t.Helper()
+	var compressed bytes.Buffer
+	writer, err := lzma.NewWriter(&compressed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := writer.Write(content); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return compressed.Bytes()
+}
+
+func falseLZMACandidate(t *testing.T) []byte {
+	t.Helper()
+	candidate, err := hex.DecodeString(
+		"0000200000ffffffffffffffff0000000000000000003b00000086800000601900" +
+			"00bfe40000ffffffff0000000000000000004f0000005d11000003010000ffffff",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader, err := lzma.NewReader(bytes.NewReader(candidate))
+	if err != nil {
+		t.Fatalf("false candidate header does not open: %v", err)
+	}
+	if _, err := io.ReadAll(reader); err == nil {
+		t.Fatal("false candidate unexpectedly decompresses")
+	}
+	return candidate
 }
 
 func testLZOP(data []byte) []byte {

@@ -8,9 +8,11 @@ require (
 )
 
 require (
-	github.com/CalebQ42/squashfs v1.4.1
+	github.com/KarpelesLab/squashfs v1.2.0
+	github.com/anchore/go-lzo v0.1.0
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/klauspost/compress v1.18.5
+	github.com/mikelolasagasti/xz v1.0.1
 	github.com/moby/moby/api v1.54.1
 	github.com/pierrec/lz4/v4 v4.1.22
 	github.com/testcontainers/testcontainers-go v0.42.0
@@ -40,10 +42,10 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/hanwen/go-fuse/v2 v2.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
-	github.com/mikelolasagasti/xz v1.0.1 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.2.0 // indirect
 	github.com/moby/moby/client v0.4.0 // indirect
@@ -56,7 +58,6 @@ require (
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
-	github.com/rasky/go-lzo v0.0.0-20200203143853-96a758eda86e // indirect
 	github.com/shirou/gopsutil/v4 v4.26.3 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect

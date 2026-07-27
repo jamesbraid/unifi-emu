@@ -30,8 +30,8 @@ type Limits struct {
 func DefaultLimits() Limits {
 	return Limits{
 		MaxImageBytes:    defaultMaxImageBytes,
-		MaxExpandedBytes: 1 << 30,
-		MaxArtifacts:     10000,
+		MaxExpandedBytes: 4 << 30,
+		MaxArtifacts:     100000,
 		MaxDepth:         12,
 		MinStringLength:  4,
 	}
@@ -65,6 +65,8 @@ type decodedFile struct {
 	Kind              string
 	Linkname          string
 	LinkKey           string
+	DeviceMajor       int64
+	DeviceMinor       int64
 	MaterializedBytes int64
 }
 
@@ -288,9 +290,17 @@ func (s *decoderState) walk(name string, data []byte, offset int64, compression 
 				return
 			}
 		}
-		if embeddedOffset := findEmbeddedLZMA(data); embeddedOffset >= 0 {
-			s.walk(joinArtifact(name, "embedded.lzma"), data[embeddedOffset:],
-				int64(embeddedOffset), "lzma", depth+1)
+		remaining := s.limits.MaxExpandedBytes - s.expanded
+		if embeddedOffset, decoded, ok := findEmbeddedLZMA(data, remaining); ok {
+			embeddedName := joinArtifact(name, "embedded.lzma")
+			compressed := data[embeddedOffset:]
+			s.expanded += int64(len(decoded))
+			s.result.Artifacts = append(s.result.Artifacts, Artifact{
+				Path: embeddedName, Format: "lzma", Offset: int64(embeddedOffset),
+				OffsetBasis: "parent", Size: int64(len(compressed)), Compression: "lzma",
+				SHA256: fmt.Sprintf("%x", sha256.Sum256(compressed)),
+			})
+			s.walk(embeddedName, decoded, 0, "", depth+1)
 			return
 		}
 		if embeddedOffset := findEmbeddedXZ(data); embeddedOffset >= 0 {
@@ -308,6 +318,9 @@ func (s *decoderState) addFile(name string, data []byte, offset int64, depth int
 		return
 	}
 	format := detectFormat(data)
+	if format == "ubnt" && !validUBNTHeader(data) {
+		format = "opaque"
+	}
 	if format != "opaque" && format != "esp32" {
 		s.walk(name, data, offset, "", depth)
 		return
@@ -472,8 +485,14 @@ func parseTar(data []byte, limits Limits) ([]decodedFile, error) {
 			return nil, fmt.Errorf("tar entry count exceeds limit %d", limits.MaxArtifacts)
 		}
 		entryName := header.Name
+		for strings.HasPrefix(entryName, "./") {
+			entryName = strings.TrimPrefix(entryName, "./")
+		}
 		if header.Typeflag == tar.TypeDir {
 			entryName = strings.TrimRight(entryName, "/")
+			if entryName == "" {
+				continue
+			}
 		}
 		if !safeArchivePath(entryName) {
 			return nil, fmt.Errorf("unsafe tar path %q", header.Name)
@@ -487,12 +506,24 @@ func parseTar(data []byte, limits Limits) ([]decodedFile, error) {
 		case tar.TypeSymlink:
 			entry.Kind, entry.Linkname = "symlink", header.Linkname
 		case tar.TypeLink:
-			if !safeArchivePath(header.Linkname) {
+			linkname := header.Linkname
+			for strings.HasPrefix(linkname, "./") {
+				linkname = strings.TrimPrefix(linkname, "./")
+			}
+			if !safeArchivePath(linkname) {
 				return nil, fmt.Errorf("unsafe tar hardlink target %q", header.Linkname)
 			}
-			entry.Kind, entry.Linkname = "hardlink", header.Linkname
+			entry.Kind, entry.Linkname = "hardlink", linkname
+		case tar.TypeChar:
+			entry.Kind = "char-device"
+			entry.DeviceMajor, entry.DeviceMinor = header.Devmajor, header.Devminor
+		case tar.TypeBlock:
+			entry.Kind = "block-device"
+			entry.DeviceMajor, entry.DeviceMinor = header.Devmajor, header.Devminor
+		case tar.TypeFifo:
+			entry.Kind = "fifo"
 		default:
-			continue
+			return nil, fmt.Errorf("unsupported tar entry type %q for %q", header.Typeflag, header.Name)
 		}
 		if entry.Kind == "regular" {
 			if header.Size < 0 || header.Size > limits.MaxExpandedBytes-expanded {
@@ -559,7 +590,10 @@ func findEmbeddedCPIO(data []byte, limits Limits) (int, []decodedFile, bool) {
 	return 0, nil, false
 }
 
-func findEmbeddedLZMA(data []byte) int {
+func findEmbeddedLZMA(data []byte, maxExpanded int64) (int, []byte, bool) {
+	if maxExpanded <= 0 {
+		return 0, nil, false
+	}
 	for offset := len(data) - 13; offset >= 1; offset-- {
 		properties := data[offset]
 		if properties >= 9*5*5 {
@@ -574,12 +608,18 @@ func findEmbeddedLZMA(data []byte) int {
 			unknownSize = unknownSize && value == 0xff
 		}
 		if unknownSize {
-			if _, err := (lzma.ReaderConfig{DictCap: 64 << 20}).NewReader(bytes.NewReader(data[offset:])); err == nil {
-				return offset
+			reader, err := (lzma.ReaderConfig{DictCap: 64 << 20}).NewReader(
+				bytes.NewReader(data[offset:]))
+			if err != nil {
+				continue
+			}
+			decoded, err := io.ReadAll(io.LimitReader(reader, maxExpanded+1))
+			if err == nil && int64(len(decoded)) <= maxExpanded {
+				return offset, decoded, true
 			}
 		}
 	}
-	return -1
+	return 0, nil, false
 }
 
 func findEmbeddedXZ(data []byte) int {

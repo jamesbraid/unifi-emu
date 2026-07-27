@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-const defaultMaxImageBytes int64 = 512 << 20
+const defaultMaxImageBytes int64 = 1 << 30
 
 type Cache struct {
 	Dir           string

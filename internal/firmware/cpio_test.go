@@ -57,6 +57,42 @@ func TestParseCPIOPreservesFilesystemMetadata(t *testing.T) {
 	}
 }
 
+func TestParseCPIOPreservesDeviceNodesAndFIFO(t *testing.T) {
+	var archive []byte
+	archive = append(archive, newcEntryDevice("dev/null", 0o020666, 1, 3)...)
+	archive = append(archive, newcEntryDevice("dev/mtdblock0", 0o060640, 31, 0)...)
+	archive = append(archive, newcEntryDevice("run/events", 0o010620, 0, 0)...)
+	archive = append(archive, newcEntry("TRAILER!!!", nil, 0)...)
+
+	files, err := parseCPIO(archive, Limits{MaxArtifacts: 10, MaxExpandedBytes: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 3 {
+		t.Fatalf("entries = %+v", files)
+	}
+	if got := files[0]; got.Path != "dev/null" || got.Kind != "char-device" ||
+		got.Mode != 0o666 || got.DeviceMajor != 1 || got.DeviceMinor != 3 {
+		t.Fatalf("character device = %+v", got)
+	}
+	if got := files[1]; got.Path != "dev/mtdblock0" || got.Kind != "block-device" ||
+		got.Mode != 0o640 || got.DeviceMajor != 31 || got.DeviceMinor != 0 {
+		t.Fatalf("block device = %+v", got)
+	}
+	if got := files[2]; got.Path != "run/events" || got.Kind != "fifo" || got.Mode != 0o620 {
+		t.Fatalf("FIFO = %+v", got)
+	}
+}
+
+func TestParseCPIORejectsSocketInsteadOfSkippingIt(t *testing.T) {
+	archive := append(newcEntryDevice("run/control.sock", 0o140600, 0, 0),
+		newcEntry("TRAILER!!!", nil, 0)...)
+	_, err := parseCPIO(archive, Limits{MaxArtifacts: 10, MaxExpandedBytes: 100})
+	if err == nil || !strings.Contains(err.Error(), "socket") {
+		t.Fatalf("socket error = %v", err)
+	}
+}
+
 func TestParseCPIORequiresTrailer(t *testing.T) {
 	archive := newcEntry("usr/bin/mcad", []byte("agent"), 0o100755)
 	if _, err := parseCPIO(archive, Limits{MaxArtifacts: 10, MaxExpandedBytes: 100}); err == nil {
@@ -138,10 +174,18 @@ func newcEntry(name string, data []byte, mode uint32) []byte {
 }
 
 func newcEntryMeta(name string, data []byte, mode, ino, nlink, major, minor uint32) []byte {
+	return newcEntryMetaDevice(name, data, mode, ino, nlink, major, minor, 0, 0)
+}
+
+func newcEntryDevice(name string, mode, rmajor, rminor uint32) []byte {
+	return newcEntryMetaDevice(name, nil, mode, 1, 1, 0, 0, rmajor, rminor)
+}
+
+func newcEntryMetaDevice(name string, data []byte, mode, ino, nlink, major, minor, rmajor, rminor uint32) []byte {
 	nameBytes := append([]byte(name), 0)
 	header := fmt.Sprintf(
 		"070701%08x%08x%08x%08x%08x%08x%08x%08x%08x%08x%08x%08x%08x",
-		ino, mode, 0, 0, nlink, 0, len(data), major, minor, 0, 0, len(nameBytes), 0,
+		ino, mode, 0, 0, nlink, 0, len(data), major, minor, rmajor, rminor, len(nameBytes), 0,
 	)
 	out := append([]byte(header), nameBytes...)
 	out = append(out, make([]byte, align4(len(out))-len(out))...)

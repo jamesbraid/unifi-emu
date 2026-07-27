@@ -1,0 +1,33 @@
+{
+  "name": "uxgent",
+  "platform": "UXGENT",
+  "firmware_digest": "62c941a6d3a63afc851ee3b4a69ba33b36d57ae78730e13fac54223383422c22",
+  "firmware_version": "5.0.16.30689",
+  "agent_digest": "4dfc505c3342c86193a4c43e542d96b23e6002da7406d5254ffc01a25a8bee94",
+  "architecture": "aarch64",
+  "interpreter": "/lib/ld-linux-aarch64.so.1",
+  "runner_image": "unifi-firmware-runner:local",
+  "container_name": "unifi-firmware-uxgent",
+  "startup_grace_seconds": 2,
+  "container_mac": "00:27:22:e0:00:01",
+  "overlay_dir": "uxgent/rootfs",
+  "cap_add": [
+    "SYS_CHROOT"
+  ],
+  "command": [
+    "sh",
+    "-ec",
+    "cp /etc/resolv.conf /firmware/etc/resolv.conf; mkdir -p /firmware/run/lock /firmware/tmp; python3 /firmware/opt/firmware-runner/udapi_stub.py & exec chroot /firmware /usr/bin/mcad -vvvv"
+  ],
+  "post_start": {
+    "socket": "/firmware/tmp/.mcad",
+    "timeout_seconds": 90,
+    "command": [
+      "chroot",
+      "/firmware",
+      "/usr/bin/mca-cli-op",
+      "set-inform",
+      "{inform_url}"
+    ]
+  }
+}

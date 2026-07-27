@@ -1,0 +1,22 @@
+{
+  "name": "u7pro",
+  "platform": "U7PRO",
+  "firmware_digest": "bde9ddea1628b2813fd2c7514c27e5245014ef5005cf04e01734e5d5a63b5def",
+  "firmware_version": "8.6.11.18870",
+  "agent_digest": "3202156be69cf0301860ffdf1349e4cb2ced624fcb0422482b3cbaec6ddba9bd",
+  "architecture": "arm",
+  "interpreter": "/lib/ld-musl-armhf.so.1",
+  "runner_image": "unifi-firmware-runner:local",
+  "container_name": "unifi-firmware-u7pro",
+  "startup_grace_seconds": 2,
+  "overlay_dir": "u7pro/rootfs",
+  "cap_add": [
+    "NET_ADMIN",
+    "SYS_CHROOT"
+  ],
+  "command": [
+    "sh",
+    "-ec",
+    "ip link add br0 type dummy; ip link set br0 address 00:27:22:e0:00:22; ip addr add 192.0.2.22/24 dev br0; ip link set br0 up; cp /etc/resolv.conf /firmware/etc/resolv.conf; cp /etc/hosts /firmware/etc/hosts; mkdir -p /firmware/tmp /firmware/etc/persistent/cfg /firmware/var/run; cp /usr/bin/qemu-arm-static /firmware/tmp/qemu-arm-static; exec chroot /firmware /tmp/qemu-arm-static -B 0x100000000 /usr/bin/mcad"
+  ]
+}

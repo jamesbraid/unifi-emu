@@ -32,3 +32,15 @@ steps:
           --context=dir://./ \
           --no-push \
           --single-snapshot
+
+  # The herder's fixture runtime image lives under testdata/, so `go build
+  # ./...` never compiles it and nothing else here would notice it breaking.
+  fixture-image:
+    image: gcr.io/kaniko-project/executor:debug
+    commands:
+      - |
+        /kaniko/executor \
+          --dockerfile=internal/herder/testdata/runtime-fixture/Dockerfile \
+          --context=dir://./ \
+          --no-push \
+          --single-snapshot

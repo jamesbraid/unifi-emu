@@ -39,7 +39,10 @@ func main() {
 // log.Fatal here would skip that and leave the controller holding devices
 // that stopped informing without warning.
 func run() int {
-	informDefault := os.Getenv("SIM_CONTROLLER")
+	informDefault := os.Getenv("UNIFI_EMU_INFORM_URL")
+	if informDefault == "" {
+		informDefault = os.Getenv("SIM_CONTROLLER")
+	}
 	if informDefault == "" {
 		informDefault = "http://localhost:8080/inform"
 	}
@@ -48,11 +51,11 @@ func run() int {
 		log.Print(err)
 		return 1
 	}
-	inform := flag.String("inform", informDefault, "controller inform URL (default: env SIM_CONTROLLER)")
+	inform := flag.String("inform", informDefault, "controller inform URL (default: env UNIFI_EMU_INFORM_URL or SIM_CONTROLLER)")
 	devices := flag.String("devices", "", "YAML/JSON file with an array of DeviceSpec (fleet mode; "+
-		"keys: mac, type, model, modeldisplay, version, name, ip, ports, ssids; unknown keys rejected). "+
+		"keys: mac, type, model, modeldisplay, version, name, ip, ports, ssids, serial; unknown keys rejected). "+
 		"Fleet sources (mutually exclusive): -devices FILE (YAML/JSON), SIM_DEVICES env (inline YAML list), "+
-		"-models, or SIM_MODELS env; any one beats single-device flags")
+		"-models, SIM_MODELS env, or UNIFI_EMU_DEVICES_JSON env; any one beats single-device flags")
 	models := flag.String("models", "", "terse fleet: comma-separated MODEL[:count] (e.g. U7PRO,USM8P:2,UGW3); "+
 		"MAC/IP auto-derived from SIM_MAC_BASE/SIM_IP_BASE. Fleet sources are mutually exclusive.")
 	mac := flag.String("mac", "00:27:22:e0:00:01", "device MAC (single-device mode)")
@@ -104,6 +107,7 @@ func run() int {
 		envInline:   os.Getenv("SIM_DEVICES"),
 		modelsFlag:  *models,
 		models:      os.Getenv("SIM_MODELS"),
+		devicesJSON: os.Getenv("UNIFI_EMU_DEVICES_JSON"),
 	}
 	specs, ignored, err := fleetSpecs(src, set)
 	if err != nil {

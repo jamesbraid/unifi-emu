@@ -389,3 +389,43 @@ func TestDefaultFleetSuppressedBySingleFlag(t *testing.T) {
 		}
 	}
 }
+
+func TestFleetSpecsAmbiguousDevicesJSON(t *testing.T) {
+	src := fleetSources{
+		envInline:   "[{}]",
+		devicesJSON: "[{}]",
+	}
+	_, _, err := fleetSpecs(src, nil)
+	if err == nil || !strings.Contains(err.Error(), "ambiguous device sources") {
+		t.Fatalf("expected ambiguity error, got: %v", err)
+	}
+
+	src2 := fleetSources{
+		models:      "U7PRO",
+		devicesJSON: "[{}]",
+	}
+	_, _, err = fleetSpecs(src2, nil)
+	if err == nil || !strings.Contains(err.Error(), "ambiguous device sources") {
+		t.Fatalf("expected ambiguity error, got: %v", err)
+	}
+}
+
+func TestFleetSpecsUNIFI_EMU_DEVICES_JSON(t *testing.T) {
+	devicesJSON := `[{"mac": "00:27:22:e0:00:01", "model": "U7PRO", "serial": "JSONSERIAL123"}]`
+	src := fleetSources{
+		devicesJSON: devicesJSON,
+	}
+	specs, ignored, err := fleetSpecs(src, nil)
+	if err != nil {
+		t.Fatalf("fleetSpecs error: %v", err)
+	}
+	if len(ignored) != 0 {
+		t.Fatalf("expected no ignored flags, got: %v", ignored)
+	}
+	if len(specs) != 1 {
+		t.Fatalf("expected 1 spec, got: %d", len(specs))
+	}
+	if specs[0].MAC != "00:27:22:e0:00:01" || specs[0].Model != "U7PRO" || specs[0].Serial != "JSONSERIAL123" {
+		t.Fatalf("unexpected spec: %+v", specs[0])
+	}
+}

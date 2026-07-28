@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -21,7 +20,7 @@ import (
 // SIM_MODELS).
 var singleFlags = []string{"mac", "type", "model", "model-display", "version", "name", "ip"}
 
-// fleetSources holds the four mutually-exclusive fleet definitions; at most
+// fleetSources holds the mutually-exclusive fleet definitions; at most
 // one may be set. envInline/models come from SIM_DEVICES/SIM_MODELS,
 // devicesFile/modelsFlag from -devices/-models.
 type fleetSources struct {
@@ -29,6 +28,7 @@ type fleetSources struct {
 	envInline   string // SIM_DEVICES
 	modelsFlag  string // -models
 	models      string // SIM_MODELS (or -models; see modelsText)
+	devicesJSON string // UNIFI_EMU_DEVICES_JSON
 }
 
 // modelsText returns the terse-list text from -models or SIM_MODELS and
@@ -43,13 +43,13 @@ func (s fleetSources) modelsText() (text string, fromFlag bool) {
 // fleetSpecs resolves the device list from the fleet sources, in src
 // (mutually exclusive):
 //
-//	-devices FILE, SIM_DEVICES env, -models flag, or SIM_MODELS env;
+//	-devices FILE, SIM_DEVICES env, -models flag, SIM_MODELS env, or UNIFI_EMU_DEVICES_JSON env;
 //	any one beats single-device flags
 //
 // set marks the flags explicitly given on the command line. More than one
 // fleet source at once is ambiguous and an error, naming the offenders.
 // Single-device flags combined with a flag source (-devices/-models) are
-// an error; combined with an env source (SIM_DEVICES/SIM_MODELS) they
+// an error; combined with an env source (SIM_DEVICES/SIM_MODELS/UNIFI_EMU_DEVICES_JSON) they
 // lose, and the losing flag names are returned so the caller can log the
 // override. A nil spec slice means single-device mode.
 func fleetSpecs(src fleetSources, set map[string]bool) ([]emu.DeviceSpec, []string, error) {
@@ -69,6 +69,9 @@ func fleetSpecs(src fleetSources, set map[string]bool) ([]emu.DeviceSpec, []stri
 	}
 	if strings.TrimSpace(src.models) != "" {
 		active = append(active, "SIM_MODELS")
+	}
+	if strings.TrimSpace(src.devicesJSON) != "" {
+		active = append(active, "UNIFI_EMU_DEVICES_JSON")
 	}
 	if len(active) > 1 {
 		return nil, nil, fmt.Errorf("ambiguous device sources: %s are all set", strings.Join(active, ", "))
@@ -93,6 +96,8 @@ func fleetSpecs(src fleetSources, set map[string]bool) ([]emu.DeviceSpec, []stri
 	switch {
 	case strings.TrimSpace(modelsText) != "":
 		specs, err = parseModelsList(modelsText)
+	case strings.TrimSpace(src.devicesJSON) != "":
+		specs, err = loadDevicesWithSourceName("", src.devicesJSON, "UNIFI_EMU_DEVICES_JSON")
 	default:
 		specs, err = loadDevices(src.devicesFile, src.envInline)
 	}
@@ -137,6 +142,10 @@ func defaultFleet(defaultFile string, set map[string]bool) ([]emu.DeviceSpec, er
 // Neither set returns (nil, nil): the caller falls back to the
 // single-device flags.
 func loadDevices(filePath, envInline string) ([]emu.DeviceSpec, error) {
+	return loadDevicesWithSourceName(filePath, envInline, "SIM_DEVICES")
+}
+
+func loadDevicesWithSourceName(filePath, envInline, srcName string) ([]emu.DeviceSpec, error) {
 	var src string
 	var b []byte
 	switch {
@@ -147,7 +156,7 @@ func loadDevices(filePath, envInline string) ([]emu.DeviceSpec, error) {
 		}
 		src, b = filePath, data
 	case strings.TrimSpace(envInline) != "":
-		src, b = "SIM_DEVICES", []byte(envInline)
+		src, b = srcName, []byte(envInline)
 	default:
 		return nil, nil
 	}
@@ -215,67 +224,5 @@ func parseModelsList(s string) ([]emu.DeviceSpec, error) {
 // fast on an unknown model, a fleet with more than one gateway
 // (api.err.NoSecondGateway), or an ip that would leave the base /24.
 func expandFleet(specs []emu.DeviceSpec, macBase, ipBase string) ([]emu.DeviceSpec, error) {
-	baseMAC, err := net.ParseMAC(macBase)
-	if err != nil {
-		return nil, fmt.Errorf("SIM_MAC_BASE %q: %w", macBase, err)
-	}
-	baseIP := net.ParseIP(ipBase).To4()
-	if baseIP == nil {
-		return nil, fmt.Errorf("SIM_IP_BASE %q: not an IPv4 address", ipBase)
-	}
-	out := make([]emu.DeviceSpec, len(specs))
-	gateways := 0
-	for i, s := range specs {
-		profile, ok := emu.Profile(s.Model)
-		if !ok {
-			return nil, fmt.Errorf("unknown model %q", s.Model)
-		}
-		// ugw and uxg are both gateway families and a site adopts one of
-		// either, so they share the single slot.
-		if profile.Type == "ugw" || profile.Type == "uxg" {
-			gateways++
-			if gateways > 1 {
-				return nil, fmt.Errorf("fleet has %d gateways; a site adopts at most one (api.err.NoSecondGateway)", gateways)
-			}
-		}
-		if s.MAC == "" {
-			s.MAC = nextMAC(baseMAC, i+1)
-		}
-		if s.IP == "" {
-			ip, err := nextIP(baseIP, i)
-			if err != nil {
-				return nil, err
-			}
-			s.IP = ip
-		}
-		out[i] = s
-	}
-	return out, nil
-}
-
-// nextMAC returns baseMAC advanced by n as a 48-bit integer.
-func nextMAC(base net.HardwareAddr, n int) string {
-	v := uint64(0)
-	for _, b := range base {
-		v = v<<8 | uint64(b)
-	}
-	v += uint64(n)
-	var mac [6]byte
-	for i := 5; i >= 0; i-- {
-		mac[i] = byte(v)
-		v >>= 8
-	}
-	return net.HardwareAddr(mac[:]).String()
-}
-
-// nextIP returns baseIP's last octet advanced by n, erroring if it leaves
-// the /24. The reported IP is cosmetic (the controller keys on MAC), so a
-// single /24 of headroom is enough; past it the caller sets SIM_IP_BASE.
-func nextIP(base net.IP, n int) (string, error) {
-	last := int(base[3]) + n
-	if last > 254 {
-		return "", fmt.Errorf("auto-IP left the base /24 (%s + %d > .254); set SIM_IP_BASE or give explicit ips", base, n)
-	}
-	ip := net.IPv4(base[0], base[1], base[2], byte(last))
-	return ip.String(), nil
+	return emu.ExpandFleet(specs, macBase, ipBase)
 }

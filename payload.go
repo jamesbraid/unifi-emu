@@ -19,7 +19,7 @@ func (d *device) buildPayload() []byte {
 	uptime := int64(time.Since(d.started).Seconds())
 	m := map[string]any{
 		"mac":            d.spec.MAC,
-		"serial":         strings.ToUpper(strings.ReplaceAll(d.spec.MAC, ":", "")),
+		"serial":         d.serial(),
 		"model":          d.spec.Model,
 		"model_display":  d.spec.ModelDisplay,
 		"version":        d.spec.Version,
@@ -106,6 +106,17 @@ func (d *device) buildPayload() []byte {
 		return nil // unreachable: only JSON-safe values above
 	}
 	return b
+}
+
+// serial resolves the reported serial number: the spec's when it has one,
+// otherwise the MAC in the uppercase separator-less form real devices use.
+// The derivation is a stand-in for a fact only the hardware knows, so a
+// caller that does know (it allocated the identity) overrides it.
+func (d *device) serial() string {
+	if d.spec.Serial != "" {
+		return d.spec.Serial
+	}
+	return strings.ToUpper(strings.ReplaceAll(d.spec.MAC, ":", ""))
 }
 
 // placeholderFWCaps is what a device reports when nobody has captured a

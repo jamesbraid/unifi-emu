@@ -63,8 +63,8 @@ func TestEmulatorAdoptRequestKeepsTheFleet(t *testing.T) {
 		"https://10.0.0.2:8443", "admin", "s3cret",
 	)
 
-	if got := request.Env["SIM_DEVICES"]; !strings.Contains(got, "00:27:22:e0:00:41") {
-		t.Errorf("SIM_DEVICES = %q, want the requested fleet", got)
+	if got := request.Env["UNIFI_EMU_DEVICES_JSON"]; !strings.Contains(got, "00:27:22:e0:00:41") {
+		t.Errorf("UNIFI_EMU_DEVICES_JSON = %q, want the requested fleet", got)
 	}
 	for key, want := range map[string]string{
 		"SIM_ADOPT":          "1",
@@ -232,7 +232,7 @@ func TestEmulatorContainerRequestBuildsCheckoutByDefault(t *testing.T) {
 	if request.Context != "." || request.Dockerfile != "Dockerfile" {
 		t.Fatalf("source build = context %q Dockerfile %q", request.Context, request.Dockerfile)
 	}
-	if request.Env["SIM_DEVICES"] == "" {
-		t.Fatal("fleet request has no SIM_DEVICES payload")
+	if request.Env["UNIFI_EMU_DEVICES_JSON"] == "" {
+		t.Fatal("fleet request has no UNIFI_EMU_DEVICES_JSON payload")
 	}
 }

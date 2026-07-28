@@ -5,12 +5,16 @@ package emu_test
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
 	emu "github.com/jamesbraid/unifi-emu"
 	"github.com/jamesbraid/unifi-emu/internal/adopt"
+	"github.com/testcontainers/testcontainers-go"
 )
 
 func TestClassicUGWLive(t *testing.T) {
@@ -316,4 +320,79 @@ func adoptAndWait(
 	t.Logf("%s controller: state=%d adopted=%v model=%s ip=%s name=%s",
 		dev, device.State, device.Adopted, device.Model, device.IP, device.Name)
 	return device, nil
+}
+
+func TestClassicOCIFixtureLive(t *testing.T) {
+	images := loadITestImages()
+	emulatorImage := os.Getenv("UNIFI_EMU_ITEST_EMULATOR_IMAGE")
+	if emulatorImage == "" {
+		emulatorImage = images.emulator
+	}
+
+	fixtureImage := "public-fixture:local"
+	if emulatorImage != "" {
+		fixtureImage = emulatorImage
+	} else {
+		t.Log("Building local emulator image via Testcontainers dummy container")
+		ctx := context.Background()
+		dummy, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+			ContainerRequest: testcontainers.ContainerRequest{
+				FromDockerfile: testcontainers.FromDockerfile{
+					Context:    ".",
+					Dockerfile: "Dockerfile",
+					Repo:       "public-fixture",
+					Tag:        "local",
+					BuildArgs: map[string]*string{
+						"BUILDPLATFORM": pointerTo("linux/" + runtime.GOARCH),
+						"TARGETOS":      pointerTo("linux"),
+						"TARGETARCH":    pointerTo(runtime.GOARCH),
+					},
+				},
+			},
+			Started: false,
+		})
+		if err != nil {
+			t.Fatalf("failed to build local emulator image: %v", err)
+		}
+		t.Cleanup(func() {
+			dummy.Terminate(ctx)
+		})
+	}
+
+	catalogContent := fmt.Sprintf(`{
+		"version": 1,
+		"runtimes": [
+			{
+				"name": "fixture",
+				"models": ["U7PRO"],
+				"image": %q,
+				"isolation": "device",
+				"cap_add": ["NET_ADMIN"]
+			}
+		]
+	}`, fixtureImage)
+
+	catalogPath := filepath.Join(t.TempDir(), "catalog.json")
+	if err := os.WriteFile(catalogPath, []byte(catalogContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("UNIFI_EMU_RUNTIME_CATALOG", catalogPath)
+
+	h := startClassicHarness(t)
+	spec := emu.DeviceSpec{
+		MAC:   "00:27:22:e0:00:02",
+		Model: "U7PRO",
+		IP:    "192.168.1.243",
+	}
+	h.startEmulator([]emu.DeviceSpec{spec})
+
+	client := adopt.New(h.apiURL, adopt.Classic)
+	if err := client.Login(h.ctx, "admin", "admin"); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	adoptAndWaitConnected(t, h.ctx, h, client, spec.Model, spec.MAC)
+}
+
+func pointerTo(s string) *string {
+	return &s
 }

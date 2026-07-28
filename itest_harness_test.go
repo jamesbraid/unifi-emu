@@ -6,14 +6,14 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	emu "github.com/jamesbraid/unifi-emu"
+	"github.com/jamesbraid/unifi-emu/testkit"
 	"github.com/moby/moby/api/types/container"
 	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 const (
@@ -43,38 +43,15 @@ func envOrDefault(name, fallback string) string {
 }
 
 func evidenceDir(testName string) string {
-	var normalized strings.Builder
-	underscore := false
-	for _, r := range strings.ToLower(testName) {
-		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
-			normalized.WriteRune(r)
-			underscore = false
-			continue
-		}
-		if !underscore && normalized.Len() > 0 {
-			normalized.WriteByte('_')
-			underscore = true
-		}
-	}
-	return filepath.Join("tmp", "itest", strings.Trim(normalized.String(), "_"))
+	return filepath.Join("tmp", "itest", testkit.NormalizeTestName(testName))
 }
 
 func discoverDockerHost(current, home string, socketExists func(string) bool) string {
-	if current != "" {
-		return current
-	}
-	colima := filepath.Join(home, ".colima", "default", "docker.sock")
-	if socketExists(colima) {
-		return "unix://" + colima
-	}
-	return ""
+	return testkit.DiscoverDockerHost(current, home, socketExists)
 }
 
 func containerRuntimeSocketOverride(host string) string {
-	if strings.Contains(host, "/.colima/") {
-		return "/var/run/docker.sock"
-	}
-	return ""
+	return testkit.ContainerRuntimeSocketOverride(host)
 }
 
 func writeJSON(path string, value any) error {
@@ -90,80 +67,39 @@ func writeJSON(path string, value any) error {
 }
 
 func classicContainerRequest(networkName, image string) testcontainers.ContainerRequest {
-	return testcontainers.ContainerRequest{
-		Image:        image,
-		ExposedPorts: []string{"8443/tcp"},
-		Networks:     []string{networkName},
-		NetworkAliases: map[string][]string{
-			networkName: {"controller"},
-		},
-		WaitingFor: wait.ForHealthCheck().
-			WithPollInterval(time.Second).
-			WithStartupTimeout(5 * time.Minute),
-	}
+	return testkit.BuildControllerRequest(networkName, image, false)
 }
 
 func uosContainerRequest(networkName, image string) testcontainers.ContainerRequest {
-	return testcontainers.ContainerRequest{
-		Image:        image,
-		ExposedPorts: []string{"443/tcp"},
-		Networks:     []string{networkName},
-		NetworkAliases: map[string][]string{
-			networkName: {"controller"},
-		},
-		WaitingFor: wait.ForHealthCheck().
-			WithPollInterval(time.Second).
-			WithStartupTimeout(10 * time.Minute),
-		HostConfigModifier: applyUOSHostConfig,
-	}
+	return testkit.BuildControllerRequest(networkName, image, true)
 }
 
-// baseEmulatorRequest builds the container request common to every launch
-// mode: the shared network, the -inform command, and the emulator image
-// (built from the checkout unless a prebuilt one is selected).
-func baseEmulatorRequest(networkName string, images itestImages, informURL string) testcontainers.ContainerRequest {
-	request := testcontainers.ContainerRequest{
-		Networks: []string{networkName},
-		Cmd:      []string{"-inform", informURL},
-	}
-	if images.emulator == "" {
-		request.FromDockerfile = testcontainers.FromDockerfile{
-			Context:    ".",
-			Dockerfile: "Dockerfile",
-			Repo:       "unifi-emu-itest",
-			Tag:        strings.ReplaceAll(networkName, "_", "-"),
-			BuildArgs:  emulatorBuildArgs(runtime.GOARCH),
-		}
-	} else {
-		request.Image = images.emulator
-	}
-	return request
-}
-
-// itestMACBase and itestIPBase pin the emulator's SIM_MODELS expansion so the
-// caller can predict each device's MAC (base + index + 1). They match the
-// emulator's own defaults but are set explicitly to keep the contract local.
 const (
 	itestMACBase = "00:27:22:e0:00:00"
 	itestIPBase  = "192.168.1.100"
 )
 
-// emulatorModelsRequest launches the emulator from a terse SIM_MODELS list,
-// exercising the CLI's model-list selector and MAC/IP auto-expansion end to
-// end. SIM_DEVICES would bypass both.
 func emulatorModelsRequest(networkName string, images itestImages, informURL, modelsCSV string) testcontainers.ContainerRequest {
-	request := baseEmulatorRequest(networkName, images, informURL)
-	request.Env = map[string]string{
-		"SIM_MODELS":   modelsCSV,
-		"SIM_MAC_BASE": itestMACBase,
-		"SIM_IP_BASE":  itestIPBase,
+	cp := testkit.ContainerPlan{
+		RuntimeName: "synthetic",
+		Specs:       parseModelsCSV(modelsCSV),
 	}
-	return request
+	cfg := testkit.HarnessConfig{
+		EmulatorImage: images.emulator,
+		GoArch:        runtime.GOARCH,
+		ExtraEnv: map[string]string{
+			"SIM_MODELS":   modelsCSV,
+			"SIM_MAC_BASE": itestMACBase,
+			"SIM_IP_BASE":  itestIPBase,
+		},
+	}
+	req, err := testkit.BuildContainerRequest(cp, cfg, networkName, informURL)
+	if err != nil {
+		panic(err)
+	}
+	return req
 }
 
-// flagsExpress reports whether every field this spec sets has a matching
-// single-device CLI flag. Add a DeviceSpec field with no flag and this
-// returns false, which routes the spec to SIM_DEVICES rather than losing it.
 func flagsExpress(spec emu.DeviceSpec) bool {
 	return spec.FWCaps == nil && len(spec.SSIDs) == 0 && spec.Ports == 0
 }
@@ -174,51 +110,21 @@ func emulatorContainerRequest(
 	informURL string,
 	specs []emu.DeviceSpec,
 ) testcontainers.ContainerRequest {
-	request := baseEmulatorRequest(networkName, images, informURL)
-
-	// One device goes through the CLI flags, which is the point: it
-	// exercises the single-device path end to end. But the flags cannot
-	// express every spec field, and a field they drop is dropped in
-	// silence -- a test then runs green having measured the default
-	// instead of what it asked for. Anything the flags cannot carry
-	// takes the SIM_DEVICES route instead.
-	if len(specs) == 1 && flagsExpress(specs[0]) {
-		spec := specs[0]
-		request.Cmd = append(request.Cmd,
-			"-mac", spec.MAC,
-			"-model", spec.Model,
-			"-ip", spec.IP,
-		)
-		if spec.Type != "" {
-			request.Cmd = append(request.Cmd, "-type", spec.Type)
-		}
-		if spec.ModelDisplay != "" {
-			request.Cmd = append(request.Cmd, "-model-display", spec.ModelDisplay)
-		}
-		if spec.Version != "" {
-			request.Cmd = append(request.Cmd, "-version", spec.Version)
-		}
-		if spec.Name != "" {
-			request.Cmd = append(request.Cmd, "-name", spec.Name)
-		}
-		return request
+	cp := testkit.ContainerPlan{
+		RuntimeName: "synthetic",
+		Specs:       specs,
 	}
-
-	encoded, err := json.Marshal(specs)
+	cfg := testkit.HarnessConfig{
+		EmulatorImage: images.emulator,
+		GoArch:        runtime.GOARCH,
+	}
+	req, err := testkit.BuildContainerRequest(cp, cfg, networkName, informURL)
 	if err != nil {
-		panic("marshal static integration device specs: " + err.Error())
+		panic(err)
 	}
-	request.Env = map[string]string{"SIM_DEVICES": string(encoded)}
-	return request
+	return req
 }
 
-// emulatorAdoptRequest launches the emulator with its own adoption switched
-// on, so the container drives the fleet to connected and the test issues no
-// adopt of its own.
-//
-// adoptURL is the controller's API port on the shared container network —
-// a different port from the inform URL, and the one thing adoption needs
-// that informing does not.
 func emulatorAdoptRequest(
 	networkName string,
 	images itestImages,
@@ -226,47 +132,34 @@ func emulatorAdoptRequest(
 	specs []emu.DeviceSpec,
 	adoptURL, user, password string,
 ) testcontainers.ContainerRequest {
-	request := emulatorContainerRequest(networkName, images, informURL, specs)
-	// A single-device fleet rides on the command line and leaves Env unset;
-	// a multi-device one already holds SIM_DEVICES, which must survive.
-	if request.Env == nil {
-		request.Env = map[string]string{}
+	cp := testkit.ContainerPlan{
+		RuntimeName: "synthetic",
+		Specs:       specs,
 	}
-	request.Env["SIM_ADOPT"] = "1"
-	request.Env["SIM_ADOPT_URL"] = adoptURL
-	request.Env["SIM_ADOPT_USERNAME"] = user
-	request.Env["SIM_ADOPT_PASSWORD"] = password
-	return request
+	cfg := testkit.HarnessConfig{
+		EmulatorImage: images.emulator,
+		GoArch:        runtime.GOARCH,
+		ExtraEnv: map[string]string{
+			"SIM_ADOPT":          "1",
+			"SIM_ADOPT_URL":      adoptURL,
+			"SIM_ADOPT_USERNAME": user,
+			"SIM_ADOPT_PASSWORD": password,
+		},
+	}
+	req, err := testkit.BuildContainerRequest(cp, cfg, networkName, informURL)
+	if err != nil {
+		panic(err)
+	}
+	return req
 }
 
 func emulatorBuildArgs(goarch string) map[string]*string {
-	buildPlatform := "linux/" + goarch
-	targetOS := "linux"
-	targetArch := goarch
-	return map[string]*string{
-		"BUILDPLATFORM": &buildPlatform,
-		"TARGETOS":      &targetOS,
-		"TARGETARCH":    &targetArch,
-	}
+	return testkit.EmulatorBuildArgs(goarch)
 }
 
 func applyUOSHostConfig(cfg *container.HostConfig) {
-	cfg.CgroupnsMode = container.CgroupnsModeHost
-	cfg.Binds = []string{"/sys/fs/cgroup:/sys/fs/cgroup:rw"}
-	cfg.CapDrop = []string{"ALL"}
-	cfg.CapAdd = []string{
-		"SYS_ADMIN", "NET_ADMIN", "NET_RAW", "NET_BIND_SERVICE",
-		"DAC_OVERRIDE", "DAC_READ_SEARCH", "FOWNER", "CHOWN",
-		"SETUID", "SETGID", "KILL", "SYS_CHROOT", "SYS_PTRACE",
-		"SYS_RESOURCE", "AUDIT_WRITE", "MKNOD",
-	}
-	cfg.Tmpfs = map[string]string{
-		"/run":               "exec",
-		"/run/lock":          "",
-		"/tmp":               "exec",
-		"/var/lib/journal":   "",
-		"/var/opt/unifi/tmp": "size=64m",
-	}
+	tempReq := testkit.BuildControllerRequest("net", "image", true)
+	tempReq.HostConfigModifier(cfg)
 }
 
 func TestLoadITestImagesUsesOverrides(t *testing.T) {
@@ -336,4 +229,27 @@ func TestApplyUOSHostConfig(t *testing.T) {
 	if !reflect.DeepEqual(cfg.Tmpfs, wantTmpfs) {
 		t.Fatalf("tmpfs = %#v, want %#v", cfg.Tmpfs, wantTmpfs)
 	}
+}
+
+func parseModelsCSV(s string) []emu.DeviceSpec {
+	var specs []emu.DeviceSpec
+	for _, item := range strings.Split(s, ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		model, countText, hasCount := strings.Cut(item, ":")
+		model = strings.TrimSpace(model)
+		count := 1
+		if hasCount {
+			n, err := strconv.Atoi(strings.TrimSpace(countText))
+			if err == nil && n > 0 {
+				count = n
+			}
+		}
+		for i := 0; i < count; i++ {
+			specs = append(specs, emu.DeviceSpec{Model: model})
+		}
+	}
+	return specs
 }

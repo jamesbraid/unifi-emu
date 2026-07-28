@@ -1,9 +1,18 @@
 // Command unifi-emu runs a fleet of emulated UniFi devices informing a
 // real controller until interrupted. Device sources (mutually exclusive):
-// -devices FILE (YAML/JSON), SIM_DEVICES env (inline YAML), -models
+// -devices FILE (YAML/JSON), SIM_DEVICES env (inline YAML),
+// UNIFI_EMU_DEVICES_JSON env (JSON array of model/mac/serial/name), -models
 // (terse MODEL[:count] list), SIM_MODELS env, or the single-device flags.
 // When none of those is set, SIM_DEFAULT_DEVICES (the image's baked-in
 // fleet file) is used if present; any explicit source overrides it.
+//
+// UNIFI_EMU_DEVICES_JSON is the device-container contract: the caller has
+// already allocated every identity, so the serial is reported as given and
+// every device reports this container's own IPv4 address rather than an
+// auto-allocated one. UNIFI_EMU_INFORM_URL names the controller for that
+// contract (an explicit -inform still wins, SIM_CONTROLLER still works), and
+// UNIFI_EMU_READY_FILE (default /unifi-emu-ready) is the readiness marker
+// -healthcheck probes.
 //
 // With -adopt (or SIM_ADOPT=1) it also drives the fleet to adoption: after
 // the devices start informing it logs into the controller's API and issues
@@ -39,20 +48,18 @@ func main() {
 // log.Fatal here would skip that and leave the controller holding devices
 // that stopped informing without warning.
 func run() int {
-	informDefault := os.Getenv("SIM_CONTROLLER")
-	if informDefault == "" {
-		informDefault = "http://localhost:8080/inform"
-	}
-	adoptEnv, err := adoptEnvDefaults(os.Getenv)
-	if err != nil {
-		log.Print(err)
-		return 1
-	}
-	inform := flag.String("inform", informDefault, "controller inform URL (default: env SIM_CONTROLLER)")
+	// The adopt environment is read before the flags so it can supply their
+	// defaults, but its error is held until after flag.Parse: -V and
+	// -healthcheck must answer in a container whose environment is broken,
+	// and a health probe that fails for its own reasons reports the prober.
+	adoptEnv, adoptEnvErr := adoptEnvDefaults(os.Getenv)
+	inform := flag.String("inform", informURLDefault(os.Getenv),
+		"controller inform URL (default: env UNIFI_EMU_INFORM_URL, else SIM_CONTROLLER)")
 	devices := flag.String("devices", "", "YAML/JSON file with an array of DeviceSpec (fleet mode; "+
-		"keys: mac, type, model, modeldisplay, version, name, ip, ports, ssids; unknown keys rejected). "+
+		"keys: mac, serial, type, model, modeldisplay, version, name, ip, ports, ssids; unknown keys rejected). "+
 		"Fleet sources (mutually exclusive): -devices FILE (YAML/JSON), SIM_DEVICES env (inline YAML list), "+
-		"-models, or SIM_MODELS env; any one beats single-device flags")
+		"UNIFI_EMU_DEVICES_JSON env (JSON array of model/mac/serial/name), -models, or SIM_MODELS env; "+
+		"any one beats single-device flags")
 	models := flag.String("models", "", "terse fleet: comma-separated MODEL[:count] (e.g. U7PRO,USM8P:2,UGW3); "+
 		"MAC/IP auto-derived from SIM_MAC_BASE/SIM_IP_BASE. Fleet sources are mutually exclusive.")
 	mac := flag.String("mac", "00:27:22:e0:00:01", "device MAC (single-device mode)")
@@ -74,11 +81,22 @@ func run() int {
 			"from the -adopt-url port: 443 is unifios, anything else classic)")
 	adoptTimeout := flag.Duration("adopt-timeout", adoptEnv.timeout,
 		"how long the whole adoption may take before it is called a failure (default: env SIM_ADOPT_TIMEOUT)")
+	healthcheck := flag.Bool("healthcheck", false,
+		"probe readiness and exit: 0 once the fleet is informing, 1 otherwise. Starts nothing and needs "+
+			"no other flag or variable; this is what the image's HEALTHCHECK runs (marker file: "+
+			"env UNIFI_EMU_READY_FILE, default "+defaultReadyFile+")")
 	showVersion := flag.Bool("V", false, "print unifi-emu build version and exit")
 	flag.Parse()
 	if *showVersion {
 		fmt.Println(buildVersion)
 		return 0
+	}
+	if *healthcheck {
+		return readyProbe(readyFilePath(os.Getenv))
+	}
+	if adoptEnvErr != nil {
+		log.Print(adoptEnvErr)
+		return 1
 	}
 
 	set := map[string]bool{}
@@ -102,6 +120,7 @@ func run() int {
 	src := fleetSources{
 		devicesFile: *devices,
 		envInline:   os.Getenv("SIM_DEVICES"),
+		devicesJSON: os.Getenv("UNIFI_EMU_DEVICES_JSON"),
 		modelsFlag:  *models,
 		models:      os.Getenv("SIM_MODELS"),
 	}
@@ -120,6 +139,22 @@ func run() int {
 			return 1
 		}
 		specs = def
+	}
+	// A device container owns one address — its own, on the Docker network —
+	// and every device it runs informs from it. This overwrites before
+	// expandFleet so the per-device auto-IP never runs on this path: a
+	// synthesized .100+n address is reported to the controller and stored as
+	// the device's IP, and then answers nothing for whoever reads it back.
+	if strings.TrimSpace(src.devicesJSON) != "" {
+		ip, err := containerIPv4(realNet())
+		if err != nil {
+			log.Printf("container IP: %v", err)
+			return 1
+		}
+		log.Printf("device container: reporting %s for all %d devices", ip, len(specs))
+		for i := range specs {
+			specs[i].IP = ip
+		}
 	}
 	if specs != nil {
 		macBase := envOr("SIM_MAC_BASE", "00:27:22:e0:00:00")
@@ -170,6 +205,15 @@ func run() int {
 		go watch(ctx, e, s.MAC)
 		macs = append(macs, s.MAC)
 	}
+	// The marker goes down only now: every device in the fleet has an inform
+	// loop running, which is the whole of what "ready" claims. Failing to
+	// write it is fatal because the container could never turn healthy, and
+	// one that runs forever while reporting unhealthy is worse than one that
+	// exits with the reason.
+	if err := writeReady(readyFilePath(os.Getenv)); err != nil {
+		log.Print(err)
+		return 1
+	}
 
 	if adoptCfg.enabled {
 		// A signal during adoption is an ordinary shutdown, not a failure:
@@ -196,6 +240,53 @@ func envOr(key, def string) string {
 		return v
 	}
 	return def
+}
+
+// informURLDefault is the -inform default: the device-container variable
+// first, then the older SIM_CONTROLLER, then localhost. Both are kept
+// because SIM_CONTROLLER is the compose-sidecar contract and predates the
+// container one; an explicit -inform beats either by being a flag.
+func informURLDefault(getenv func(string) string) string {
+	for _, key := range []string{"UNIFI_EMU_INFORM_URL", "SIM_CONTROLLER"} {
+		if v := getenv(key); v != "" {
+			return v
+		}
+	}
+	return "http://localhost:8080/inform"
+}
+
+// defaultReadyFile is where the readiness marker lives unless
+// UNIFI_EMU_READY_FILE says otherwise. It sits at the root because the image
+// is FROM scratch: there is no /var, no /run and no shell to make one.
+const defaultReadyFile = "/unifi-emu-ready"
+
+// readyFilePath resolves the readiness marker path.
+func readyFilePath(getenv func(string) string) string {
+	if p := getenv("UNIFI_EMU_READY_FILE"); p != "" {
+		return p
+	}
+	return defaultReadyFile
+}
+
+// readyProbe is the -healthcheck body: the marker's existence as an exit
+// code. It touches nothing else — no flags, no other variable, no network —
+// so a failing probe means the fleet is not up rather than that the probe
+// itself tripped over something.
+func readyProbe(path string) int {
+	if _, err := os.Stat(path); err != nil {
+		return 1
+	}
+	return 0
+}
+
+// writeReady drops the readiness marker. Its content is nothing: the
+// probe asks whether the file is there, and anything written into it would
+// be a second thing to keep true.
+func writeReady(path string) error {
+	if err := os.WriteFile(path, nil, 0o644); err != nil {
+		return fmt.Errorf("write readiness marker (UNIFI_EMU_READY_FILE): %w", err)
+	}
+	return nil
 }
 
 // watch logs a line whenever mac's adoption state changes, so long runs

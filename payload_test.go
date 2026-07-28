@@ -92,6 +92,28 @@ func TestPendingPayloadCommon(t *testing.T) {
 	}
 }
 
+func TestPayloadSerial(t *testing.T) {
+	// A supplied serial is reported verbatim; without one the MAC-derived
+	// value stands, so every existing fleet file keeps its serials.
+	for _, tc := range []struct {
+		name   string
+		serial string
+		want   string
+	}{
+		{"supplied", "F09FC2ABCDEF", "F09FC2ABCDEF"},
+		{"derived from mac", "", "DC9FDB000001"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			d := mustDevice(t, DeviceSpec{
+				MAC: "dc:9f:db:00:00:01", Model: "UGW3", IP: "10.0.0.1", Serial: tc.serial,
+			})
+			if got := decodePayload(t, d)["serial"]; got != tc.want {
+				t.Errorf("serial = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestAdoptedPayloadUGW(t *testing.T) {
 	d := mustDevice(t, DeviceSpec{MAC: "dc:9f:db:00:00:01", Model: "UGW3", IP: "10.0.0.1"})
 	markAdopted(d)

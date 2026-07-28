@@ -68,6 +68,7 @@ type DeviceSpec struct {
 	// faithful value would change before any is adopted as a default.
 	// Nil leaves the built-in alone; 0 reports the key as zero.
 	FWCaps *int `json:"fwcaps" yaml:"fwcaps"`
+	Serial string `json:"serial" yaml:"serial"`
 }
 
 // deviceSpecKeys is the set of accepted fleet-file keys. A mapping entry
@@ -77,7 +78,7 @@ type DeviceSpec struct {
 var deviceSpecKeys = map[string]bool{
 	"mac": true, "type": true, "model": true, "modeldisplay": true,
 	"version": true, "name": true, "ip": true, "ports": true, "ssids": true,
-	"fwcaps": true,
+	"fwcaps": true, "serial": true,
 }
 
 // UnmarshalYAML lets a fleet-list entry be a bare model string ("U7PRO") or
@@ -187,4 +188,74 @@ func (d *device) macHeader() [6]byte {
 	}
 	copy(mac[:], hw)
 	return mac
+}
+
+// NextMAC returns baseMAC advanced by n as a 48-bit integer.
+func NextMAC(base net.HardwareAddr, n int) string {
+	v := uint64(0)
+	for _, b := range base {
+		v = v<<8 | uint64(b)
+	}
+	v += uint64(n)
+	var mac [6]byte
+	for i := 5; i >= 0; i-- {
+		mac[i] = byte(v)
+		v >>= 8
+	}
+	return net.HardwareAddr(mac[:]).String()
+}
+
+// NextIP returns baseIP's last octet advanced by n, erroring if it leaves
+// the /24.
+func NextIP(base net.IP, n int) (string, error) {
+	last := int(base[3]) + n
+	if last > 254 {
+		return "", fmt.Errorf("auto-IP left the base /24 (%s + %d > .254); set SIM_IP_BASE or give explicit ips", base, n)
+	}
+	ip := net.IPv4(base[0], base[1], base[2], byte(last))
+	return ip.String(), nil
+}
+
+// ExpandFleet fills omitted mac/ip on an ordered fleet deterministically
+// from the bases (mac = base+index+1, ip = base+index), so a restart
+// reproduces the same addresses. Explicit spec values always win. It fails
+// fast on an unknown model, a fleet with more than one gateway
+// (api.err.NoSecondGateway), or an ip that would leave the base /24.
+func ExpandFleet(specs []DeviceSpec, macBase, ipBase string) ([]DeviceSpec, error) {
+	baseMAC, err := net.ParseMAC(macBase)
+	if err != nil {
+		return nil, fmt.Errorf("SIM_MAC_BASE %q: %w", macBase, err)
+	}
+	baseIP := net.ParseIP(ipBase).To4()
+	if baseIP == nil {
+		return nil, fmt.Errorf("SIM_IP_BASE %q: not an IPv4 address", ipBase)
+	}
+	out := make([]DeviceSpec, len(specs))
+	gateways := 0
+	for i, s := range specs {
+		profile, ok := Profile(s.Model)
+		if !ok {
+			return nil, fmt.Errorf("unknown model %q", s.Model)
+		}
+		// ugw and uxg are both gateway families and a site adopts one of
+		// either, so they share the single slot.
+		if profile.Type == "ugw" || profile.Type == "uxg" {
+			gateways++
+			if gateways > 1 {
+				return nil, fmt.Errorf("fleet has %d gateways; a site adopts at most one (api.err.NoSecondGateway)", gateways)
+			}
+		}
+		if s.MAC == "" {
+			s.MAC = NextMAC(baseMAC, i+1)
+		}
+		if s.IP == "" {
+			ip, err := NextIP(baseIP, i)
+			if err != nil {
+				return nil, err
+			}
+			s.IP = ip
+		}
+		out[i] = s
+	}
+	return out, nil
 }

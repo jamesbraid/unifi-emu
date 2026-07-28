@@ -468,6 +468,20 @@ func TestModelRegistryPayloads(t *testing.T) {
 	}
 }
 
+func TestPayloadExplicitSerial(t *testing.T) {
+	spec := DeviceSpec{
+		MAC:    "00:27:22:e0:00:01",
+		Model:  "UGW3",
+		IP:     "192.168.1.242",
+		Serial: "MYSUPERSERIAL123",
+	}
+	d := mustDevice(t, spec)
+	m := decodePayload(t, d)
+	if m["serial"] != "MYSUPERSERIAL123" {
+		t.Fatalf("expected payload serial to be %q, got %q", "MYSUPERSERIAL123", m["serial"])
+	}
+}
+
 func TestDeviceStateString(t *testing.T) {
 	cases := map[DeviceState]string{
 		StatePending:    "PENDING",

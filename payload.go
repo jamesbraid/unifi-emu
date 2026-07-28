@@ -19,7 +19,7 @@ func (d *device) buildPayload() []byte {
 	uptime := int64(time.Since(d.started).Seconds())
 	m := map[string]any{
 		"mac":            d.spec.MAC,
-		"serial":         strings.ToUpper(strings.ReplaceAll(d.spec.MAC, ":", "")),
+		"serial":         d.serial(),
 		"model":          d.spec.Model,
 		"model_display":  d.spec.ModelDisplay,
 		"version":        d.spec.Version,
@@ -259,4 +259,11 @@ func (d *device) vapTable() []map[string]any {
 		}
 	}
 	return table
+}
+
+func (d *device) serial() string {
+	if d.spec.Serial != "" {
+		return d.spec.Serial
+	}
+	return strings.ToUpper(strings.ReplaceAll(d.spec.MAC, ":", ""))
 }

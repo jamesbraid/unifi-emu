@@ -7,7 +7,6 @@ import (
 	"github.com/moby/moby/api/types/container"
 	networktypes "github.com/moby/moby/api/types/network"
 	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 // Public run labels. They support inspection and ownership checks; they do
@@ -62,9 +61,11 @@ func buildContainerRequest(plan Plan, unit Unit) testcontainers.ContainerRequest
 			labelRun:     plan.RunID,
 			labelDevices: unit.DeviceIndices(),
 		},
-		// Docker health state is the only readiness signal: container logs
-		// are opaque byte streams here, never parsed for progress.
-		WaitingFor: wait.ForHealthCheck(),
+		// No wait strategy here on purpose. Container.Start runs WaitingFor
+		// in its post-start hook, so a strategy set here would report a
+		// health failure as a creation failure -- container_start_failed in
+		// phase start, where the contract requires device_unhealthy in phase
+		// health. The backend waits on the same stock strategy afterwards.
 		HostConfigModifier: func(cfg *container.HostConfig) {
 			// Any restart is external interference. A restarted device has
 			// lost its in-memory adoption key while still looking connected

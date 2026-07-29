@@ -207,16 +207,26 @@ func TestRunLabelsCarryNoImageOrRoutingInformation(t *testing.T) {
 	}
 }
 
-// Readiness comes from Docker health state alone. The herder never parses
-// container logs for it, so the wait strategy must be the healthcheck one.
-func TestRequestWaitsOnTheDockerHealthcheck(t *testing.T) {
+// The request must carry no wait strategy. Container.Start runs WaitingFor in
+// its post-start hook, so a strategy here would make a health failure surface
+// as a creation failure -- container_start_failed in phase start, where the
+// contract requires device_unhealthy in phase health. The health wait is the
+// backend's own step instead.
+func TestRequestSetsNoCreationTimeWaitStrategy(t *testing.T) {
 	plan := buildPlan(t, ids("USM8P"), RuntimeConfig{}, "public/emu:1.0.0")
 	req := buildContainerRequest(plan, plan.Units[0])
-	if req.WaitingFor == nil {
-		t.Fatal("no wait strategy")
+	if req.WaitingFor != nil {
+		t.Fatalf("wait strategy = %T, want none at creation time", req.WaitingFor)
 	}
-	if got := strings.ToLower(reflect.TypeOf(req.WaitingFor).String()); !strings.Contains(got, "health") {
-		t.Fatalf("wait strategy = %s, want a health-check strategy", got)
+}
+
+// Readiness still comes from Docker health state alone: the herder never parses
+// container logs for it, so the strategy it waits on must be the stock
+// healthcheck one.
+func TestHealthWaitUsesTheDockerHealthcheckStrategy(t *testing.T) {
+	got := strings.ToLower(reflect.TypeOf(healthWait()).String())
+	if !strings.Contains(got, "health") {
+		t.Fatalf("health wait strategy = %s, want a health-check strategy", got)
 	}
 }
 

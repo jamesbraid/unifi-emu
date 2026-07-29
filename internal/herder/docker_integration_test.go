@@ -620,6 +620,7 @@ func TestDockerAPreReadyDeviceDeathRemovesEveryContainer(t *testing.T) {
 	default:
 		t.Fatalf("code = %v, want a pre-ready failure", terminal["code"])
 	}
+	t.Logf("pre-ready death reported %v in phase %v", terminal["code"], terminal["phase"])
 	if got := terminal["phase"]; got == string(PhaseRuntime) {
 		t.Fatalf("phase = %v, want a pre-ready phase", got)
 	}

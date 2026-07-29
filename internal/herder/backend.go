@@ -20,6 +20,15 @@ type dockerBackend struct {
 	api DockerAPI
 }
 
+// newContainer is the library's creation entry point, indirected so the
+// path where creation fails after the container already exists can be tested.
+var newContainer = testcontainers.GenericContainer
+
+// healthWait is the readiness strategy the herder waits on. Docker health
+// state is the only readiness signal; container logs are opaque byte streams
+// here and are never parsed for progress.
+func healthWait() wait.Strategy { return wait.ForHealthCheck() }
+
 // NewDockerBackend connects to the Docker daemon the way Testcontainers does,
 // so the preflight and the lifecycle always talk to the same host.
 func NewDockerBackend(ctx context.Context) (Backend, error) {
@@ -67,21 +76,29 @@ func (b *dockerBackend) Prepare(ctx context.Context, plan Plan) error {
 }
 
 // Launch creates and starts one unit's container through stock
-// testcontainers-go. Started is false so the library's readiness wait happens
-// in WaitHealthy instead, which is what lets a creation failure and a health
-// failure carry different public codes and phases.
+// testcontainers-go. Started is false and the request carries no wait
+// strategy, so the readiness wait happens in WaitHealthy instead -- that is
+// what lets a creation failure and a health failure carry different public
+// codes and phases.
+//
+// Both error paths hand back whatever container exists. The library returns a
+// live handle alongside its error when creation got as far as a container and
+// a later step failed, and dropping it would strand a labelled container that
+// cleanup then reports as successfully removed.
 func (b *dockerBackend) Launch(ctx context.Context, plan Plan, unit Unit) (Instance, error) {
-	created, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+	created, err := newContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: buildContainerRequest(plan, unit),
 		Started:          false,
 	})
+	var inst Instance
+	if created != nil {
+		inst = &dockerInstance{container: created}
+	}
 	if err != nil {
-		return nil, wrapf(err, CodeContainerStartFailed, PhaseStart,
+		return inst, wrapf(err, CodeContainerStartFailed, PhaseStart,
 			"create container for unit %s: %v", unit.DeviceIndices(), err)
 	}
-	inst := &dockerInstance{container: created}
 	if err := created.Start(ctx); err != nil {
-		// Hand the caller the instance anyway: it exists, so cleanup owns it.
 		return inst, wrapf(err, CodeContainerStartFailed, PhaseStart,
 			"start container for unit %s: %v", unit.DeviceIndices(), err)
 	}
@@ -95,7 +112,7 @@ func (b *dockerBackend) WaitHealthy(ctx context.Context, inst Instance) error {
 	if !ok {
 		return fmt.Errorf("herder: instance %s is not a Docker container", inst.ID())
 	}
-	if err := wait.ForHealthCheck().WaitUntilReady(ctx, target.container); err != nil {
+	if err := healthWait().WaitUntilReady(ctx, target.container); err != nil {
 		return wrapf(err, CodeDeviceUnhealthy, PhaseHealth, "wait for health: %v", err)
 	}
 	return nil

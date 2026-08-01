@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -21,12 +22,14 @@ import (
 // SIM_MODELS).
 var singleFlags = []string{"mac", "type", "model", "model-display", "version", "name", "ip"}
 
-// fleetSources holds the four mutually-exclusive fleet definitions; at most
-// one may be set. envInline/models come from SIM_DEVICES/SIM_MODELS,
-// devicesFile/modelsFlag from -devices/-models.
+// fleetSources holds the five mutually-exclusive fleet definitions; at most
+// one may be set. envInline/models/devicesJSON come from
+// SIM_DEVICES/SIM_MODELS/UNIFI_EMU_DEVICES_JSON, devicesFile/modelsFlag from
+// -devices/-models.
 type fleetSources struct {
 	devicesFile string // -devices FILE
 	envInline   string // SIM_DEVICES
+	devicesJSON string // UNIFI_EMU_DEVICES_JSON
 	modelsFlag  string // -models
 	models      string // SIM_MODELS (or -models; see modelsText)
 }
@@ -43,8 +46,8 @@ func (s fleetSources) modelsText() (text string, fromFlag bool) {
 // fleetSpecs resolves the device list from the fleet sources, in src
 // (mutually exclusive):
 //
-//	-devices FILE, SIM_DEVICES env, -models flag, or SIM_MODELS env;
-//	any one beats single-device flags
+//	-devices FILE, SIM_DEVICES env, UNIFI_EMU_DEVICES_JSON env, -models
+//	flag, or SIM_MODELS env; any one beats single-device flags
 //
 // set marks the flags explicitly given on the command line. More than one
 // fleet source at once is ambiguous and an error, naming the offenders.
@@ -63,6 +66,9 @@ func fleetSpecs(src fleetSources, set map[string]bool) ([]emu.DeviceSpec, []stri
 	}
 	if strings.TrimSpace(src.envInline) != "" {
 		active = append(active, "SIM_DEVICES")
+	}
+	if strings.TrimSpace(src.devicesJSON) != "" {
+		active = append(active, "UNIFI_EMU_DEVICES_JSON")
 	}
 	if strings.TrimSpace(src.modelsFlag) != "" {
 		active = append(active, "-models")
@@ -93,6 +99,8 @@ func fleetSpecs(src fleetSources, set map[string]bool) ([]emu.DeviceSpec, []stri
 	switch {
 	case strings.TrimSpace(modelsText) != "":
 		specs, err = parseModelsList(modelsText)
+	case strings.TrimSpace(src.devicesJSON) != "":
+		specs, err = parseDevicesJSON(src.devicesJSON)
 	default:
 		specs, err = loadDevices(src.devicesFile, src.envInline)
 	}
@@ -170,6 +178,45 @@ func loadDevices(filePath, envInline string) ([]emu.DeviceSpec, error) {
 	}
 	if len(specs) == 0 {
 		return nil, fmt.Errorf("%s: no devices", src)
+	}
+	return specs, nil
+}
+
+// containerDevice is one entry of the device-container fleet contract
+// (UNIFI_EMU_DEVICES_JSON). Its four keys are the whole contract: the
+// caller allocates the identity and hands it over, so nothing here is
+// derived and nothing else is accepted. It is a separate type from
+// emu.DeviceSpec on purpose — DeviceSpec keeps growing keys, and this
+// contract must not grow with it by accident.
+type containerDevice struct {
+	Model  string `json:"model"`
+	MAC    string `json:"mac"`
+	Serial string `json:"serial"`
+	Name   string `json:"name"`
+}
+
+// parseDevicesJSON parses the UNIFI_EMU_DEVICES_JSON fleet: a JSON array of
+// containerDevice. Unknown keys are rejected the way every other fleet
+// source rejects them — a misspelled key would otherwise silently produce a
+// device with a derived identity that the caller does not recognise.
+func parseDevicesJSON(s string) ([]emu.DeviceSpec, error) {
+	dec := json.NewDecoder(strings.NewReader(s))
+	dec.DisallowUnknownFields()
+	var entries []containerDevice
+	if err := dec.Decode(&entries); err != nil {
+		return nil, fmt.Errorf("parse UNIFI_EMU_DEVICES_JSON: %w", err)
+	}
+	// A second value in the stream would silently vanish, same as the
+	// second YAML document loadDevices refuses.
+	if dec.More() {
+		return nil, errors.New("parse UNIFI_EMU_DEVICES_JSON: trailing content after the device array")
+	}
+	if len(entries) == 0 {
+		return nil, errors.New("UNIFI_EMU_DEVICES_JSON: no devices")
+	}
+	specs := make([]emu.DeviceSpec, len(entries))
+	for i, e := range entries {
+		specs[i] = emu.DeviceSpec{Model: e.Model, MAC: e.MAC, Serial: e.Serial, Name: e.Name}
 	}
 	return specs, nil
 }

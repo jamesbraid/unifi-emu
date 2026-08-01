@@ -47,7 +47,13 @@ func (s DeviceState) String() string {
 // SIM_DEVICES); keep the two families identical so either format names
 // the same keys.
 type DeviceSpec struct {
-	MAC          string `json:"mac" yaml:"mac"`
+	MAC string `json:"mac" yaml:"mac"`
+	// Serial is the reported serial number. Empty derives it from the MAC
+	// the way the emulator always has. It exists because a caller that
+	// allocates identities up front (the device-container herder) has
+	// already chosen the serial and has to see the same one come back:
+	// a MAC-derived serial would silently disagree with its own records.
+	Serial       string `json:"serial" yaml:"serial"`
 	Type         string `json:"type" yaml:"type"`
 	Model        string `json:"model" yaml:"model"`
 	ModelDisplay string `json:"modeldisplay" yaml:"modeldisplay"`
@@ -75,9 +81,9 @@ type DeviceSpec struct {
 // had via DisallowUnknownFields (a custom UnmarshalYAML bypasses the outer
 // decoder's KnownFields, so the check lives here).
 var deviceSpecKeys = map[string]bool{
-	"mac": true, "type": true, "model": true, "modeldisplay": true,
-	"version": true, "name": true, "ip": true, "ports": true, "ssids": true,
-	"fwcaps": true,
+	"mac": true, "serial": true, "type": true, "model": true,
+	"modeldisplay": true, "version": true, "name": true, "ip": true,
+	"ports": true, "ssids": true, "fwcaps": true,
 }
 
 // UnmarshalYAML lets a fleet-list entry be a bare model string ("U7PRO") or

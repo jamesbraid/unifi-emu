@@ -166,6 +166,94 @@ func TestLoadDevicesEmpty(t *testing.T) {
 	})
 }
 
+// The device-container contract (unifi-emu-herder): UNIFI_EMU_DEVICES_JSON
+// is a JSON array naming exactly model/mac/serial/name.
+const containerFleet = `[
+  {"model": "U7PRO", "mac": "00:27:22:e0:00:11", "serial": "F09FC2000011", "name": "ap-1"},
+  {"model": "USM8P", "mac": "00:27:22:e0:00:12", "serial": "F09FC2000012", "name": "sw-1"}
+]`
+
+var containerSpecs = []emu.DeviceSpec{
+	{Model: "U7PRO", MAC: "00:27:22:e0:00:11", Serial: "F09FC2000011", Name: "ap-1"},
+	{Model: "USM8P", MAC: "00:27:22:e0:00:12", Serial: "F09FC2000012", Name: "sw-1"},
+}
+
+func TestParseDevicesJSON(t *testing.T) {
+	got, err := parseDevicesJSON(containerFleet)
+	if err != nil {
+		t.Fatalf("parseDevicesJSON: %v", err)
+	}
+	if !reflect.DeepEqual(got, containerSpecs) {
+		t.Errorf("got %+v, want %+v", got, containerSpecs)
+	}
+}
+
+func TestParseDevicesJSONRejects(t *testing.T) {
+	for name, tc := range map[string]struct{ in, want string }{
+		"unknown key":    {`[{"model": "U7PRO", "modle": "x"}]`, "modle"},
+		"empty array":    {`[]`, "no devices"},
+		"not an array":   {`{"model": "U7PRO"}`, "UNIFI_EMU_DEVICES_JSON"},
+		"malformed":      {`[{"model": `, "UNIFI_EMU_DEVICES_JSON"},
+		"non-string mac": {`[{"model": "U7PRO", "mac": 42}]`, "UNIFI_EMU_DEVICES_JSON"},
+		"trailing value": {`[{"model": "U7PRO"}] []`, "trailing content"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := parseDevicesJSON(tc.in)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("err = %v, want it to name %s", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestFleetSpecsDevicesJSON(t *testing.T) {
+	fleet := writeTemp(t, composeFleet)
+
+	t.Run("alone", func(t *testing.T) {
+		specs, ignored, err := fleetSpecs(fleetSources{devicesJSON: containerFleet}, map[string]bool{})
+		if err != nil {
+			t.Fatalf("fleetSpecs: %v", err)
+		}
+		if !reflect.DeepEqual(specs, containerSpecs) || len(ignored) != 0 {
+			t.Errorf("got %+v, %v; want %+v, []", specs, ignored, containerSpecs)
+		}
+	})
+	t.Run("overrides single-device flags", func(t *testing.T) {
+		specs, ignored, err := fleetSpecs(fleetSources{devicesJSON: containerFleet}, map[string]bool{"mac": true})
+		if err != nil {
+			t.Fatalf("fleetSpecs: %v", err)
+		}
+		if len(specs) != 2 {
+			t.Fatalf("got %d specs, want 2", len(specs))
+		}
+		if !reflect.DeepEqual(ignored, []string{"mac"}) {
+			t.Errorf("ignored = %v, want [mac]", ignored)
+		}
+	})
+	// Every other fleet source is a different fleet: choosing one silently
+	// would drop the other, so the collision is named and fatal.
+	for name, other := range map[string]fleetSources{
+		"-devices":    {devicesFile: fleet},
+		"SIM_DEVICES": {envInline: composeFleet},
+		"-models":     {modelsFlag: "U7PRO"},
+		"SIM_MODELS":  {models: "U7PRO"},
+	} {
+		t.Run("conflicts with "+name, func(t *testing.T) {
+			src := other
+			src.devicesJSON = containerFleet
+			_, _, err := fleetSpecs(src, map[string]bool{})
+			if err == nil || !strings.Contains(err.Error(), "ambiguous") {
+				t.Fatalf("err = %v, want ambiguous", err)
+			}
+			for _, want := range []string{"UNIFI_EMU_DEVICES_JSON", name} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("err = %v, want it to name %s", err, want)
+				}
+			}
+		})
+	}
+}
+
 func TestFleetSpecsPrecedence(t *testing.T) {
 	fleet := writeTemp(t, composeFleet)
 

@@ -79,6 +79,12 @@ type fakeBackend struct {
 
 	remaining    int
 	remainingErr error
+
+	// onWait runs inside WaitHealthy and onLaunch inside Launch, so a test can
+	// make something happen while the herder is genuinely blocked there rather
+	// than before it started.
+	onWait   func()
+	onLaunch func()
 }
 
 func (b *fakeBackend) CheckDaemon(context.Context) error { return b.daemonErr }
@@ -90,6 +96,9 @@ func (b *fakeBackend) CheckCapabilities(context.Context, Plan) error { return b.
 func (b *fakeBackend) Prepare(context.Context, Plan) error { return b.prepareErr }
 
 func (b *fakeBackend) Launch(_ context.Context, _ Plan, unit Unit) (Instance, error) {
+	if b.onLaunch != nil {
+		b.onLaunch()
+	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.launched = append(b.launched, unit)
@@ -103,6 +112,9 @@ func (b *fakeBackend) Launch(_ context.Context, _ Plan, unit Unit) (Instance, er
 }
 
 func (b *fakeBackend) WaitHealthy(_ context.Context, inst Instance) error {
+	if b.onWait != nil {
+		b.onWait()
+	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	for _, candidate := range b.instances {
@@ -1086,5 +1098,97 @@ func TestFailureDetailIsRedactedOnStderr(t *testing.T) {
 	}
 	if !strings.Contains(got.stderr, redactedRuntime) {
 		t.Fatalf("stderr = %q, want the redaction placeholder", got.stderr)
+	}
+}
+
+// A signal during the health wait is a clean stop, not a device failure. The
+// backend wraps the cancelled context as device_unhealthy, so classification
+// has to look through the wrapper before trusting its code -- otherwise
+// Ctrl-C while a slow image starts reports a failure and exits 1 where the
+// contract promises stopped and exit 0.
+func TestSignalDuringHealthWaitIsACleanStop(t *testing.T) {
+	h := newHarness(t)
+	h.backend.waitErrs["0"] = wrapf(context.Canceled, CodeDeviceUnhealthy, PhaseHealth,
+		"wait for health: %v", context.Canceled)
+	h.backend.onWait = func() { h.signals <- syscall.SIGTERM; time.Sleep(20 * time.Millisecond) }
+	got := h.run(t)
+	if got.exit != 0 {
+		t.Fatalf("exit = %d, want 0 (%s)", got.exit, got.stderr)
+	}
+	if got.terminal(t)["event"] != "stopped" {
+		t.Fatalf("terminal = %#v, want stopped", got.terminal(t))
+	}
+}
+
+// When the run's own startup deadline is what expired, the failure is a
+// startup timeout however the backend labelled it on the way out.
+func TestExpiredStartupDeadlineIsAStartupTimeout(t *testing.T) {
+	h := newHarness(t)
+	h.startup = 30 * time.Millisecond
+	h.backend.onLaunch = func() { time.Sleep(80 * time.Millisecond) }
+	h.backend.launchErrs["0"] = wrapf(context.DeadlineExceeded, CodeContainerStartFailed,
+		PhaseStart, "start container: %v", context.DeadlineExceeded)
+	got := h.run(t)
+	terminal := got.terminal(t)
+	if terminal["code"] != string(CodeStartupTimeout) {
+		t.Fatalf("code = %v, want startup_timeout", terminal["code"])
+	}
+}
+
+// A malformed runtime file is reported before the redactor is built from it,
+// so its diagnostic must not carry the reference in the first place.
+func TestInvalidRuntimeConfigDetailCarriesNoImageReference(t *testing.T) {
+	h := newHarness(t)
+	h.config = `{"version":1,"models":{"UXGENT":{"image":"forge.example/emu/secret-runtime:tag"}}}`
+	got := h.run(t)
+	if got.terminal(t)["code"] != string(CodeInvalidRuntimeConfig) {
+		t.Fatalf("terminal = %#v", got.terminal(t))
+	}
+	for _, leak := range []string{"forge.example", "secret-runtime"} {
+		if strings.Contains(got.stderr, leak) {
+			t.Fatalf("stderr leaks %q from a pre-redactor failure: %q", leak, got.stderr)
+		}
+	}
+	if !strings.Contains(got.stderr, "UXGENT") {
+		t.Fatalf("stderr = %q, want the model named so the operator can find it", got.stderr)
+	}
+}
+
+// The stock health strategy imposes its own deadline, so an image that never
+// becomes healthy returns a deadline error while the run's startup context is
+// still live. That is a device failure, not a startup timeout -- reporting it
+// as the latter undoes the phase attribution the health wait exists to give.
+func TestHealthStrategyDeadlineIsADeviceFailureNotAStartupTimeout(t *testing.T) {
+	h := newHarness(t)
+	h.startup = time.Minute // outer context stays live throughout
+	h.backend.waitErrs["0"] = wrapf(context.DeadlineExceeded, CodeDeviceUnhealthy,
+		PhaseHealth, "wait for health: %v", context.DeadlineExceeded)
+	got := h.run(t)
+	terminal := got.terminal(t)
+	if terminal["code"] != string(CodeDeviceUnhealthy) {
+		t.Fatalf("code = %v, want device_unhealthy", terminal["code"])
+	}
+	if terminal["phase"] != string(PhaseHealth) {
+		t.Fatalf("phase = %v, want health", terminal["phase"])
+	}
+}
+
+// A signal is a clean stop only when cancellation is what ended the operation.
+// A run that had already failed keeps its failure, even though the signal
+// cancelled the context on the way out.
+func TestFailureRacingASignalKeepsItsFailure(t *testing.T) {
+	h := newHarness(t)
+	h.backend.waitErrs["0"] = errors.New("the device entrypoint crashed")
+	h.backend.onWait = func() { h.signals <- syscall.SIGTERM; time.Sleep(20 * time.Millisecond) }
+	got := h.run(t)
+	if got.exit != 1 {
+		t.Fatalf("exit = %d, want 1: the operation had already failed", got.exit)
+	}
+	terminal := got.terminal(t)
+	if terminal["event"] != "failed" {
+		t.Fatalf("terminal = %#v, want failed", terminal)
+	}
+	if terminal["code"] != string(CodeDeviceUnhealthy) {
+		t.Fatalf("code = %v, want the real failure", terminal["code"])
 	}
 }

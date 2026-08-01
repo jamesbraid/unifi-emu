@@ -35,6 +35,12 @@ Shipped:
 - **Consumer integrations** — `AdoptDevice` + `StartDeviceSim` in go-unifi's
   controllertest (jamesbraid/go-unifi#16) and a compose sidecar in
   terraform-provider-unifi (jamesbraid/terraform-provider-unifi#11).
+- **One fake-device process** — `unifi-emu-herder` starts a fleet as
+  containers on a Docker network the caller already owns, and reports the
+  MACs, serials, names and Docker-assigned addresses as NDJSON on stdout.
+  The caller keeps the controller, the credentials, adoption and every
+  assertion. Models with no runner-local runtime mapping share a single
+  synthetic container, so those devices report one address between them.
 
 ### Getting it
 
@@ -43,8 +49,9 @@ anonymously pullable — and the module is on the Go proxy. Image tags drop the
 `v` that module tags keep:
 
 ```sh
-docker pull ghcr.io/jamesbraid/unifi-emu:0.4   # also :0.4.2, :latest
-go get github.com/jamesbraid/unifi-emu@v0.4.2
+docker pull ghcr.io/jamesbraid/unifi-emu:0.5   # also :0.5.0, :latest
+go get github.com/jamesbraid/unifi-emu@v0.5.0
+go install github.com/jamesbraid/unifi-emu/cmd/unifi-emu-herder@v0.5.0
 ```
 
 `-adopt` arrived in 0.4.0, which is also where the model registry drops to
@@ -52,6 +59,11 @@ go get github.com/jamesbraid/unifi-emu@v0.4.2
 still starting needs 0.4.1: 0.4.0 exits instead of waiting for it.
 Configuring BGP against an emulated UXG-Enterprise needs 0.4.2; earlier
 releases get the same 404 every other gateway still gets.
+
+`unifi-emu-herder` arrives in 0.5.0. A release build runs the synthetic image
+built from its own tag, so the herder and the devices it starts come from one
+commit. A binary built from a checkout has no compiled default and asks for
+`--synthetic-image`. Neither path falls back to a floating tag.
 
 ### Quick start
 

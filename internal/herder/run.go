@@ -418,6 +418,13 @@ func (r *run) finish(parent context.Context, cause error) int {
 // cleanup stops and removes every container this run owns, then confirms none
 // remains. It never touches the caller's controller or network.
 func (r *run) cleanup(ctx context.Context) (complete, dockerLost bool) {
+	// A backend that never came up cannot have created anything, so there is
+	// nothing to stop and nothing to prove. Calling through the nil interface
+	// would panic on exactly the path that most needs to report cleanly: an
+	// unreachable Docker daemon.
+	if r.opts.Backend == nil {
+		return true, false
+	}
 	units := r.snapshot()
 	errs := make([]error, len(units))
 	var wg sync.WaitGroup

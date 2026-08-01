@@ -198,7 +198,7 @@ func (r *run) validate(ctx context.Context) (Plan, error) {
 	if r.opts.Backend == nil {
 		backend, err := r.opts.NewBackend(ctx)
 		if err != nil {
-			return Plan{}, r.classify(err, CodeDockerUnavailable, PhaseValidate)
+			return Plan{}, r.classify(ctx, err, CodeDockerUnavailable, PhaseValidate)
 		}
 		r.opts.Backend = backend
 	}
@@ -229,10 +229,10 @@ func (r *run) validate(ctx context.Context) (Plan, error) {
 		return Plan{}, err
 	}
 	if err := r.opts.Backend.CheckDaemon(ctx); err != nil {
-		return Plan{}, r.classify(err, CodeDockerUnavailable, PhaseValidate)
+		return Plan{}, r.classify(ctx, err, CodeDockerUnavailable, PhaseValidate)
 	}
 	if err := r.opts.Backend.CheckNetwork(ctx, r.opts.Network); err != nil {
-		return Plan{}, r.classify(err, CodeNetworkNotFound, PhaseValidate)
+		return Plan{}, r.classify(ctx, err, CodeNetworkNotFound, PhaseValidate)
 	}
 	plan, err := BuildPlan(PlanInput{
 		RunID: r.opts.RunID, Network: r.opts.Network, InformURL: r.opts.InformURL,
@@ -242,17 +242,17 @@ func (r *run) validate(ctx context.Context) (Plan, error) {
 		return Plan{}, err
 	}
 	if err := r.opts.Backend.CheckCapabilities(ctx, plan); err != nil {
-		return Plan{}, r.classify(err, CodeCapabilityUnsupported, PhaseValidate)
+		return Plan{}, r.classify(ctx, err, CodeCapabilityUnsupported, PhaseValidate)
 	}
 
 	// All images before any container: a registry failure here leaves no
 	// half-started fleet to reconcile.
 	r.phase = PhasePull
 	if err := r.opts.Backend.Prepare(ctx, plan); err != nil {
-		return Plan{}, r.classify(err, CodeImagePullFailed, PhasePull)
+		return Plan{}, r.classify(ctx, err, CodeImagePullFailed, PhasePull)
 	}
 	if err := ctx.Err(); err != nil {
-		return Plan{}, r.classify(err, CodeStartupTimeout, PhasePull)
+		return Plan{}, r.classify(ctx, err, CodeStartupTimeout, PhasePull)
 	}
 	return plan, nil
 }
@@ -286,14 +286,14 @@ func (r *run) start(ctx context.Context, plan Plan) error {
 			go r.logs.follow(r.logCtx, res.unit.DeviceIndices(), res.inst)
 		}
 		if res.err != nil && first == nil {
-			first = r.classifyUnit(res.err, CodeContainerStartFailed, PhaseStart, res.unit)
+			first = r.classifyUnit(ctx, res.err, CodeContainerStartFailed, PhaseStart, res.unit)
 		}
 	}
 	if first != nil {
 		return first
 	}
 	if err := ctx.Err(); err != nil {
-		return r.classify(err, CodeStartupTimeout, PhaseStart)
+		return r.classify(ctx, err, CodeStartupTimeout, PhaseStart)
 	}
 
 	// Health is Docker's verdict, waited on through the stock strategy.
@@ -310,11 +310,11 @@ func (r *run) start(ctx context.Context, plan Plan) error {
 	wg.Wait()
 	for i, err := range waitErrs {
 		if err != nil {
-			return r.classifyUnit(err, CodeDeviceUnhealthy, PhaseHealth, units[i].unit)
+			return r.classifyUnit(ctx, err, CodeDeviceUnhealthy, PhaseHealth, units[i].unit)
 		}
 	}
 	if err := ctx.Err(); err != nil {
-		return r.classify(err, CodeStartupTimeout, PhaseHealth)
+		return r.classify(ctx, err, CodeStartupTimeout, PhaseHealth)
 	}
 
 	// Only now is the topology inspected: exactly the caller's network, no
@@ -323,7 +323,7 @@ func (r *run) start(ctx context.Context, plan Plan) error {
 	for _, lu := range units {
 		state, err := r.opts.Backend.Inspect(ctx, lu.inst.ID())
 		if err != nil {
-			return r.classifyUnit(err, CodeDockerUnavailable, PhaseStart, lu.unit)
+			return r.classifyUnit(ctx, err, CodeDockerUnavailable, PhaseStart, lu.unit)
 		}
 		ip, err := checkAttachment(plan, lu.unit, state)
 		if err != nil {
@@ -333,7 +333,7 @@ func (r *run) start(ctx context.Context, plan Plan) error {
 		lu.ip = ip
 	}
 	if err := ctx.Err(); err != nil {
-		return r.classify(err, CodeStartupTimeout, PhaseStart)
+		return r.classify(ctx, err, CodeStartupTimeout, PhaseStart)
 	}
 	return nil
 }
@@ -346,11 +346,11 @@ func (r *run) monitor(ctx context.Context, plan Plan) error {
 	consecutive := 0
 	for {
 		if err := ctx.Err(); err != nil {
-			return r.classify(err, CodeDockerUnavailable, PhaseRuntime)
+			return r.classify(ctx, err, CodeDockerUnavailable, PhaseRuntime)
 		}
 		select {
 		case <-ctx.Done():
-			return r.classify(ctx.Err(), CodeDockerUnavailable, PhaseRuntime)
+			return r.classify(ctx, ctx.Err(), CodeDockerUnavailable, PhaseRuntime)
 		case <-ticker.C:
 		}
 		lost := false
@@ -359,7 +359,7 @@ func (r *run) monitor(ctx context.Context, plan Plan) error {
 			if err != nil {
 				consecutive++
 				if consecutive >= dockerFailureLimit {
-					return r.classifyUnit(err, CodeDockerUnavailable, PhaseRuntime, lu.unit)
+					return r.classifyUnit(ctx, err, CodeDockerUnavailable, PhaseRuntime, lu.unit)
 				}
 				lost = true
 				break
@@ -384,8 +384,15 @@ func (r *run) finish(parent context.Context, cause error) int {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), r.opts.StopTimeout+cleanupSlack)
 	defer cancel()
 
-	complete, dockerLost := r.cleanup(ctx)
+	// The terminal event carries only the stable public summary. The cause it
+	// was built from is the operator's only diagnosis, so it goes to stderr
+	// before cleanup adds noise of its own. diagf redacts on the way out.
 	failure, _ := asFailure(cause)
+	if failure != nil && failure.Detail != "" {
+		r.diagf("%s in phase %s: %s", failure.Code, failure.Phase, failure.Detail)
+	}
+
+	complete, dockerLost := r.cleanup(ctx)
 
 	switch {
 	case !complete:
@@ -418,6 +425,13 @@ func (r *run) finish(parent context.Context, cause error) int {
 // cleanup stops and removes every container this run owns, then confirms none
 // remains. It never touches the caller's controller or network.
 func (r *run) cleanup(ctx context.Context) (complete, dockerLost bool) {
+	// A backend that never came up cannot have created anything, so there is
+	// nothing to stop and nothing to prove. Calling through the nil interface
+	// would panic on exactly the path that most needs to report cleanly: an
+	// unreachable Docker daemon.
+	if r.opts.Backend == nil {
+		return true, false
+	}
 	units := r.snapshot()
 	errs := make([]error, len(units))
 	var wg sync.WaitGroup
@@ -455,28 +469,33 @@ func (r *run) emitFailed(ev FailedEvent) {
 	}
 }
 
-// classify turns a backend error into the failure the protocol reports.
-// A deadline is the startup timeout wherever it lands; a cancellation is a
-// clean stop, because the only thing that cancels this context is a signal or
-// the caller going away.
-func (r *run) classify(err error, fallback Code, phase Phase) error {
+// classify turns an operation's error into the outcome the protocol reports.
+//
+// A context outcome only wins when this operation's own context is done AND
+// is what ended it. Both halves matter. Waiting strategies impose deadlines of
+// their own, so a deadline in the chain while the run's context is still live
+// is a device that never became healthy, not a startup timeout. And a failure
+// that had already happened keeps its code even though a signal cancelled the
+// context on the way out -- the contract gives failure semantics precedence
+// over a stop that merely interrupted it.
+func (r *run) classify(ctx context.Context, err error, fallback Code, phase Phase) error {
 	if err == nil {
 		return nil
+	}
+	if cause := ctx.Err(); cause != nil && errors.Is(err, cause) {
+		if errors.Is(cause, context.DeadlineExceeded) {
+			return failf(CodeStartupTimeout, phase, "startup deadline expired during %s", phase)
+		}
+		return errStopped
 	}
 	if f, ok := asFailure(err); ok {
 		return f
 	}
-	if errors.Is(err, context.DeadlineExceeded) {
-		return failf(CodeStartupTimeout, phase, "startup deadline expired during %s", phase)
-	}
-	if errors.Is(err, context.Canceled) {
-		return errStopped
-	}
 	return wrapf(err, fallback, phase, "%v", err)
 }
 
-func (r *run) classifyUnit(err error, fallback Code, phase Phase, unit Unit) error {
-	return r.withDevices(r.classify(err, fallback, phase), unit)
+func (r *run) classifyUnit(ctx context.Context, err error, fallback Code, phase Phase, unit Unit) error {
+	return r.withDevices(r.classify(ctx, err, fallback, phase), unit)
 }
 
 // withDevices attaches the failing unit's public identities to a failure, so

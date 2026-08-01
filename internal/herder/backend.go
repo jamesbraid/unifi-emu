@@ -95,6 +95,14 @@ func (b *dockerBackend) Launch(ctx context.Context, plan Plan, unit Unit) (Insta
 		inst = &dockerInstance{container: created}
 	}
 	if err != nil {
+		// A nil handle does not mean nothing was created. The library creates
+		// the container in the engine and only builds the handle once every
+		// network is attached, so a failed attachment leaves a labelled
+		// container with no handle to terminate. Reclaim it by label instead
+		// of leaving it for the session reaper.
+		if inst == nil {
+			b.removeUnitContainers(ctx, plan.RunID, unit)
+		}
 		return inst, wrapf(err, CodeContainerStartFailed, PhaseStart,
 			"create container for unit %s: %v", unit.DeviceIndices(), err)
 	}
@@ -166,6 +174,37 @@ func (b *dockerBackend) Remaining(ctx context.Context, runID string) (int, error
 		return 0, wrapf(err, CodeDockerUnavailable, PhaseCleanup, "list run containers: %v", err)
 	}
 	return len(listed.Items), nil
+}
+
+// reclaimTimeout bounds the best-effort sweep of a container that was created
+// before the library could hand back a handle.
+const reclaimTimeout = 30 * time.Second
+
+// removeUnitContainers force-removes anything already carrying this run and
+// unit's labels. Best effort: the caller is already reporting a failure, and
+// cleanup re-checks what remains afterwards.
+func (b *dockerBackend) removeUnitContainers(parent context.Context, runID string, unit Unit) {
+	// The commonest reason creation failed is that this context died -- the
+	// startup deadline expired, or a signal arrived. Reusing it would make the
+	// reclaim a no-op in exactly the cases that strand a container.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), reclaimTimeout)
+	defer cancel()
+	listed, err := b.api.ContainerList(ctx, client.ContainerListOptions{
+		All: true,
+		// Narrow on purpose. The handle is built before anything is started,
+		// so an orphan from this path is always still in "created" -- and a
+		// running container carrying these labels belongs to someone else.
+		Filters: make(client.Filters).
+			Add("label", labelRun+"="+runID).
+			Add("label", labelDevices+"="+unit.DeviceIndices()).
+			Add("status", "created"),
+	})
+	if err != nil {
+		return
+	}
+	for _, c := range listed.Items {
+		_, _ = b.api.ContainerRemove(ctx, c.ID, client.ContainerRemoveOptions{Force: true})
+	}
 }
 
 // dockerInstance is one testcontainers-managed device container.

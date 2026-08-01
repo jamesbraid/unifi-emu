@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	dockerspec "github.com/moby/docker-image-spec/specs-go/v1"
+	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/image"
 	"github.com/moby/moby/api/types/jsonstream"
 	"github.com/moby/moby/client"
@@ -27,6 +28,14 @@ type fakeDocker struct {
 	pulled      []string
 	inspected   []string
 	networkSeen []string
+	// containers is the daemon's inventory. ContainerList applies the caller's
+	// filters to it, so a sweep that filters too loosely deletes a decoy and
+	// the test sees it.
+	containers []fakeContainer
+	removed    []string // container ids ContainerRemove was called with
+	// requireLiveContext makes the fake behave like the real client, which
+	// fails immediately once its context is done.
+	requireLiveContext bool
 }
 
 func (f *fakeDocker) ServerVersion(context.Context, client.ServerVersionOptions) (client.ServerVersionResult, error) {
@@ -68,8 +77,54 @@ func (f *fakeDocker) ContainerInspect(context.Context, string, client.ContainerI
 	return client.ContainerInspectResult{}, errors.New("not used in this test")
 }
 
-func (f *fakeDocker) ContainerList(context.Context, client.ContainerListOptions) (client.ContainerListResult, error) {
-	return client.ContainerListResult{}, errors.New("not used in this test")
+type fakeContainer struct {
+	id     string
+	labels map[string]string
+	status string
+}
+
+func (f *fakeDocker) ContainerList(ctx context.Context, opts client.ContainerListOptions) (client.ContainerListResult, error) {
+	if f.requireLiveContext && ctx.Err() != nil {
+		return client.ContainerListResult{}, ctx.Err()
+	}
+	out := client.ContainerListResult{}
+	for _, c := range f.containers {
+		if matchesFilters(c, opts.Filters) {
+			out.Items = append(out.Items, container.Summary{ID: c.id})
+		}
+	}
+	return out, nil
+}
+
+// matchesFilters implements the label and status terms the herder uses, the
+// way the daemon does: every term must match.
+func matchesFilters(c fakeContainer, filters client.Filters) bool {
+	for term, values := range filters {
+		for value := range values {
+			switch term {
+			case "label":
+				key, want, found := strings.Cut(value, "=")
+				if !found || c.labels[key] != want {
+					return false
+				}
+			case "status":
+				if c.status != value {
+					return false
+				}
+			default:
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (f *fakeDocker) ContainerRemove(ctx context.Context, id string, _ client.ContainerRemoveOptions) (client.ContainerRemoveResult, error) {
+	if f.requireLiveContext && ctx.Err() != nil {
+		return client.ContainerRemoveResult{}, ctx.Err()
+	}
+	f.removed = append(f.removed, id)
+	return client.ContainerRemoveResult{}, nil
 }
 
 var errNoSuchNetwork = errors.New("network not found")

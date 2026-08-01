@@ -247,6 +247,16 @@ func (h *runHarness) runCtx(t *testing.T, ctx context.Context) runResult {
 	if h.config != "" {
 		configPath = writeConfig(t, h.config)
 	}
+	newBackend := func(context.Context) (Backend, error) {
+		if h.backend == nil {
+			return nil, failf(CodeDockerUnavailable, PhaseValidate, "cannot connect to the Docker daemon")
+		}
+		return h.backend, nil
+	}
+	var backend Backend
+	if h.backend != nil {
+		backend = h.backend
+	}
 	exit := Run(ctx, Options{
 		Network:           h.network,
 		InformURL:         h.inform,
@@ -260,7 +270,8 @@ func (h *runHarness) runCtx(t *testing.T, ctx context.Context) runResult {
 		Stderr:            &stderr,
 		Getenv:            func(string) string { return "" },
 		RunID:             "run1",
-		Backend:           h.backend,
+		Backend:           backend,
+		NewBackend:        newBackend,
 		CheckReaper:       func() error { return h.reaper },
 		Signals:           h.signals,
 	})
@@ -1011,5 +1022,29 @@ func TestRunIDIsRandomAndShort(t *testing.T) {
 	}
 	if len(first) != 8 {
 		t.Fatalf("run ID %q is %d characters, want 8", first, len(first))
+	}
+}
+
+// A Docker daemon that cannot be reached at all is the one failure the
+// protocol most needs to report cleanly, and it was the one that crashed:
+// validate returned before assigning the backend, and cleanup then called a
+// method on the nil interface. The run must report docker_unavailable and
+// exit, not panic.
+func TestUnreachableDockerBackendReportsInsteadOfPanicking(t *testing.T) {
+	h := newHarness(t)
+	h.backend = nil
+	got := h.run(t)
+	if got.exit != 1 {
+		t.Fatalf("exit = %d, want 1", got.exit)
+	}
+	terminal := got.terminal(t)
+	if terminal["code"] != string(CodeDockerUnavailable) {
+		t.Fatalf("code = %v, want docker_unavailable", terminal["code"])
+	}
+	if terminal["phase"] != string(PhaseValidate) {
+		t.Fatalf("phase = %v, want validate", terminal["phase"])
+	}
+	if terminal["cleanup_complete"] != true {
+		t.Fatalf("cleanup_complete = %v, want true: nothing was ever created", terminal["cleanup_complete"])
 	}
 }

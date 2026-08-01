@@ -23,10 +23,36 @@ builds:
     goarch: [amd64, arm64]
     mod_timestamp: "{{ .CommitTimestamp }}"
 
+  # The herder and the public synthetic image are built from the same tag, so
+  # the binary carries the matching image reference rather than resolving one
+  # at runtime. A development build has no default and requires
+  # --synthetic-image; neither path falls back to a floating tag.
+  - id: unifi-emu-herder
+    main: ./cmd/unifi-emu-herder
+    binary: unifi-emu-herder
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.buildVersion={{ .Version }}
+        -X main.defaultSyntheticImage=ghcr.io/jamesbraid/unifi-emu:{{ .Version }}
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
 archives:
   - id: unifi-emu
+    ids: [unifi-emu]
     formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+  - id: unifi-emu-herder
+    ids: [unifi-emu-herder]
+    formats: [tar.gz]
+    name_template: "unifi-emu-herder_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - LICENSE
       - README.md

@@ -59,6 +59,41 @@ jobs:
           context: .
           push: false
 
+  # Docker acceptance for unifi-emu-herder on the target Linux amd64 shape.
+  # Both images are built locally from this checkout and the herder is pointed
+  # at them, so the job proves the real container contract without depending on
+  # a published tag. No runtime mapping is installed: the fixture image stands
+  # in for an opaque runtime, and the mapping file is written per test.
+  herder-docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Report the Docker engine and API versions
+        run: docker version --format 'engine={{.Server.Version}} api={{.Server.APIVersion}}'
+      - name: Build the public synthetic image
+        run: |
+          docker build --build-arg BUILDPLATFORM=linux/amd64 \
+            -t unifi-emu-herder-itest/synthetic:ci .
+      - name: Build the public fixture runtime image
+        run: |
+          docker build -f internal/herder/testdata/runtime-fixture/Dockerfile \
+            -t unifi-emu-herder-itest/fixture:ci .
+      - name: Run the herder Docker acceptance suite
+        env:
+          UNIFI_EMU_HERDER_ITEST_SYNTHETIC_IMAGE: unifi-emu-herder-itest/synthetic:ci
+          UNIFI_EMU_HERDER_ITEST_FIXTURE_IMAGE: unifi-emu-herder-itest/fixture:ci
+        run: go test -tags integration -count=1 -timeout 25m -v ./internal/herder/
+      - name: Confirm no herder container survived
+        if: always()
+        run: |
+          left=$(docker ps -aq --filter label=io.unifi-emu.herder=true | wc -l)
+          docker ps -a --filter label=io.unifi-emu.herder=true
+          test "$left" -eq 0
+
   # Live classic-controller integration tests via Testcontainers. GitHub
   # runners have native Docker, so no runtime plumbing is needed. This boots
   # real controllers, so it runs in minutes, not seconds. UOS is excluded: it

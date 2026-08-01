@@ -27,6 +27,19 @@ func TestDeviceSpecMapping(t *testing.T) {
 	}
 }
 
+func TestDeviceSpecSerial(t *testing.T) {
+	// serial is part of the fleet-file contract, so the strict key check
+	// must accept it: a device container is told its serial, it does not
+	// derive one.
+	var s DeviceSpec
+	if err := yaml.Unmarshal([]byte(`{model: UGW3, serial: F09FC2ABCDEF}`), &s); err != nil {
+		t.Fatalf("mapping: %v", err)
+	}
+	if s.Serial != "F09FC2ABCDEF" {
+		t.Fatalf("Serial = %q, want F09FC2ABCDEF", s.Serial)
+	}
+}
+
 func TestDeviceSpecUnknownKeyRejected(t *testing.T) {
 	var s DeviceSpec
 	// "modle" is a misspelling of "model"; must fail, not silently drop.

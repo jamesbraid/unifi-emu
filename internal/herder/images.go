@@ -30,6 +30,7 @@ type DockerAPI interface {
 	ImageInspect(context.Context, string, ...client.ImageInspectOption) (client.ImageInspectResult, error)
 	ContainerInspect(context.Context, string, client.ContainerInspectOptions) (client.ContainerInspectResult, error)
 	ContainerList(context.Context, client.ContainerListOptions) (client.ContainerListResult, error)
+	ContainerRemove(context.Context, string, client.ContainerRemoveOptions) (client.ContainerRemoveResult, error)
 }
 
 // CheckDocker confirms the daemon answers and is new enough.

@@ -1048,3 +1048,43 @@ func TestUnreachableDockerBackendReportsInsteadOfPanicking(t *testing.T) {
 		t.Fatalf("cleanup_complete = %v, want true: nothing was ever created", terminal["cleanup_complete"])
 	}
 }
+
+// The public event carries only the stable summary, by design. The cause has
+// to reach the operator somewhere, and stderr is that somewhere -- otherwise
+// every failure arrives with no diagnosis at all and the caller is left
+// reading Docker events to work out what happened.
+func TestFailureDetailReachesStderr(t *testing.T) {
+	h := newHarness(t)
+	h.backend.prepareErr = failf(CodeImagePullFailed, PhasePull,
+		"pull public/emu:1.0.0: manifest unknown for tag")
+	got := h.run(t)
+	if !strings.Contains(got.stderr, "manifest unknown for tag") {
+		t.Fatalf("stderr = %q, want the failure detail", got.stderr)
+	}
+	// stdout still carries only the stable public summary.
+	terminal := got.terminal(t)
+	if terminal["message"] != CodeImagePullFailed.Message() {
+		t.Fatalf("message = %v, want the stable summary", terminal["message"])
+	}
+	body, _ := json.Marshal(got.events)
+	if strings.Contains(string(body), "manifest unknown") {
+		t.Fatalf("the private detail reached stdout: %s", body)
+	}
+}
+
+// A runtime reference in the detail must be redacted on its way to stderr,
+// the same as any other diagnostic.
+func TestFailureDetailIsRedactedOnStderr(t *testing.T) {
+	h := newHarness(t)
+	h.config = `{"version":1,"models":{"UXGENT":{"image":"forge.example/emu/x@` + testDigest + `"}}}`
+	h.request = `{"version":1,"devices":[{"model":"UXGENT"}]}`
+	h.backend.prepareErr = failf(CodeImagePullFailed, PhasePull,
+		"pull forge.example/emu/x@"+testDigest+": denied")
+	got := h.run(t)
+	if strings.Contains(got.stderr, "forge.example") {
+		t.Fatalf("stderr leaks the runtime reference: %q", got.stderr)
+	}
+	if !strings.Contains(got.stderr, redactedRuntime) {
+		t.Fatalf("stderr = %q, want the redaction placeholder", got.stderr)
+	}
+}

@@ -158,12 +158,12 @@ func checkImageDigest(model, image string) error {
 	repo, digest, ok := strings.Cut(image, "@")
 	if !ok || repo == "" {
 		return failf(CodeInvalidRuntimeConfig, PhaseValidate,
-			"model %s image %q is not digest-pinned", model, image)
+			"model %s has no digest-pinned image", model)
 	}
 	hex, ok := strings.CutPrefix(digest, "sha256:")
 	if !ok || len(hex) != 64 {
 		return failf(CodeInvalidRuntimeConfig, PhaseValidate,
-			"model %s image %q needs a sha256 digest of 64 hexadecimal characters", model, image)
+			"model %s needs a sha256 digest of 64 lowercase hexadecimal characters", model)
 	}
 	for i := 0; i < len(hex); i++ {
 		c := hex[i]

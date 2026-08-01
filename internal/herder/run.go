@@ -384,8 +384,15 @@ func (r *run) finish(parent context.Context, cause error) int {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), r.opts.StopTimeout+cleanupSlack)
 	defer cancel()
 
-	complete, dockerLost := r.cleanup(ctx)
+	// The terminal event carries only the stable public summary. The cause it
+	// was built from is the operator's only diagnosis, so it goes to stderr
+	// before cleanup adds noise of its own. diagf redacts on the way out.
 	failure, _ := asFailure(cause)
+	if failure != nil && failure.Detail != "" {
+		r.diagf("%s in phase %s: %s", failure.Code, failure.Phase, failure.Detail)
+	}
+
+	complete, dockerLost := r.cleanup(ctx)
 
 	switch {
 	case !complete:

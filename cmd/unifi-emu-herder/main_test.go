@@ -204,6 +204,57 @@ func TestReleaseBuildUsesItsVersionMatchedImage(t *testing.T) {
 	}
 }
 
+// A `go install <module>@vX.Y.Z` binary carries no ldflags, so its only release
+// identity is the module version the go command recorded. Recovering the image
+// from that is what makes the one-line install work. The ldflags still win where
+// they are set, because goreleaser's `go mod tidy` hook can dirty the tree and
+// leave the recorded version naming no published image.
+func TestResolveBuild(t *testing.T) {
+	const image = "ghcr.io/jamesbraid/unifi-emu:0.5.1"
+	for _, tc := range []struct {
+		name                       string
+		ldflagVersion, ldflagImage string
+		module                     string
+		wantVersion, wantImage     string
+	}{
+		{
+			name:   "go install recovers both from build info",
+			module: "v0.5.1", ldflagVersion: "dev",
+			wantVersion: "0.5.1", wantImage: image,
+		},
+		{
+			name:          "release artifact keeps its ldflags",
+			ldflagVersion: "0.5.1", ldflagImage: image, module: "(devel)",
+			wantVersion: "0.5.1", wantImage: image,
+		},
+		{
+			name:          "a dirty goreleaser tree still trusts the ldflags",
+			ldflagVersion: "0.5.1", ldflagImage: image, module: "v0.5.1+dirty",
+			wantVersion: "0.5.1", wantImage: image,
+		},
+		{
+			name:   "a checkout gets no image and must be told",
+			module: "(devel)", ldflagVersion: "dev",
+			wantVersion: "dev", wantImage: "",
+		},
+		{
+			name:   "a commit past the tag is not a release",
+			module: "v0.5.2-0.20260101120000-abc123def456", ldflagVersion: "dev",
+			wantVersion: "dev", wantImage: "",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			version, image := resolveBuild(tc.ldflagVersion, tc.ldflagImage, tc.module)
+			if version != tc.wantVersion {
+				t.Errorf("version = %q, want %q", version, tc.wantVersion)
+			}
+			if image != tc.wantImage {
+				t.Errorf("image = %q, want %q", image, tc.wantImage)
+			}
+		})
+	}
+}
+
 func TestEveryStdoutLineIsOneProtocolEvent(t *testing.T) {
 	got := cli{
 		args:  []string{"--network", "net", "--inform-url", "http://172.28.0.2:8080/inform", "--devices", "-"},

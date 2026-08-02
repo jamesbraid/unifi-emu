@@ -26,6 +26,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -33,9 +34,12 @@ import (
 )
 
 // buildVersion and defaultSyntheticImage are stamped at release time via
-// -ldflags. A development binary has version "dev" and no image default, so
-// it requires --synthetic-image whenever the plan needs a synthetic device;
-// neither path falls back to a floating tag.
+// -ldflags. A `go install <module>/cmd/unifi-emu-herder@vX.Y.Z` binary carries
+// neither, but the go command records the module version inside it, and that
+// version names the image built from the same tag -- so resolveBuild recovers
+// both from build info. A working tree has no release identity either way: it
+// requires --synthetic-image whenever the plan needs a synthetic device, and
+// no path falls back to a floating tag.
 var (
 	buildVersion          = "dev"
 	defaultSyntheticImage = ""
@@ -46,17 +50,48 @@ func main() {
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(signals)
 
+	version, image := resolveBuild(buildVersion, defaultSyntheticImage, moduleVersion())
+
 	os.Exit(run(env{
 		args:    os.Args[1:],
 		stdin:   os.Stdin,
 		stdout:  os.Stdout,
 		stderr:  os.Stderr,
 		getenv:  os.Getenv,
-		version: buildVersion,
-		image:   defaultSyntheticImage,
+		version: version,
+		image:   image,
 		backend: herder.NewDockerBackend,
 		signals: signals,
 	}))
+}
+
+// moduleVersion is the version the go command recorded for this binary's own
+// module. It reads as a release tag only after `go install <module>@vX.Y.Z`;
+// a build from a working tree reports "(devel)", a pseudo-version, or a
+// release tag with a "+dirty" suffix, all of which ReleaseVersion rejects.
+func moduleVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return ""
+	}
+	return info.Main.Version
+}
+
+// resolveBuild picks the version to report and the synthetic image to default
+// to. The release ldflags win wherever they are set: goreleaser runs `go mod
+// tidy` before building, which can leave the tree dirty and reduce the
+// recorded module version to one that names no published image.
+func resolveBuild(ldflagVersion, ldflagImage, module string) (version, image string) {
+	version, image = ldflagVersion, ldflagImage
+	if image == "" {
+		image = herder.DefaultSyntheticImage(module)
+	}
+	if version == "" || version == "dev" {
+		if release := herder.ReleaseVersion(module); release != "" {
+			version = release
+		}
+	}
+	return version, image
 }
 
 // env is the process the command runs in, injected so the flag, exit and

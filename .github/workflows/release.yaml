@@ -13,7 +13,26 @@ permissions:
   contents: read
 
 jobs:
+  # The install-herder action resolves `uses: ...@vX.Y.Z` through its own
+  # VERSION file, so a tag that forgot to bump it would quietly hand callers the
+  # previous release's binary under the new tag's name. Both publishing jobs
+  # wait on this, because that is a wrong answer rather than a missing one.
+  pinned-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - shell: bash
+        run: |
+          set -euo pipefail
+          want="${GITHUB_REF_NAME#v}"
+          got="$(cat .github/actions/install-herder/VERSION)"
+          if [ "${got}" != "${want}" ]; then
+            echo "::error::install-herder VERSION says ${got}, but this tag is ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+
   goreleaser:
+    needs: pinned-version
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -32,6 +51,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   image:
+    needs: pinned-version
     runs-on: ubuntu-latest
     permissions:
       contents: read

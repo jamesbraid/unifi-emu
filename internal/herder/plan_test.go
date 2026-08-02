@@ -213,17 +213,30 @@ func TestResolveSyntheticImageHasNoLatestFallback(t *testing.T) {
 	}
 }
 
+// Only a published tag names an image. The versions that must NOT are the ones
+// the go command invents for a working tree: `go install module@vX.Y.Z` records
+// a clean tag, but since Go 1.24 a plain `go build` records "(devel)", a
+// pseudo-version, or a tag with a "+dirty" suffix. Accepting any of those would
+// default to an image reference that was never published.
 func TestDefaultSyntheticImageForVersion(t *testing.T) {
-	if got := DefaultSyntheticImage("v0.4.2"); got != "ghcr.io/jamesbraid/unifi-emu:0.4.2" {
-		t.Fatalf("release default = %q", got)
-	}
-	if got := DefaultSyntheticImage("0.4.2"); got != "ghcr.io/jamesbraid/unifi-emu:0.4.2" {
-		t.Fatalf("release default without the v = %q", got)
-	}
-	if got := DefaultSyntheticImage("dev"); got != "" {
-		t.Fatalf("development default = %q, want none", got)
-	}
-	if got := DefaultSyntheticImage(""); got != "" {
-		t.Fatalf("empty version default = %q, want none", got)
+	for _, tc := range []struct {
+		name    string
+		version string
+		want    string
+	}{
+		{"go install records the tag", "v0.5.0", "ghcr.io/jamesbraid/unifi-emu:0.5.0"},
+		{"goreleaser passes it without the v", "0.4.2", "ghcr.io/jamesbraid/unifi-emu:0.4.2"},
+		{"unstamped development binary", "dev", ""},
+		{"no version at all", "", ""},
+		{"go build with no VCS info", "(devel)", ""},
+		{"uncommitted changes", "v0.5.0+dirty", ""},
+		{"commit past the tag", "v0.5.1-0.20260101120000-abc123def456", ""},
+		{"prerelease publishes no image", "v0.5.0-rc1", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := DefaultSyntheticImage(tc.version); got != tc.want {
+				t.Fatalf("DefaultSyntheticImage(%q) = %q, want %q", tc.version, got, tc.want)
+			}
+		})
 	}
 }

@@ -1,6 +1,7 @@
 package herder
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -164,12 +165,29 @@ func ResolveSyntheticImage(flagImage, compiledDefault string) (string, error) {
 	return compiledDefault, nil
 }
 
-// DefaultSyntheticImage is the version-matched public image for a release
-// build. A development binary has version "dev" and no image default, so it
-// requires --synthetic-image whenever the plan contains a synthetic device.
-func DefaultSyntheticImage(version string) string {
-	if version == "" || version == "dev" {
+// releaseVersion matches a published tag in either the "v0.5.0" form the go
+// command records in a binary or the "0.5.0" form goreleaser's .Version passes.
+// What it rejects is the point: since Go 1.24 a plain `go build` also stamps a
+// version, but a checkout reports "(devel)", a pseudo-version, or a release with
+// a "+dirty" suffix, and no image was ever published from any of those.
+var releaseVersion = regexp.MustCompile(`^v?\d+\.\d+\.\d+$`)
+
+// ReleaseVersion returns version without its leading "v" when it names a
+// published release, and "" for anything built from a working tree.
+func ReleaseVersion(version string) string {
+	if !releaseVersion.MatchString(version) {
 		return ""
 	}
-	return syntheticImageRepo + ":" + strings.TrimPrefix(version, "v")
+	return strings.TrimPrefix(version, "v")
+}
+
+// DefaultSyntheticImage is the version-matched public image for a release
+// build. A development binary has no release version and no image default, so
+// it requires --synthetic-image whenever the plan contains a synthetic device.
+func DefaultSyntheticImage(version string) string {
+	release := ReleaseVersion(version)
+	if release == "" {
+		return ""
+	}
+	return syntheticImageRepo + ":" + release
 }

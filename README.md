@@ -49,9 +49,16 @@ anonymously pullable — and the module is on the Go proxy. Image tags drop the
 `v` that module tags keep:
 
 ```sh
-docker pull ghcr.io/jamesbraid/unifi-emu:0.5   # also :0.5.0, :latest
-go get github.com/jamesbraid/unifi-emu@v0.5.0
-go install github.com/jamesbraid/unifi-emu/cmd/unifi-emu-herder@v0.5.0
+docker pull ghcr.io/jamesbraid/unifi-emu:0.5   # also :0.5.1, :latest
+go get github.com/jamesbraid/unifi-emu@v0.5.1
+go install github.com/jamesbraid/unifi-emu/cmd/unifi-emu-herder@v0.5.1
+```
+
+In GitHub Actions the herder has an install action, which needs no Go
+toolchain and checksums the release archive before unpacking it:
+
+```yaml
+- uses: jamesbraid/unifi-emu/.github/actions/install-herder@v0.5.1
 ```
 
 `-adopt` arrived in 0.4.0, which is also where the model registry drops to
@@ -60,10 +67,12 @@ still starting needs 0.4.1: 0.4.0 exits instead of waiting for it.
 Configuring BGP against an emulated UXG-Enterprise needs 0.4.2; earlier
 releases get the same 404 every other gateway still gets.
 
-`unifi-emu-herder` arrives in 0.5.0. A release build runs the synthetic image
-built from its own tag, so the herder and the devices it starts come from one
-commit. A binary built from a checkout has no compiled default and asks for
-`--synthetic-image`. Neither path falls back to a floating tag.
+`unifi-emu-herder` arrives in 0.5.0. It runs the synthetic image built from
+its own tag, so the herder and the devices it starts come from one commit. It
+learns that tag two ways: a release archive carries it compiled in, and from
+0.5.1 a `go install ...@vX.Y.Z` binary reads the module version the go command
+recorded. A build from a working tree has neither and asks for
+`--synthetic-image`. No path falls back to a floating tag.
 
 ### Quick start
 

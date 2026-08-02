@@ -3,21 +3,23 @@ package herder
 import (
 	"context"
 	"errors"
-	"strconv"
 	"strings"
 
 	"github.com/moby/moby/api/types/image"
 	"github.com/moby/moby/client"
+	"github.com/moby/moby/client/pkg/versions"
 )
 
-// Endpoint MAC assignment on an existing network needs Docker Engine 25 and
-// API 1.44; older daemons silently ignore the field, which would produce a
-// fleet whose endpoint MACs do not match the identities the herder published.
-const (
-	minEngineMajor = 25
-	minAPIMajor    = 1
-	minAPIMinor    = 44
-)
+// minAPIVersion is the Docker API that added endpoint MAC assignment on an
+// existing network. Older daemons silently ignore the field, which would
+// produce a fleet whose endpoint MACs do not match the identities the herder
+// published.
+//
+// The API version is the whole gate. Engine 25 is only the release that
+// introduced 1.44, and asking the engine as well would accept a daemon capped
+// to a lower API by configuration -- which then fails at container creation,
+// the confusing failure this preflight exists to prevent.
+const minAPIVersion = "1.44"
 
 // DockerAPI is the slice of the official Moby client the herder uses. It
 // covers the all-images-before-create preflight and the inspection loop only:
@@ -43,43 +45,11 @@ func CheckDocker(ctx context.Context, api DockerAPI) error {
 }
 
 func checkDockerVersion(v client.ServerVersionResult) error {
-	engine, ok := leadingInt(v.Version)
-	if !ok || engine < minEngineMajor {
+	if !versions.GreaterThanOrEqualTo(v.APIVersion, minAPIVersion) {
 		return failf(CodeDockerVersionUnsupported, PhaseValidate,
-			"Docker Engine %q is older than %d", v.Version, minEngineMajor)
-	}
-	major, minor, ok := apiVersion(v.APIVersion)
-	if !ok || major < minAPIMajor || (major == minAPIMajor && minor < minAPIMinor) {
-		return failf(CodeDockerVersionUnsupported, PhaseValidate,
-			"Docker API %q is older than %d.%d", v.APIVersion, minAPIMajor, minAPIMinor)
+			"Docker API %q is older than %s", v.APIVersion, minAPIVersion)
 	}
 	return nil
-}
-
-// leadingInt reads the leading decimal run of s, so "25.0.3-ce" reports 25.
-func leadingInt(s string) (int, bool) {
-	end := 0
-	for end < len(s) && s[end] >= '0' && s[end] <= '9' {
-		end++
-	}
-	if end == 0 {
-		return 0, false
-	}
-	n, err := strconv.Atoi(s[:end])
-	return n, err == nil
-}
-
-func apiVersion(s string) (major, minor int, ok bool) {
-	majorText, minorText, found := strings.Cut(s, ".")
-	if !found {
-		return 0, 0, false
-	}
-	major, ok = leadingInt(majorText)
-	if !ok {
-		return 0, 0, false
-	}
-	minor, ok = leadingInt(minorText)
-	return major, minor, ok
 }
 
 // CheckNetwork confirms the caller-supplied network exists. The herder never

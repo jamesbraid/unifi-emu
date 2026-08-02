@@ -25,8 +25,12 @@ builds:
 
   # The herder and the public synthetic image are built from the same tag, so
   # the binary carries the matching image reference rather than resolving one
-  # at runtime. A development build has no default and requires
-  # --synthetic-image; neither path falls back to a floating tag.
+  # at runtime. These ldflags stay authoritative even though the herder can
+  # also recover the reference from build info, because the `go mod tidy` hook
+  # above can leave the tree dirty and reduce the recorded module version to
+  # one that names no published image. A build from a working tree has no
+  # default and requires --synthetic-image. No path falls back to a floating
+  # tag.
   - id: unifi-emu-herder
     main: ./cmd/unifi-emu-herder
     binary: unifi-emu-herder
@@ -91,6 +95,16 @@ release:
     CLI:
     ```
     go install github.com/jamesbraid/unifi-emu/cmd/unifi-emu@{{ .Tag }}
+    ```
+
+    Herder:
+    ```
+    go install github.com/jamesbraid/unifi-emu/cmd/unifi-emu-herder@{{ .Tag }}
+    ```
+
+    Herder in GitHub Actions:
+    ```
+    - uses: jamesbraid/unifi-emu/.github/actions/install-herder@{{ .Tag }}
     ```
 
     Container image:

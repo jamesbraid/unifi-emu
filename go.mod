@@ -2,6 +2,13 @@ module github.com/jamesbraid/unifi-emu
 
 go 1.25.0
 
+// v0.5.2 was tagged but never released: the tag tripped the install-herder
+// version guard, so no binaries and no ghcr.io/jamesbraid/unifi-emu:0.5.2
+// image were ever published. The module proxy had already cached the tag by
+// then, and a herder built from it resolves its synthetic image to that
+// missing tag. Use v0.5.3.
+retract v0.5.2
+
 require github.com/golang/snappy v1.0.0
 
 require (

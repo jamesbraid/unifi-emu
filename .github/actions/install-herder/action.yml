@@ -1,0 +1,94 @@
+# The one home for the release-download recipe that consumers used to copy into
+# their own workflows. A release binary compiles in the synthetic image built
+# from the same tag, so pinning this action pins the image too and callers pass
+# no --synthetic-image at all.
+#
+# A missing release stays honest-red: this never falls back to building from
+# source, which would run an unpinned tree against a pinned controller.
+name: Install unifi-emu-herder
+description: Download a pinned unifi-emu-herder release onto the runner and put it on PATH.
+
+inputs:
+  version:
+    description: >-
+      Release to install, with or without the leading v. Defaults to the
+      version recorded alongside this action, so `uses: ...@v0.5.1` installs
+      0.5.1 and nothing has to name the version twice. Reading the file rather
+      than github.action_ref is deliberate: action_ref reports the commit SHA
+      when a caller pins by digest, which is exactly what a careful caller does.
+    required: false
+    default: ''
+  install-dir:
+    description: >-
+      Where to put the binary. Defaults to a directory under RUNNER_TEMP, which
+      needs no sudo. Whatever is used gets added to PATH.
+    required: false
+    default: ''
+
+outputs:
+  version:
+    description: The release that was installed, without the leading v.
+    value: ${{ steps.install.outputs.version }}
+  path:
+    description: Absolute path to the installed binary.
+    value: ${{ steps.install.outputs.path }}
+
+runs:
+  using: composite
+  steps:
+    - id: install
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_INSTALL_DIR: ${{ inputs.install-dir }}
+      run: |
+        set -euo pipefail
+
+        version="${INPUT_VERSION:-$(cat "${GITHUB_ACTION_PATH}/VERSION")}"
+        version="${version#v}"
+
+        case "${RUNNER_OS}" in
+          Linux) os=linux ;;
+          macOS) os=darwin ;;
+          *) echo "::error::unifi-emu-herder publishes no ${RUNNER_OS} build"; exit 1 ;;
+        esac
+        case "${RUNNER_ARCH}" in
+          X64) arch=amd64 ;;
+          ARM64) arch=arm64 ;;
+          *) echo "::error::unifi-emu-herder publishes no ${RUNNER_ARCH} build"; exit 1 ;;
+        esac
+
+        dir="${INPUT_INSTALL_DIR:-${RUNNER_TEMP}/unifi-emu-herder}"
+        mkdir -p "${dir}"
+
+        base="https://github.com/jamesbraid/unifi-emu/releases/download/v${version}"
+        archive="unifi-emu-herder_${version}_${os}_${arch}.tar.gz"
+        tmp="$(mktemp -d)"
+        trap 'rm -rf "${tmp}"' EXIT
+
+        curl -fsSL -o "${tmp}/${archive}" "${base}/${archive}"
+        curl -fsSL -o "${tmp}/checksums.txt" "${base}/checksums.txt"
+
+        # Verify before unpacking. Checking the one line for the archive we
+        # fetched, rather than the whole manifest, keeps this working on both
+        # coreutils sha256sum and the shasum that macOS runners ship.
+        if ! line="$(grep " ${archive}\$" "${tmp}/checksums.txt")"; then
+          echo "::error::${archive} is absent from the v${version} checksum manifest"
+          exit 1
+        fi
+        if command -v sha256sum >/dev/null 2>&1; then
+          ( cd "${tmp}" && printf '%s\n' "${line}" | sha256sum --check - )
+        else
+          ( cd "${tmp}" && printf '%s\n' "${line}" | shasum -a 256 --check - )
+        fi
+
+        tar -xzf "${tmp}/${archive}" -C "${dir}" unifi-emu-herder
+        chmod +x "${dir}/unifi-emu-herder"
+        echo "${dir}" >> "${GITHUB_PATH}"
+
+        {
+          echo "version=${version}"
+          echo "path=${dir}/unifi-emu-herder"
+        } >> "${GITHUB_OUTPUT}"
+
+        "${dir}/unifi-emu-herder" --version

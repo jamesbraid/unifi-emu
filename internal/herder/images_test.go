@@ -153,33 +153,38 @@ func healthyImage() image.InspectResponse {
 	}
 }
 
-func TestDockerVersionFloor(t *testing.T) {
-	cases := []struct {
-		engine, api string
-		ok          bool
-	}{
-		{"25.0.0", "1.44", true},
-		{"27.5.1", "1.51", true},
-		{"25.0.3-ce", "1.44", true},
-		{"24.0.7", "1.43", false},
-		{"24.0.7", "1.44", false},
-		{"25.0.0", "1.43", false},
-		{"25.0.0", "0.99", false},
-		{"", "1.44", false},
-		{"25.0.0", "", false},
-		{"nonsense", "1.44", false},
+// The gate is the API version. API 1.44 is what endpoint MAC assignment on an
+// existing network needs; engine 25 is merely the release that introduced it.
+func TestDockerAPIVersionFloor(t *testing.T) {
+	cases := map[string]bool{
+		"1.44": true, "1.51": true, "1.54": true, "2.0": true,
+		"1.43": false, "0.99": false, "": false, "nonsense": false,
 	}
-	for _, c := range cases {
-		err := checkDockerVersion(client.ServerVersionResult{Version: c.engine, APIVersion: c.api})
-		if c.ok && err != nil {
-			t.Errorf("engine %q api %q rejected: %v", c.engine, c.api, err)
+	for api, ok := range cases {
+		err := checkDockerVersion(client.ServerVersionResult{Version: "25.0.0", APIVersion: api})
+		if ok && err != nil {
+			t.Errorf("API %q rejected: %v", api, err)
 		}
-		if !c.ok {
+		if !ok {
 			if err == nil {
-				t.Errorf("engine %q api %q accepted, want a rejection", c.engine, c.api)
+				t.Errorf("API %q accepted, want a rejection", api)
 				continue
 			}
 			assertFailure(t, err, CodeDockerVersionUnsupported, PhaseValidate)
+		}
+	}
+}
+
+// The engine version is not consulted at all. A daemon capped to a lower API
+// through configuration would pass an engine check and then fail at container
+// creation, which is the confusing failure this preflight exists to prevent --
+// so the API version is the only thing asked.
+func TestEngineVersionIsNotConsulted(t *testing.T) {
+	for _, engine := range []string{"24.0.7", "", "nonsense", "99.0.0", "25.0.3-ce"} {
+		if err := checkDockerVersion(client.ServerVersionResult{
+			Version: engine, APIVersion: "1.44",
+		}); err != nil {
+			t.Errorf("engine %q rejected while the API is 1.44: %v", engine, err)
 		}
 	}
 }

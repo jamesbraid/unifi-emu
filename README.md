@@ -49,16 +49,16 @@ anonymously pullable — and the module is on the Go proxy. Image tags drop the
 `v` that module tags keep:
 
 ```sh
-docker pull ghcr.io/jamesbraid/unifi-emu:0.5   # also :0.5.2, :latest
-go get github.com/jamesbraid/unifi-emu@v0.5.2
-go install github.com/jamesbraid/unifi-emu/cmd/unifi-emu-herder@v0.5.2
+docker pull ghcr.io/jamesbraid/unifi-emu:0.5   # also :0.5.3, :latest
+go get github.com/jamesbraid/unifi-emu@v0.5.3
+go install github.com/jamesbraid/unifi-emu/cmd/unifi-emu-herder@v0.5.3
 ```
 
 In GitHub Actions the herder has an install action, which needs no Go
 toolchain and checksums the release archive before unpacking it:
 
 ```yaml
-- uses: jamesbraid/unifi-emu/.github/actions/install-herder@v0.5.2
+- uses: jamesbraid/unifi-emu/.github/actions/install-herder@v0.5.3
 ```
 
 `-adopt` arrived in 0.4.0, which is also where the model registry drops to
@@ -73,6 +73,11 @@ learns that tag two ways: a release archive carries it compiled in, and from
 0.5.1 a `go install ...@vX.Y.Z` binary reads the module version the go command
 recorded. A build from a working tree has neither and asks for
 `--synthetic-image`. No path falls back to a floating tag.
+
+Skip 0.5.2. It was tagged but never released, so no binaries and no image
+carry that version, and a herder built from the tag looks for an image that
+was never pushed. The module proxy had already cached it, so it stays
+installable and go.mod retracts it. Use 0.5.3.
 
 ### Quick start
 

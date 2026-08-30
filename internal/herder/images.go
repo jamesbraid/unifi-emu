@@ -72,16 +72,40 @@ func PullAndInspect(ctx context.Context, api DockerAPI, plan Plan) error {
 			return err
 		}
 	}
+	// Podman answers the Docker-compatible API but omits the Healthcheck field
+	// from image inspect, even for an image that declares one -- HEALTHCHECK is
+	// a Docker config extension with no OCI equivalent. So the pre-create
+	// healthcheck assertion is trusted only on a daemon that reports it;
+	// elsewhere the runtime health-wait, which podman does report, is the
+	// enforcement. A version failure here just applies the strict check --
+	// CheckDocker has already confirmed the daemon answers.
+	version, _ := api.ServerVersion(ctx, client.ServerVersionOptions{})
+	trustHealthcheck := !isPodman(version)
 	for _, unit := range plan.Units {
 		inspected, err := api.ImageInspect(ctx, unit.Image)
 		if err != nil {
 			return wrapf(err, CodeImageInvalid, PhasePull, "inspect image %s: %v", unit.Image, err)
 		}
-		if err := checkImage(unit, inspected.InspectResponse); err != nil {
+		if err := checkImage(unit, inspected.InspectResponse, trustHealthcheck); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// isPodman reports whether the daemon is Podman rather than Docker Engine.
+// Podman self-identifies through a "Podman Engine" component in its version
+// response. The distinction matters only because podman's Docker-compat image
+// inspect under-reports the config (no Healthcheck field); it runs the
+// healthcheck and reports container health at runtime, which is what the
+// health-wait observes.
+func isPodman(v client.ServerVersionResult) bool {
+	for _, c := range v.Components {
+		if strings.Contains(strings.ToLower(c.Name), "podman") {
+			return true
+		}
+	}
+	return false
 }
 
 // pull fetches one reference. A reference the runner built itself -- the
@@ -118,12 +142,17 @@ func pull(ctx context.Context, api DockerAPI, ref string) error {
 // because the herder publishes nothing to the host. Opaque runtime images are
 // additionally pinned to linux/amd64; the public synthetic image may be
 // multi-architecture as long as the daemon resolves it to amd64.
-func checkImage(unit Unit, got image.InspectResponse) error {
-	if got.Config == nil || got.Config.Healthcheck == nil ||
-		len(got.Config.Healthcheck.Test) == 0 || got.Config.Healthcheck.Test[0] == "NONE" {
+//
+// trustHealthcheck is false on a daemon that under-reports image config
+// (podman): the healthcheck cannot be verified from metadata there, so it is
+// left to the runtime health-wait, and only the metadata checks a daemon
+// reports faithfully -- EXPOSE is a standard OCI field -- still apply.
+func checkImage(unit Unit, got image.InspectResponse, trustHealthcheck bool) error {
+	if trustHealthcheck && (got.Config == nil || got.Config.Healthcheck == nil ||
+		len(got.Config.Healthcheck.Test) == 0 || got.Config.Healthcheck.Test[0] == "NONE") {
 		return failf(CodeImageInvalid, PhasePull, "image %s declares no HEALTHCHECK", unit.Image)
 	}
-	if len(got.Config.ExposedPorts) > 0 {
+	if got.Config != nil && len(got.Config.ExposedPorts) > 0 {
 		return failf(CodeImageInvalid, PhasePull, "image %s declares EXPOSE ports", unit.Image)
 	}
 	if unit.Kind == UnitOpaque && (got.Os != "linux" || got.Architecture != "amd64") {

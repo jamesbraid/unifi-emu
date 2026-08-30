@@ -77,7 +77,15 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: true
+          # Publish in Docker manifest format, not OCI. HEALTHCHECK is a Docker
+          # config-schema field with no OCI equivalent, so an OCI config carries
+          # it only as a non-standard extension that OCI-strict runtimes drop on
+          # a registry round-trip -- the image then reads as declaring no
+          # healthcheck. oci-mediatypes=false makes the config Docker-typed and
+          # the healthcheck first-class; provenance=false stops buildx wrapping
+          # the push in an OCI attestation index.
+          provenance: false
+          outputs: type=registry,oci-mediatypes=false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |

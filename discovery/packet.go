@@ -86,7 +86,10 @@ func (a *Announcement) Marshal() ([]byte, error) {
 		return nil, errors.New("discovery: Version is required")
 	}
 	var body []byte
-	if len(a.MAC) == 6 {
+	if a.MAC != nil {
+		if len(a.MAC) != 6 {
+			return nil, fmt.Errorf("discovery: MAC must be 6 bytes, got %d", len(a.MAC))
+		}
 		body = putTLV(body, tlvMAC, a.MAC)
 	}
 	for _, ad := range a.Addresses {
@@ -121,14 +124,21 @@ func (a *Announcement) Marshal() ([]byte, error) {
 		if a.Seq != 0 {
 			body = putU32(body, tlvSeq, a.Seq)
 		}
-		if len(a.SourceMAC) == 6 {
+		if a.SourceMAC != nil {
+			if len(a.SourceMAC) != 6 {
+				return nil, fmt.Errorf("discovery: SourceMAC must be 6 bytes, got %d", len(a.SourceMAC))
+			}
 			body = putTLV(body, tlvSrcMAC, a.SourceMAC)
 		}
 		if a.Model != "" {
 			body = putTLV(body, tlvModel, []byte(a.Model))
 		}
 	}
-	if ip := a.Netmask.To4(); ip != nil {
+	if a.Netmask != nil {
+		ip := a.Netmask.To4()
+		if ip == nil {
+			return nil, fmt.Errorf("discovery: Netmask %v is not IPv4", a.Netmask)
+		}
 		body = putTLV(body, tlvNetmask, ip)
 	}
 	if len(body) > 0xffff {
@@ -140,7 +150,9 @@ func (a *Announcement) Marshal() ([]byte, error) {
 }
 
 // Parse decodes a discovery packet. Unknown TLV types are skipped, matching the
-// controller. A truncated header or TLV is an error.
+// controller; a recognized TLV with an unexpected length is also skipped
+// (fail-open), so a corrupt-but-known field is indistinguishable from an absent
+// one. A truncated header or TLV is an error.
 func Parse(pkt []byte) (*Announcement, error) {
 	if len(pkt) < 4 {
 		return nil, fmt.Errorf("discovery: packet too short: %d bytes", len(pkt))

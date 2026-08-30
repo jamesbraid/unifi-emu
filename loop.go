@@ -73,7 +73,7 @@ func (d *device) noteStatus(status int) {
 	d.lastStatus, d.statusRun, d.lastStatusLog = status, 1, now
 	d.mu.Unlock()
 	// Logging after the unlock: log writes can block on I/O and must not
-	// stall State readers (same pattern as applyCmd).
+	// stall State readers (same pattern as applyResponse).
 	switch {
 	case status == http.StatusNotFound:
 		log.Printf("[%s] inform: HTTP %d (nothing queued)", d.spec.MAC, status)
@@ -97,21 +97,12 @@ func (d *device) noteStatus(status int) {
 // before the controller has ever seen an adopt-key inform — ADOPTING would be
 // unobservable and CONNECTED would claim a handshake that has not finished.
 func (d *device) informOnce(ctx context.Context) {
+	now := time.Now()
 	d.mu.Lock()
-	key := d.key
-	url := d.informURL
-	useAESGCM := d.useAESGCM
+	enc, err := d.session.EncodeInform(now)
+	url := d.session.InformURL()
+	key := d.session.AuthKey()
 	d.mu.Unlock()
-
-	payload := d.buildPayload()
-	packet := &inform.Packet{MAC: d.macHeader(), Payload: payload}
-	var enc []byte
-	var err error
-	if useAESGCM {
-		enc, err = packet.EncodeGCM(key)
-	} else {
-		enc, err = packet.Encode(key)
-	}
 	if err != nil {
 		log.Printf("[%s] encode inform: %v", d.spec.MAC, err)
 		return
@@ -152,12 +143,12 @@ func (d *device) informOnce(ctx context.Context) {
 		return
 	}
 	d.mu.Lock()
-	adopting := d.state == StateAdopting
+	wasAdopting := d.state == StateAdopting
 	d.mu.Unlock()
 	d.applyResponse(dec.Payload)
-	if adopting {
+	if wasAdopting {
 		d.mu.Lock()
-		if d.adopted && d.state == StateAdopting {
+		if d.session.Adopted() && d.state == StateAdopting {
 			d.state = StateConnected
 			log.Printf("[%s] adoption handshake complete -> CONNECTED", d.spec.MAC)
 		}

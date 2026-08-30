@@ -793,7 +793,7 @@ func run(args []string) error {
 	bundlesJSONPath := fs.String("bundles-json", "", "bundles.json model->display map, used with -bundle")
 	firmwareJSONPath := fs.String("firmware-json", "", "saved firmware-latest.json response, used with -bundle")
 	overridesPath := fs.String("overrides", "model_overrides.json", "model overrides file, used with -bundle")
-	capsPath := fs.String("caps", "capability_bits.json", "capability bit names from scripts/extract-caps.sh, used with -bundle")
+	capsPath := fs.String("caps", "capability_bits.json", "capability bit names from scripts/extract_caps.py, used with -bundle")
 	catalogPath := fs.String("catalog", "model_profiles.json", "reduced model catalog")
 	version := fs.String("controller-version", "", "source controller version (required with -input or -bundle)")
 	fetchEth := fs.Bool("fetch-eth", false, "pull AP ethernet from Tech Specs into -overrides (needs -bundle and -fingerprint)")

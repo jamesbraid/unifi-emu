@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// capsFile is the capability vocabulary scripts/extract-caps.sh reads out
+// capsFile is the capability vocabulary scripts/extract_caps.py reads out
 // of the controller's Java device model. Only the bit names and values
 // matter here; the provenance fields are for whoever reads the file.
 type capsFile struct {
@@ -37,7 +37,7 @@ func loadCaps(path string) (capsFile, error) {
 		return capsFile{}, fmt.Errorf("parse %s: %w", path, err)
 	}
 	if len(c.Bitmaps[udapiFamily].Bits) == 0 {
-		return capsFile{}, fmt.Errorf("%s: no %s bits; re-run scripts/extract-caps.sh", path, udapiFamily)
+		return capsFile{}, fmt.Errorf("%s: no %s bits; re-run scripts/extract_caps.py", path, udapiFamily)
 	}
 	return c, nil
 }

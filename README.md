@@ -323,6 +323,8 @@ capable than one that claimed nothing.
   facts, architecture, and how it plugs into `go-unifi` / `terraform-provider-unifi`.
 - [`docs/BUILD-PROMPT.md`](docs/BUILD-PROMPT.md) — the kickoff plan for the first
   build phase (a gateway that adopts to CONNECTED).
+- [`docs/PROTOCOL.md`](docs/PROTOCOL.md) — the wire-level UniFi protocol spec
+  (inform + L2 discovery), provenance-tagged, for reuse and C ports.
 
 ## The one hard rule
 

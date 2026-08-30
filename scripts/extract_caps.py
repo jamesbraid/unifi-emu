@@ -1,12 +1,43 @@
 #!/usr/bin/env python3
-"""Turn a UniFi Network application jar into capability_bits.json.
+# /// script
+# requires-python = ">=3.9"
+# dependencies = []
+# ///
+"""Rebuild capability_bits.json from a UniFi controller image.
 
 The controller gates whole features on bitmaps a device reports in its
 inform payload -- udapi_caps, switch_caps, fw_caps and friends. The bit
 *names* live only in the Java Network application: the UI bundle carries
 named tables for two of the bitmaps and reads the rest through bare
 minified constants, so there is nowhere else to learn that 1 << 22 means
-UNIFI_UDAPI_CAP_ROUTES_BGP.
+UNIFI_UDAPI_CAP_ROUTES_BGP. This script pulls the application jar out of a
+controller image with docker, then reads the vocabulary out of its
+bytecode in the same process -- no bash, no javap, nothing to install
+beyond docker itself.
+
+    scripts/extract_caps.py                       # both default images
+    scripts/extract_caps.py --out x.json <image>...
+    scripts/extract_caps.py --swai tmp/harvest-*/swai.js
+
+Needs docker. Nothing else: the jar is read in-process, because javap
+cannot say which `iand` an expression feeds and half the bit names are
+only visible from that. Both controller layouts work: the classic image
+splits a launcher ace.jar from lib/internal/internal-dependencies.jar,
+UniFi OS Server ships one Spring Boot fat ace.jar with the application
+nested under BOOT-INF/lib. Rather than encode either, this takes the
+largest jar under /usr/lib/unifi/lib -- the application dwarfs the
+launcher by three orders of magnitude -- and lets the parser recurse one
+level.
+
+Both default images are extracted and must agree. They package the same
+Network build differently, and obfuscation renames the device model class
+per build (uuvchZbWVhirD in one, HiimPm in the other), so agreement is the
+check that this reads the build rather than one packaging of it.
+
+A couple of bitmaps are named only by the controller UI, and those names
+are embedded in UI_TABLES below. Pass --swai to re-check them against a
+harvested UI bundle before they are trusted; without it they are used
+as-is.
 
 Three different things in the jar name a bit, and an extractor that knows
 only the first reports about half the vocabulary:
@@ -44,25 +75,26 @@ into .../aZ, silently losing 512 classes) and never handed to javap (its
 text cannot express which `iand` an expression feeds, which is the whole
 question, and it is a JDK to install for facts already in the bytes).
 
-Given more than one --source, every image must yield the same table or
-this fails: the classic and UniFi OS Server images package the same
-Network build differently (split jars versus one Spring Boot fat jar, and
+Given more than one image, every one must yield the same table or this
+fails: the classic and UniFi OS Server images package the same Network
+build differently (split jars versus one Spring Boot fat jar, and
 obfuscated class names differ per build), so agreement between them is
 worth asserting rather than assuming.
-
-Usage: caps_to_json.py --source JAR IMAGE VERSION PATH [--source ...]
-                       [--swai swai.js] [--out FILE]
 """
 
 import argparse
 import io
 import json
 import re
+import shutil
 import struct
+import subprocess
 import sys
+import tempfile
 import zipfile
 from collections import Counter, defaultdict
 from pathlib import Path
+
 
 # ======================================================================
 # what a capability constant, field and wrapper look like
@@ -2826,18 +2858,104 @@ def extract(path, ui_tables):
     return bitmaps, unplaced, source
 
 
+# ======================================================================
+# pulling the jar out of a controller image
+# ======================================================================
+
+DEFAULT_IMAGES = [
+    "ghcr.io/jamesbraid/unifi-os-server:5.1.21-seeded",
+    "ghcr.io/jamesbraid/unifi-network:sim",
+]
+VERSION_FILE = "/usr/lib/unifi/webapps/ROOT/app-unifi/.version"
+
+
+def docker_sh(image, script):
+    """Run `script` inside `image` via /bin/sh, return stripped stdout.
+
+    Never raises on a non-zero exit -- a missing version file or an empty
+    /usr/lib/unifi/lib is reported by the caller, not by a traceback here,
+    matching the old shell script's `|| true` plus an explicit check.
+    """
+    p = subprocess.run(
+        ["docker", "run", "--rm", "--entrypoint", "/bin/sh", image, "-c", script],
+        capture_output=True, text=True)
+    return p.stdout.strip()
+
+
+def image_version(image):
+    return docker_sh(image, "cat %s 2>/dev/null" % VERSION_FILE)
+
+
+def largest_jar(image):
+    """Path of the biggest jar under /usr/lib/unifi/lib, largest first.
+
+    The application jar dwarfs the launcher by three orders of magnitude
+    in both controller layouts, so size alone tells them apart without
+    encoding either layout's paths.
+    """
+    return docker_sh(
+        image,
+        "find /usr/lib/unifi/lib -name '*.jar' -printf '%s %p\n' "
+        "2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-")
+
+
+def copy_jar(image, jar_path, dest):
+    """docker cp the jar at `jar_path` inside `image` to local file `dest`."""
+    cid = subprocess.run(["docker", "create", image], capture_output=True,
+                         text=True, check=True).stdout.strip()
+    try:
+        subprocess.run(["docker", "cp", "%s:%s" % (cid, jar_path), str(dest)],
+                       check=True)
+    finally:
+        subprocess.run(["docker", "rm", "-f", cid], capture_output=True,
+                       text=True)
+
+
+def fetch_source(image, work, index):
+    """Pull one image's application jar out with docker.
+
+    Returns (local_path, image, version, jar_path_in_image) -- the same
+    four-tuple extract() below is built from, LOCAL for reading and the
+    rest for the provenance recorded alongside the bitmaps.
+    """
+    print("==> %s" % image)
+    version = image_version(image)
+    if not version:
+        sys.exit("no Network version at %s" % VERSION_FILE)
+    print("    Network %s" % version)
+
+    jar = largest_jar(image)
+    if not jar:
+        sys.exit("no jar under /usr/lib/unifi/lib")
+    print("    %s" % jar)
+
+    dest = work / ("%d.jar" % index)
+    copy_jar(image, jar, dest)
+    return str(dest), image, version, jar
+
+
+# ======================================================================
+# CLI
+# ======================================================================
+
+
 def main():
-    ap = argparse.ArgumentParser()
-    # LOCAL is the copied-out jar to read; PATH is where it lives in the
-    # image, which is what belongs in the committed file -- a host temp
-    # path would change on every run.
-    ap.add_argument("--source", nargs=4,
-                    metavar=("LOCAL", "IMAGE", "VERSION", "PATH"),
-                    action="append", required=True)
+    ap = argparse.ArgumentParser(
+        description="Rebuild capability_bits.json from a UniFi controller "
+                     "image.")
+    ap.add_argument("images", nargs="*", default=DEFAULT_IMAGES,
+                    help="controller images to extract and cross-check "
+                         "(default: the classic and UniFi OS Server "
+                         "images)")
     ap.add_argument("--swai", help="controller UI bundle, to re-verify the "
                                    "embedded UI bit tables before using them")
-    ap.add_argument("--out", default="-")
+    ap.add_argument("--out", default="capability_bits.json",
+                    help="where to write the table, or - for stdout "
+                         "(default: %(default)s)")
     args = ap.parse_args()
+
+    if shutil.which("docker") is None:
+        sys.exit("docker not found")
 
     if args.swai:
         stale = {}
@@ -2850,20 +2968,29 @@ def main():
                      "the bundle before trusting them" % stale)
 
     bitmaps, unplaced, seen = None, None, []
-    for local, image, version, path in args.source:
-        got_bitmaps, got_unplaced, source = extract(local, UI_TABLES)
-        if not seen:
-            bitmaps, unplaced = got_bitmaps, got_unplaced
-        elif got_bitmaps != bitmaps or got_unplaced != unplaced:
-            sys.exit("%s disagrees with %s on the capability table; "
-                     "extract them separately and diff"
-                     % (image, seen[0]["image"]))
-        record = {"image": image, "controller_version": version, "jar": path}
-        record.update(source)
-        seen.append(record)
+    with tempfile.TemporaryDirectory() as work:
+        work = Path(work)
+        for i, image in enumerate(args.images):
+            local, image, version, path = fetch_source(image, work, i)
+            got_bitmaps, got_unplaced, source = extract(local, UI_TABLES)
+            if not seen:
+                bitmaps, unplaced = got_bitmaps, got_unplaced
+            elif got_bitmaps != bitmaps or got_unplaced != unplaced:
+                sys.exit("%s disagrees with %s on the capability table; "
+                         "extract them separately and diff"
+                         % (image, seen[0]["image"]))
+            record = {"image": image, "controller_version": version,
+                      "jar": path}
+            record.update(source)
+            seen.append(record)
 
     versions = sorted({s["controller_version"] for s in seen})
     doc = {
+        # Left naming the old two-script split on purpose: this string is
+        # part of the committed capability_bits.json's content, and that
+        # file must stay byte-identical when regenerated. Update it only
+        # as its own deliberate content change, not as a side effect of
+        # renaming the tool.
         "_source_note": (
             "generated by scripts/extract-caps.sh from the Network "
             "application jar; bit names exist nowhere else. Values are "

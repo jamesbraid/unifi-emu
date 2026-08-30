@@ -12,8 +12,8 @@ inputs:
   version:
     description: >-
       Release to install, with or without the leading v. Defaults to the
-      version recorded alongside this action, so `uses: ...@v0.5.3` installs
-      0.5.3 and nothing has to name the version twice. Reading the file rather
+      version recorded alongside this action, so `uses: ...@v0.5.4` installs
+      0.5.4 and nothing has to name the version twice. Reading the file rather
       than github.action_ref is deliberate: action_ref reports the commit SHA
       when a caller pins by digest, which is exactly what a careful caller does.
     required: false

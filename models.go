@@ -1,27 +1,11 @@
 package emu
 
-// PortSpec is one switch/gateway/ethernet port in a model's layout.
-type PortSpec struct {
-	IfName   string `json:"ifname"`
-	Name     string `json:"name"`
-	PortIdx  int    `json:"port_idx"`
-	Media    string `json:"media"` // "GE", "SFP+"
-	PoECaps  int    `json:"poe_caps"`
-	IsUplink bool   `json:"is_uplink"`
-}
+import "github.com/jamesbraid/unifi-emu/inform"
 
-// RadioSpec is one wireless radio in an AP model's layout.
-type RadioSpec struct {
-	Name        string `json:"name"`  // "wifi-ng", "wifi-na"
-	Radio       string `json:"radio"` // "ng", "na"
-	Channel     int    `json:"-"`     // derived at load time; not in model_profiles.json
-	HT          string `json:"ht"`    // "20", "40"
-	MinTxPower  int    `json:"min_txpower"`
-	MaxTxPower  int    `json:"max_txpower"`
-	NSS         int    `json:"nss"`
-	RadioCaps   int    `json:"radio_caps"`
-	AntennaGain int    `json:"antenna_gain"`
-}
+// PortSpec and RadioSpec are the emulator's public names for the model-shape
+// types, now owned by the inform package so the protocol travels with them.
+type PortSpec = inform.Port
+type RadioSpec = inform.Radio
 
 // ModelProfile is the per-model shape the controller expects to see:
 // identity strings plus the port/radio/SSID layout tables are built from.

@@ -91,7 +91,7 @@ func TestParseRejectsTruncation(t *testing.T) {
 }
 
 func TestParseRejectsTruncatedTLV(t *testing.T) {
-	// Outer header declares 10 body bytes, but the TLV inside claims a length
+	// Outer header declares 5 body bytes, but the TLV inside claims a length
 	// that exceeds what's present: type=0x01, length=0x0008, but only 2 bytes follow.
 	pkt := []byte{1, 0, 0, 5, 0x01, 0x00, 0x08, 0x00, 0x00}
 	if _, err := Parse(pkt); err == nil {

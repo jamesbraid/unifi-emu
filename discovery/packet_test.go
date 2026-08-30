@@ -17,6 +17,8 @@ func sampleV2() *Announcement {
 		Uptime:    3600,
 		Hostname:  "moca-adapter",
 		Platform:  "MOCA2",
+		ESSID:     "test-ssid",
+		Wmode:     3,
 		Seq:       7,
 		SourceMAC: mac,
 		Model:     "MOCA2A",
@@ -50,10 +52,12 @@ func TestRoundTrip(t *testing.T) {
 	}
 	if !bytes.Equal(out.MAC, in.MAC) || out.Firmware != in.Firmware ||
 		out.Uptime != in.Uptime || out.Hostname != in.Hostname ||
-		out.Platform != in.Platform || out.Model != in.Model || out.Seq != in.Seq {
+		out.Platform != in.Platform || out.Model != in.Model || out.Seq != in.Seq ||
+		out.ESSID != in.ESSID || out.Wmode != in.Wmode {
 		t.Errorf("round trip lost fields:\n in=%+v\nout=%+v", in, out)
 	}
-	if len(out.Addresses) != 1 || !out.Addresses[0].IP.Equal(in.Addresses[0].IP) {
+	if len(out.Addresses) != 1 || !out.Addresses[0].IP.Equal(in.Addresses[0].IP) ||
+		!bytes.Equal(out.Addresses[0].MAC, in.Addresses[0].MAC) {
 		t.Errorf("address round trip failed: %+v", out.Addresses)
 	}
 	if !out.Netmask.Equal(in.Netmask) {
@@ -83,5 +87,26 @@ func TestParseRejectsTruncation(t *testing.T) {
 	// Header claims 10 body bytes, only 2 present.
 	if _, err := Parse([]byte{1, 0, 0, 10, 0x01, 0x00}); err == nil {
 		t.Error("Parse with an overrunning body length: want an error")
+	}
+}
+
+func TestParseRejectsTruncatedTLV(t *testing.T) {
+	// Outer header declares 10 body bytes, but the TLV inside claims a length
+	// that exceeds what's present: type=0x01, length=0x0008, but only 2 bytes follow.
+	pkt := []byte{1, 0, 0, 5, 0x01, 0x00, 0x08, 0x00, 0x00}
+	if _, err := Parse(pkt); err == nil {
+		t.Error("Parse with overrunning TLV length: want an error")
+	}
+}
+
+func TestMarshalRejectsWrongLengthMAC(t *testing.T) {
+	// Set MAC to wrong length; Marshal should error.
+	a := &Announcement{
+		Version: V1,
+		Command: 0,
+		MAC:     net.HardwareAddr{0, 1, 2, 3}, // only 4 bytes
+	}
+	if _, err := a.Marshal(); err == nil {
+		t.Error("Marshal with wrong-length MAC: want an error")
 	}
 }

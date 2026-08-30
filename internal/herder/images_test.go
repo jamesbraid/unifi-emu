@@ -13,6 +13,7 @@ import (
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/image"
 	"github.com/moby/moby/api/types/jsonstream"
+	"github.com/moby/moby/api/types/system"
 	"github.com/moby/moby/client"
 )
 
@@ -257,6 +258,67 @@ func assertImageRejected(t *testing.T, img image.InspectResponse) {
 	t.Helper()
 	plan := buildPlan(t, ids("USM8P"), RuntimeConfig{}, "public/emu:1.0.0")
 	api := &fakeDocker{images: map[string]image.InspectResponse{"public/emu:1.0.0": img}}
+	err := PullAndInspect(context.Background(), api, plan)
+	assertFailure(t, err, CodeImageInvalid, PhasePull)
+}
+
+// podmanVersion is a ServerVersion result shaped like podman's Docker-compat
+// /version: it self-identifies through a "Podman Engine" component.
+func podmanVersion() client.ServerVersionResult {
+	return client.ServerVersionResult{
+		APIVersion: "1.44",
+		Components: []system.ComponentVersion{{Name: "Podman Engine", Version: "5.8.3"}},
+	}
+}
+
+// Podman's Docker-compat image inspect omits the Healthcheck field even for an
+// image that declares one, so the pre-create metadata assertion cannot see it.
+// The herder must not reject the image for that: podman runs the healthcheck and
+// reports container health, which the runtime health-wait -- the real
+// enforcement -- observes.
+func TestPodmanImageWithoutHealthcheckMetadataIsAccepted(t *testing.T) {
+	img := healthyImage()
+	img.Config.Healthcheck = nil // podman reports no healthcheck in image config
+	plan := buildPlan(t, ids("USM8P"), RuntimeConfig{}, "public/emu:1.0.0")
+	api := &fakeDocker{
+		version: podmanVersion(),
+		images:  map[string]image.InspectResponse{"public/emu:1.0.0": img},
+	}
+	if err := PullAndInspect(context.Background(), api, plan); err != nil {
+		t.Fatalf("podman image with no healthcheck metadata rejected: %v", err)
+	}
+}
+
+// The relaxation is narrow. ExposedPorts is a standard OCI field podman reports
+// faithfully, so the no-EXPOSE contract check still applies even when the
+// healthcheck metadata is skipped.
+func TestPodmanStillRejectsExposedPorts(t *testing.T) {
+	img := healthyImage()
+	img.Config.Healthcheck = nil
+	img.Config.ExposedPorts = map[string]struct{}{"8080/tcp": {}}
+	plan := buildPlan(t, ids("USM8P"), RuntimeConfig{}, "public/emu:1.0.0")
+	api := &fakeDocker{
+		version: podmanVersion(),
+		images:  map[string]image.InspectResponse{"public/emu:1.0.0": img},
+	}
+	err := PullAndInspect(context.Background(), api, plan)
+	assertFailure(t, err, CodeImageInvalid, PhasePull)
+}
+
+// A Docker daemon populates the healthcheck in image inspect, so a genuinely
+// missing HEALTHCHECK stays a fast, clear rejection there. The relaxation
+// applies only to daemons that under-report their image config.
+func TestDockerDaemonStillRejectsImageWithoutHealthcheck(t *testing.T) {
+	img := healthyImage()
+	img.Config.Healthcheck = nil
+	plan := buildPlan(t, ids("USM8P"), RuntimeConfig{}, "public/emu:1.0.0")
+	api := &fakeDocker{
+		version: client.ServerVersionResult{
+			APIVersion: "1.44",
+			Components: []system.ComponentVersion{{Name: "Engine", Version: "29.5.2"}},
+		},
+		images: map[string]image.InspectResponse{"public/emu:1.0.0": img},
+	}
 	err := PullAndInspect(context.Background(), api, plan)
 	assertFailure(t, err, CodeImageInvalid, PhasePull)
 }

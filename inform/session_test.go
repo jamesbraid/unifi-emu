@@ -79,6 +79,12 @@ func TestSetparamAuthkeyIgnoredWhenAdopted(t *testing.T) {
 func TestSetAdoptOverridesMgmtCfgAdoptedKey(t *testing.T) {
 	s := NewSession(uapDesc(), testInformURL, testClock)
 	s.Apply(testClock, []byte(`{"_type":"setparam","mgmt_cfg":"authkey=4c36cd132e0a811601a3e0ca5793b677\n"}`))
+	// Confirm mgmt_cfg actually rotated the key before set-adopt overrides
+	// it, so this test distinguishes "overrode a real key" from "just set
+	// a key starting from the default".
+	if s.AuthKey() != "4c36cd132e0a811601a3e0ca5793b677" || !s.Adopted() {
+		t.Fatalf("mgmt_cfg did not adopt: key=%q adopted=%v", s.AuthKey(), s.Adopted())
+	}
 	s.Apply(testClock, []byte(`{"_type":"cmd","cmd":"set-adopt","key":"`+adoptKey+`","uri":"`+adoptURI+`"}`))
 	if s.AuthKey() != adoptKey {
 		t.Errorf("key = %q, want set-adopt to override the mgmt_cfg key unconditionally", s.AuthKey())
@@ -124,6 +130,19 @@ func TestUpgradeAppliesVersionAndReboots(t *testing.T) {
 	}
 }
 
+func TestRebootResetsBootTime(t *testing.T) {
+	s := NewSession(uapDesc(), testInformURL, testClock)
+	later := testClock.Add(time.Hour)
+	s.Apply(later, []byte(`{"_type":"cmd","cmd":"reboot"}`))
+	var m map[string]any
+	if err := json.Unmarshal(s.BuildPayload(later), &m); err != nil {
+		t.Fatalf("BuildPayload is not valid JSON: %v", err)
+	}
+	if up := m["uptime"].(float64); up != 0 {
+		t.Errorf("uptime = %v after reboot at the same instant, want 0 (bootTime reset)", up)
+	}
+}
+
 func TestSetstateEchoesConfig(t *testing.T) {
 	s := NewSession(uapDesc(), testInformURL, testClock)
 	s.Apply(testClock, []byte(`{"_type":"cmd","cmd":"set-adopt","key":"`+adoptKey+`"}`))
@@ -142,9 +161,19 @@ func TestSetdefaultResetsToPending(t *testing.T) {
 	s := NewSession(uapDesc(), testInformURL, testClock)
 	s.Apply(testClock, []byte(`{"_type":"cmd","cmd":"set-adopt","key":"`+adoptKey+`"}`))
 	s.Apply(testClock, []byte(`{"_type":"setstate","cfgversion":"beef42","vap_table":[{"essid":"CorpWiFi"}]}`))
+	// Drive useAESGCM and cfgversion to genuinely non-default values via
+	// mgmt_cfg, so the reset below actually exercises those fields instead
+	// of finding them already at their zero value.
+	s.Apply(testClock, []byte(`{"_type":"setparam","mgmt_cfg":"cfgversion=abc123\nauthkey=`+adoptKey+`\nuse_aes_gcm=true\n"}`))
+	if !s.UseAESGCM() {
+		t.Fatal("use_aes_gcm=true not applied before setdefault")
+	}
 	fx := s.Apply(testClock, []byte(`{"_type":"cmd","cmd":"setdefault"}`))
 	if s.Adopted() || s.AuthKey() != DefaultKey {
 		t.Errorf("setdefault did not reset: adopted=%v key=%q", s.Adopted(), s.AuthKey())
+	}
+	if s.UseAESGCM() {
+		t.Error("useAESGCM = true after setdefault, want reset to false")
 	}
 	if len(fx) != 1 || fx[0].Kind != EffectFactoryReset {
 		t.Fatalf("effects = %+v, want one EffectFactoryReset", fx)
@@ -153,17 +182,42 @@ func TestSetdefaultResetsToPending(t *testing.T) {
 	if m["default"] != true || m["x_authkey"] != DefaultKey {
 		t.Errorf("payload not back to pending: default=%v x_authkey=%v", m["default"], m["x_authkey"])
 	}
+	if m["cfgversion"] != "0" {
+		t.Errorf("cfgversion = %v after setdefault, want \"0\"", m["cfgversion"])
+	}
 	if _, ok := m["vap_table"]; ok {
 		t.Error("stale setstate still echoed after setdefault (pending payload has no vap_table)")
 	}
 }
 
 func TestUnknownResponseIgnored(t *testing.T) {
+	cases := []struct {
+		body     string
+		wantKind EffectKind
+	}{
+		{`{"_type":"wibble","key":"zzz"}`, EffectUnknownType},
+		{`this is not json`, EffectDecodeError},
+		{``, EffectDecodeError},
+	}
 	s := NewSession(uapDesc(), testInformURL, testClock)
-	for _, body := range []string{`{"_type":"wibble","key":"zzz"}`, `this is not json`, ``} {
-		s.Apply(testClock, []byte(body))
+	for _, c := range cases {
+		fx := s.Apply(testClock, []byte(c.body))
+		if len(fx) != 1 || fx[0].Kind != c.wantKind {
+			t.Errorf("body %q: effects = %+v, want one %v", c.body, fx, c.wantKind)
+		}
 	}
 	if s.Adopted() || s.AuthKey() != DefaultKey {
 		t.Errorf("unknown responses mutated state: adopted=%v key=%q", s.Adopted(), s.AuthKey())
+	}
+}
+
+func TestUnknownCmdIgnored(t *testing.T) {
+	s := NewSession(uapDesc(), testInformURL, testClock)
+	fx := s.Apply(testClock, []byte(`{"_type":"cmd","cmd":"bogus"}`))
+	if len(fx) != 1 || fx[0].Kind != EffectUnknownCmd {
+		t.Fatalf("effects = %+v, want one EffectUnknownCmd", fx)
+	}
+	if s.Adopted() || s.AuthKey() != DefaultKey {
+		t.Errorf("unknown cmd mutated state: adopted=%v key=%q", s.Adopted(), s.AuthKey())
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -147,4 +148,158 @@ func (s *Session) BuildPayload(now time.Time) []byte {
 		return nil // unreachable: only JSON-safe values above
 	}
 	return b
+}
+
+// informResponse is the controller's reply to an inform. mgmt_cfg is a single
+// string of newline-separated k=v pairs, not a JSON object.
+type informResponse struct {
+	Type       string `json:"_type"`
+	Cmd        string `json:"cmd"`
+	Key        string `json:"key"`
+	URI        string `json:"uri"`
+	Interval   int    `json:"interval"`
+	MgmtCfg    string `json:"mgmt_cfg"`
+	Cfgversion string `json:"cfgversion"`
+	Version    string `json:"version"` // upgrade target firmware version
+}
+
+// EffectKind names what Apply did, so a runtime can drive its own state and
+// logging without re-parsing the reply.
+type EffectKind int
+
+const (
+	EffectAdoptingViaSetAdopt EffectKind = iota // Text = new inform URL (may be "")
+	EffectAdoptingViaMgmtCfg
+	EffectFactoryReset
+	EffectRebooted
+	EffectUpgraded    // Text = target version, "" if none
+	EffectInterval    // Interval carries the new inform interval
+	EffectMgmtCfg     // Text = raw mgmt_cfg body
+	EffectUnknownCmd  // Text = the ignored cmd
+	EffectUnknownType // Text = the ignored _type
+	EffectDecodeError // Text = the decode error
+)
+
+// Effect is one thing Apply did. Text and Interval carry the kind's payload.
+type Effect struct {
+	Kind     EffectKind
+	Text     string
+	Interval time.Duration
+}
+
+// Apply advances the session by one controller reply and returns what changed.
+// The key-rotation rule: a mgmt_cfg.authkey is adopted only while the device
+// still holds the default key; once it holds a real key, later mgmt_cfg
+// authkeys are ignored (the classic stuck-adopt-loop bug). A set-adopt command
+// is authoritative and rotates unconditionally.
+func (s *Session) Apply(now time.Time, body []byte) []Effect {
+	var r informResponse
+	if err := json.Unmarshal(body, &r); err != nil {
+		return []Effect{{Kind: EffectDecodeError, Text: err.Error()}}
+	}
+	switch r.Type {
+	case "cmd":
+		return s.applyCmd(now, r)
+	case "setparam":
+		return s.applySetparam(r)
+	case "setstate":
+		return s.applySetstate(body, r.Cfgversion)
+	case "noop":
+		if r.Interval > 0 {
+			return []Effect{{Kind: EffectInterval, Interval: time.Duration(r.Interval) * time.Second}}
+		}
+		return nil
+	case "upgrade":
+		// Emulate a flash-and-reboot: adopt the target version and restart
+		// uptime, so the next inform completes the controller-held upgrade.
+		version := r.Version
+		if version != "" {
+			s.desc.Version = version
+		}
+		s.bootTime = now
+		return []Effect{{Kind: EffectUpgraded, Text: version}}
+	default:
+		return []Effect{{Kind: EffectUnknownType, Text: r.Type}}
+	}
+}
+
+func (s *Session) applyCmd(now time.Time, r informResponse) []Effect {
+	switch r.Cmd {
+	case "set-adopt", "adopt":
+		if r.Key != "" {
+			s.key = r.Key
+		}
+		if r.URI != "" {
+			s.informURL = r.URI
+		}
+		s.adopted = true
+		return []Effect{{Kind: EffectAdoptingViaSetAdopt, Text: r.URI}}
+	case "setdefault":
+		s.adopted = false
+		s.key = DefaultKey
+		s.cfgversion = "0"
+		s.useAESGCM = false
+		s.setstate = nil
+		return []Effect{{Kind: EffectFactoryReset}}
+	case "reboot":
+		s.bootTime = now
+		return []Effect{{Kind: EffectRebooted}}
+	default:
+		return []Effect{{Kind: EffectUnknownCmd, Text: r.Cmd}}
+	}
+}
+
+func (s *Session) applySetparam(r informResponse) []Effect {
+	effects := []Effect{{Kind: EffectMgmtCfg, Text: r.MgmtCfg}}
+
+	var cfgvers, authkey, useAESGCM string
+	for _, line := range strings.Split(r.MgmtCfg, "\n") {
+		line = strings.TrimSpace(line)
+		k, v, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		switch k {
+		case "cfgversion":
+			cfgvers = v
+		case "authkey":
+			authkey = v
+		case "use_aes_gcm":
+			useAESGCM = v
+		}
+	}
+	if cfgvers != "" {
+		s.cfgversion = cfgvers
+	}
+	// Rotate to the mgmt_cfg authkey only while still on the default key.
+	if authkey != "" && authkey != DefaultKey && s.key == DefaultKey {
+		s.key = authkey
+		s.adopted = true
+		effects = append(effects, Effect{Kind: EffectAdoptingViaMgmtCfg})
+	}
+	if useAESGCM != "" {
+		if enabled, err := strconv.ParseBool(useAESGCM); err == nil {
+			s.useAESGCM = enabled
+		}
+	}
+	return effects
+}
+
+func (s *Session) applySetstate(body []byte, cfgversion string) []Effect {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return []Effect{{Kind: EffectDecodeError, Text: err.Error()}}
+	}
+	if cfgversion != "" {
+		s.cfgversion = cfgversion
+	}
+	if s.setstate == nil {
+		s.setstate = map[string]json.RawMessage{}
+	}
+	for _, k := range []string{"radio_table", "vap_table", "port_table", "port_overrides"} {
+		if v, ok := raw[k]; ok {
+			s.setstate[k] = v
+		}
+	}
+	return nil
 }

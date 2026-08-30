@@ -50,12 +50,9 @@ func decode(t *testing.T, s *Session) map[string]any {
 	return m
 }
 
-// adopt flips the session into the adopted state for payload-shape tests.
-// This is a stand-in for the real set-adopt path through Session.Apply,
-// which lands in Task 3; it is restored there to call s.Apply(testClock,
-// []byte(`{"_type":"cmd","cmd":"set-adopt"}`)) so these tests exercise the
-// adopted branch the same way production reaches it.
-func adopt(s *Session) { s.adopted = true }
+// adopt flips the session into the adopted state for payload-shape tests, the
+// same way production reaches it: through Session.Apply's set-adopt path.
+func adopt(s *Session) { s.Apply(testClock, []byte(`{"_type":"cmd","cmd":"set-adopt"}`)) }
 
 func TestPendingPayloadCommon(t *testing.T) {
 	s := NewSession(uswDesc(), testInformURL, testClock)

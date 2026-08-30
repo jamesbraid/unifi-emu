@@ -3,8 +3,8 @@
 package emu
 
 import (
-	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -113,21 +113,15 @@ func (d *DeviceSpec) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-// device is the mutable runtime state of one emulated device.
+// device is the mutable runtime of one emulated device: a protocol session plus
+// the loop/HTTP concerns around it.
 type device struct {
 	spec    DeviceSpec
-	profile ModelProfile
-	started time.Time
+	session *inform.Session
 
-	mu        sync.Mutex
-	state     DeviceState
-	adopted   bool
-	key       string
-	informURL string
-	cfgvers   string
-	useAESGCM bool
-	interval  time.Duration
-	setstate  map[string]json.RawMessage
+	mu       sync.Mutex
+	state    DeviceState
+	interval time.Duration
 
 	// Inform HTTP-status tracking for transition logging: lastStatus is
 	// the previous inform's status (0 = none yet), statusRun the count of
@@ -173,24 +167,55 @@ func newDevice(spec DeviceSpec, informURL string) (*device, error) {
 		spec.Name = "UBNT"
 	}
 	return &device{
-		spec:      spec,
-		profile:   profile,
-		started:   time.Now(),
-		state:     StatePending,
-		key:       DefaultKey,
-		informURL: informURL,
-		cfgvers:   "0",
-		interval:  10 * time.Second,
+		spec:     spec,
+		session:  inform.NewSession(buildDescriptor(spec, profile), informURL, time.Now()),
+		state:    StatePending,
+		interval: 10 * time.Second,
 	}, nil
 }
 
-// macHeader parses spec.MAC into the 6-byte form the inform header wants.
-func (d *device) macHeader() [6]byte {
-	var mac [6]byte
-	hw, err := net.ParseMAC(d.spec.MAC)
-	if err != nil {
-		return mac
+// applyResponse feeds one controller reply to the session and reflects the
+// result in the device's observable state and logs. Logging happens after the
+// lock is released, so log I/O never stalls a State reader.
+func (d *device) applyResponse(body []byte) {
+	d.mu.Lock()
+	var logs []string
+	for _, e := range d.session.Apply(time.Now(), body) {
+		switch e.Kind {
+		case inform.EffectAdoptingViaSetAdopt:
+			d.state = StateAdopting
+			logs = append(logs, fmt.Sprintf("%s: set-adopt received, key rotated, informing %s, now ADOPTING", d.spec.MAC, e.Text))
+		case inform.EffectAdoptingViaMgmtCfg:
+			d.state = StateAdopting
+			logs = append(logs, fmt.Sprintf("%s: authkey adopted from mgmt_cfg, now ADOPTING", d.spec.MAC))
+		case inform.EffectFactoryReset:
+			d.state = StatePending
+			logs = append(logs, fmt.Sprintf("%s: setdefault received, factory reset, back to PENDING", d.spec.MAC))
+		case inform.EffectRebooted:
+			logs = append(logs, fmt.Sprintf("%s: reboot requested (emulated reboot)", d.spec.MAC))
+		case inform.EffectUpgraded:
+			if e.Text != "" {
+				logs = append(logs, fmt.Sprintf("%s: upgrade to %s applied (emulated reboot)", d.spec.MAC, e.Text))
+			} else {
+				logs = append(logs, fmt.Sprintf("%s: upgrade requested without a target version (emulated reboot)", d.spec.MAC))
+			}
+		case inform.EffectInterval:
+			d.interval = e.Interval
+		case inform.EffectMgmtCfg:
+			if e.Text != d.lastMgmt {
+				d.lastMgmt = e.Text
+				logs = append(logs, fmt.Sprintf("%s: mgmt_cfg: %q", d.spec.MAC, e.Text))
+			}
+		case inform.EffectUnknownCmd:
+			logs = append(logs, fmt.Sprintf("%s: ignoring cmd %q", d.spec.MAC, e.Text))
+		case inform.EffectUnknownType:
+			logs = append(logs, fmt.Sprintf("%s: ignoring unknown response _type %q", d.spec.MAC, e.Text))
+		case inform.EffectDecodeError:
+			logs = append(logs, fmt.Sprintf("%s: ignoring undecodable response: %s", d.spec.MAC, e.Text))
+		}
 	}
-	copy(mac[:], hw)
-	return mac
+	d.mu.Unlock()
+	for _, l := range logs {
+		log.Print(l)
+	}
 }

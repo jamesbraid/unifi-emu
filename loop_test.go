@@ -131,7 +131,7 @@ func (fc *fakeController) handleInform(w http.ResponseWriter, r *http.Request) {
 func deviceKey(d *device) string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	return d.key
+	return d.session.AuthKey()
 }
 
 func TestDeviceLoopFullHandshake(t *testing.T) {
@@ -142,12 +142,18 @@ func TestDeviceLoopFullHandshake(t *testing.T) {
 	}
 	for name, spec := range specs {
 		t.Run(name, func(t *testing.T) {
-			d, err := newDevice(spec, "http://placeholder.invalid/inform")
+			// The inform URL lives in the session with no setter, so the
+			// device must be built pointing at the controller. The controller
+			// needs the device's State probe, and the device needs the
+			// controller's URL: break the cycle with a closure that reads d,
+			// which is set well before the first adopt-key inform samples it.
+			var d *device
+			fc := newFakeController(t, func() DeviceState { return d.State() })
+			var err error
+			d, err = newDevice(spec, fc.informURL())
 			if err != nil {
 				t.Fatalf("newDevice: %v", err)
 			}
-			fc := newFakeController(t, d.State)
-			d.informURL = fc.informURL()
 			d.interval = 20 * time.Millisecond
 
 			ctx, cancel := context.WithCancel(context.Background())

@@ -85,11 +85,10 @@ func radioTableStats(desc Descriptor) []map[string]any {
 
 // vapTable renders the AP's virtual access points. Empty by default:
 // this controller build rejects default vaps (their id is not a valid
-// wlanconf ObjectId) with ERROR noise on every inform and drops them —
-// the accepted oracle AP (tmp/oracle-uap.json, gitignored live evidence)
-// vap_table. Vaps appear only when the caller opts in via
-// DeviceSpec.SSIDs, or when the controller provisions real WLAN config
-// via setstate (echoed over the defaults by buildPayload).
+// wlanconf ObjectId) with ERROR noise on every inform and drops them.
+// Vaps appear only when the caller opts in via Descriptor.SSIDs, or when
+// the controller provisions real WLAN config via setstate (echoed over
+// the defaults by BuildPayload).
 func vapTable(desc Descriptor) []map[string]any {
 	ssids := desc.SSIDs
 	mac := macHeader(desc.MAC)

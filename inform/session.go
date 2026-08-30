@@ -2,7 +2,6 @@ package inform
 
 import (
 	"encoding/json"
-	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -36,9 +35,7 @@ func NewSession(desc Descriptor, informURL string, now time.Time) *Session {
 		informURL:  informURL,
 		bootTime:   now,
 	}
-	if hw, err := net.ParseMAC(desc.MAC); err == nil && len(hw) == 6 {
-		copy(s.macHeader[:], hw)
-	}
+	s.macHeader = macHeader(desc.MAC)
 	return s
 }
 
@@ -95,8 +92,8 @@ func (s *Session) BuildPayload(now time.Time) []byte {
 	// is silently dropped and the device looks less capable than before.
 	//
 	// Which models have it is a per-model fact from Ubiquiti's published
-	// matrix, carried in the profile (see model_overrides.json), not a
-	// property of the type: of the gateways that adopt by inform only
+	// matrix, carried by the caller in Descriptor.UDAPIVersion/UDAPICaps,
+	// not a property of the type: of the gateways that adopt by inform only
 	// UXG-Enterprise has UDAPI routing, and the USG line has no UDAPI at
 	// all. The controller offers every claimed capability against the
 	// device, so claiming one it cannot service is the worse lie.

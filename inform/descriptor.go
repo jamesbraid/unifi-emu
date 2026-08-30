@@ -15,7 +15,7 @@ type Port struct {
 type Radio struct {
 	Name        string `json:"name"`  // "wifi-ng", "wifi-na"
 	Radio       string `json:"radio"` // "ng", "na"
-	Channel     int    `json:"-"`     // derived at load time; not in model_profiles.json
+	Channel     int    `json:"-"`     // set by the caller; not carried on the inform wire
 	HT          string `json:"ht"`    // "20", "40"
 	MinTxPower  int    `json:"min_txpower"`
 	MaxTxPower  int    `json:"max_txpower"`

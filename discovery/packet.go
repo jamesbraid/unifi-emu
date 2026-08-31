@@ -1,10 +1,9 @@
 // Package discovery implements the UniFi L2 device-discovery protocol: the
 // UDP :10001 "Ubiquiti Discovery" packet a device broadcasts so a controller
-// finds it on the local segment. The wire format was recovered by
-// disassembling the controller's own parser; see docs/PROTOCOL.md for the
-// per-field provenance. This is the device side — build an Announcement and
-// broadcast Marshal()'s bytes; Parse decodes a packet the way the controller
-// does, skipping unknown TLV types.
+// finds it on the local segment. See docs/PROTOCOL.md for the wire format.
+// This is the device side: build an Announcement and broadcast Marshal's
+// bytes. Parse decodes a packet the way a controller does, skipping unknown
+// TLV types.
 package discovery
 
 import (

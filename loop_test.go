@@ -160,7 +160,7 @@ func TestDeviceLoopFullHandshake(t *testing.T) {
 			defer cancel()
 			go d.run(ctx)
 
-			// Phase 1: pending device, controller has nothing queued (404s).
+			// Pending: the controller has nothing queued, so it 404s.
 			time.Sleep(150 * time.Millisecond)
 			if got := fc.informs.Load(); got < 3 {
 				t.Errorf("informs after 150ms = %d, want >= 3", got)
@@ -175,8 +175,8 @@ func TestDeviceLoopFullHandshake(t *testing.T) {
 				t.Errorf("last payload default flag = %v, want true while pending", p["default"])
 			}
 
-			// Phase 2: user clicks Adopt. Device must rotate keys mid-stream,
-			// inform once with the adopt key while ADOPTING, then connect.
+			// Adoption: the user clicks Adopt. The device must rotate keys
+			// mid-stream, inform once with the adopt key while ADOPTING, then connect.
 			fc.adoptCalled.Store(true)
 			deadline := time.Now().Add(2 * time.Second)
 			for d.State() != StateConnected {

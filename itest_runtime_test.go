@@ -189,7 +189,7 @@ func (h *itestHarness) startEmulatorAdopting(specs []emu.DeviceSpec) {
 }
 
 // startEmulatorModels launches the emulator from a terse SIM_MODELS list so
-// the live test exercises the CLI selector and MAC/IP expansion end to end.
+// this integration test exercises the CLI selector and MAC/IP expansion end to end.
 func (h *itestHarness) startEmulatorModels(modelsCSV string) {
 	h.t.Helper()
 	informURL := "http://" + h.controllerIP + ":8080/inform"

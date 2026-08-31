@@ -29,7 +29,7 @@ emulator is for the seeded/UOS-native path and for controllable fleets. It shoul
 reuse the *same* adopt helper — it differs only in *who supplies the pending
 device* (the controller's demo seeder vs. this emulator).
 
-## Verified protocol facts (from a working spike)
+## Verified protocol facts
 
 - Inform endpoint: HTTP **POST** to `http://<controller>:8080/inform`.
 - Packet header: magic `TNBU`, then version, device MAC, flags, IV,
@@ -59,8 +59,8 @@ device* (the controller's demo seeder vs. this emulator).
   - The device must inform **continuously** through the whole handshake. A
     one-shot "inform once then idle" design never completes adoption (times
     out to `state=7`, adopt-failed).
-- **HTTP 404 on unadopted informs is benign** (resolved, was Phase A's open
-  question): it means "nothing queued for this device". Verified: a pending
+- **HTTP 404 on unadopted informs is benign**: it means "nothing queued for
+  this device". Verified: a pending
     device logs 404s until the moment adoption is queued, then flips to 200
     carrying the adoption mgmt_cfg — same packet format throughout.
 - **The inform URL host must be an IP literal.** The controller validates the
@@ -108,7 +108,7 @@ references below; unit-test round-trip encode/decode before touching a controlle
 
 ### Payload shaping — use a `-sim` controller as the oracle
 
-The only real reverse-engineering risk is the per-device-type inform payload
+The only genuinely uncertain part is the per-device-type inform payload
 (gateway `sys_stats`/WAN vs switch `port_table` vs AP `radio_table`/`vap_table`).
 Don't guess: boot `ghcr.io/jamesbraid/unifi-network:sim`, log in `admin`/`admin`,
 `GET /api/s/default/stat/device`, and template the payload fields from those real,
@@ -166,24 +166,6 @@ Add an `unifi-device-sim` service to `docker-compose.yaml` on the same network
 (`SIM_CONTROLLER=http://unifi:8080/inform`, `SIM_DEVICES=[…]`); the provider's own
 `allow_adoption` does the adopt. Needed only when the harness swaps to the seeded
 UOS image (which has no demo devices).
-
-## Build phasing — DONE (2026-07-22)
-
-All phases landed; see the README status section. Historical record:
-
-- **A — engine to CONNECTED (gateway).** Live-proven; the 404 question is
-  resolved (benign "nothing queued" — see the protocol facts above).
-- **B — switch + AP payloads.** Live-proven fleet: 1 UGW + 2 USW + 2 UAP, all
-  `state=1 adopted=true` (host-mode and in-container).
-- **C — library + adopt helpers + container image + CLI.** Shipped; the UOS
-  helper and negotiated AES-GCM inform path are live-proven against the
-  published seeded image.
-- **D — go-unifi PR** (`AdoptDevice` + `StartDeviceSim` + inform port):
-  jamesbraid/go-unifi#16.
-- **E — provider PR** (compose sidecar, profile-gated):
-  jamesbraid/terraform-provider-unifi#11.
-
-Remaining: publish the module + image (both PRs note it).
 
 ## References
 

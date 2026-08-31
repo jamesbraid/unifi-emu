@@ -52,8 +52,8 @@ func TestClassicUXGLive(t *testing.T) {
 	adoptAndWaitConnected(t, h.ctx, h, client, spec.Model, spec.MAC)
 }
 
-// fleetSpecs is the live fleet: exactly one gateway (the controller allows
-// one per site), two switches, and two access points. The reported IPs are
+// fleetSpecs is the integration-test fleet: exactly one gateway (the controller
+// allows one per site), two switches, and two access points. The reported IPs are
 // distinct but arbitrary because the controller never routes to them.
 var fleetSpecs = []emu.DeviceSpec{
 	{MAC: "00:27:22:e0:00:01", Model: "UGW3", IP: "192.168.1.242"},

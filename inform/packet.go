@@ -1,7 +1,7 @@
 // Package inform implements the UniFi inform wire protocol: the TNBU
 // binary packet, AES-128-CBC/GCM encryption, and zlib/snappy compression.
-// Construction matches amd989/unifi-gateway unifi_protocol.py (MIT);
-// verified against a real controller by the 2026-07-19 spike.
+// Construction matches amd989/unifi-gateway unifi_protocol.py (MIT) and is
+// verified against a real controller.
 package inform
 
 import (
@@ -32,7 +32,7 @@ type Packet struct {
 }
 
 // Encode serializes, zlib-compresses and CBC-encrypts p with keyHex —
-// what amd989 sends and what the spike proved a real controller accepts.
+// what amd989 sends and what a real controller accepts.
 func (p *Packet) Encode(keyHex string) ([]byte, error) {
 	key, err := ParseKey(keyHex)
 	if err != nil {

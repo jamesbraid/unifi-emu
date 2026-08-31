@@ -84,7 +84,7 @@ func seedFromEnv() int64 {
 	return time.Now().UnixNano()
 }
 
-// selectFleet picks a reproducible pseudo-random fleet for the live adoption
+// selectFleet picks a reproducible pseudo-random fleet for the adoption
 // test: 2-3 distinct models in adoption order, including at most one gateway
 // (a UniFi site adopts a single gateway, classic ugw or next-gen uxg). typeOf
 // reports a model's device type ("ugw"/"uxg"/"usw"/"uap"); unknown models are

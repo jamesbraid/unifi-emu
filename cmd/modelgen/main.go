@@ -270,7 +270,7 @@ func harvestBundle(bundle []byte, display map[string]string, fw firmwareIndex, o
 			// Out of scope. udm/uck consoles run the Network app themselves
 			// (adoptability "standalone"); a controller receives their inform
 			// but never lists them as pending, so they can't adopt via this
-			// path (verified live: a UDM-Pro never reaches state=2). unvr/unas
+			// path (a UDM-Pro never reaches state=2). unvr/unas
 			// and other classes report differently.
 			continue
 		}

@@ -11,7 +11,7 @@ import (
 )
 
 // fastOptions keeps the polling intervals short so these tests run in
-// milliseconds; the live defaults are tuned for a real controller.
+// milliseconds. The production defaults are tuned for a real controller.
 func fastOptions() Options {
 	return Options{PollInterval: 10 * time.Millisecond, RetryInterval: 10 * time.Millisecond}
 }
@@ -172,7 +172,7 @@ func TestFleetFailsWhenDeviceNeverPending(t *testing.T) {
 	}
 }
 
-// TestFleetRequirePendingRejectsAlreadyAdopted keeps the live suite's guard:
+// TestFleetRequirePendingRejectsAlreadyAdopted keeps the integration suite's guard:
 // on a controller it just booted, an already-adopted device means the
 // fixture is dirty, not that there is nothing to do.
 func TestFleetRequirePendingRejectsAlreadyAdopted(t *testing.T) {

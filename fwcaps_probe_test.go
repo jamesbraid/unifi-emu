@@ -20,7 +20,8 @@ package emu_test
 // about which is better: the point is to see the delta before choosing.
 //
 // Reading the two device documents side by side is the deliverable, so both
-// are written to tmp/itest/<arm>/ along with the controller's own logs.
+// are written under the test's output directory along with the controller's
+// own logs.
 //
 //	UNIFI_EMU_ITEST_FWCAPS=1 go test -tags integration \
 //	  -run TestClassicAPFirmwareCapsProbeLive -v -count=1 .

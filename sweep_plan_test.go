@@ -42,7 +42,7 @@ func planSweep(models []string, typeOf func(string) (string, bool), maxPerBatch 
 	}
 	if maxPerBatch > maxSweepBatch {
 		return nil, fmt.Errorf(
-			"maxPerBatch %d: the live harness assigns IPs from %s upward and auto-IP stops at .254, so a batch holds at most %d devices",
+			"maxPerBatch %d: the sweep harness assigns IPs from %s upward and auto-IP stops at .254, so a batch holds at most %d devices",
 			maxPerBatch, itestIPBase, maxSweepBatch)
 	}
 
@@ -225,7 +225,7 @@ func TestPlanSweepErrors(t *testing.T) {
 }
 
 // TestPlanSweepCatalog runs the planner over the real embedded registry —
-// the input the live sweep actually gets — so registry drift (a new gateway
+// the input the sweep actually gets — so registry drift (a new gateway
 // family, a model count crossing a batch boundary) shows up here.
 func TestPlanSweepCatalog(t *testing.T) {
 	models := emu.Models()

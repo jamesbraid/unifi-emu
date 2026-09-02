@@ -9,6 +9,11 @@ go 1.25.0
 // missing tag. Use v0.5.3.
 retract v0.5.2
 
+// v0.5.4 shipped documentation that was revised right after tagging. The tag
+// is left in place -- the module proxy and checksum database pinned it, so
+// moving it would break `go get @v0.5.4` -- but v0.5.5 supersedes it.
+retract v0.5.4
+
 require github.com/golang/snappy v1.0.0
 
 require (

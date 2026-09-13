@@ -5,6 +5,12 @@ name: release
 # GitHub Release + CLI archives; the image job pushes the multi-arch
 # container to GHCR. Auth is the built-in GITHUB_TOKEN (repo and image
 # share the jamesbraid owner).
+#
+# Every job is GitHub-only, because everything this publishes lives on
+# GitHub. The forge fires this workflow too — the tag that starts the whole
+# thing is pushed there — and GITHUB_TOKEN there is a forge token that
+# authenticates against neither the GitHub API nor ghcr.io, so without the
+# guard every release tag would publish nothing and report red.
 on:
   push:
     tags: ['v[0-9]*']
@@ -18,6 +24,7 @@ jobs:
   # previous release's binary under the new tag's name. Both publishing jobs
   # wait on this, because that is a wrong answer rather than a missing one.
   pinned-version:
+    if: github.server_url == 'https://github.com'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -33,6 +40,7 @@ jobs:
 
   goreleaser:
     needs: pinned-version
+    if: github.server_url == 'https://github.com'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -52,6 +60,7 @@ jobs:
 
   image:
     needs: pinned-version
+    if: github.server_url == 'https://github.com'
     runs-on: ubuntu-latest
     permissions:
       contents: read

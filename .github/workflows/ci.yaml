@@ -3,6 +3,13 @@ name: ci
 # GitHub is a mirror of Forgejo, so this gates nothing (real PRs live on
 # Forgejo/Woodpecker). It runs mainly on the mirrored main + tags and is
 # kept truthful — a mirror sync carrying a broken tree shows red.
+#
+# The forge runs two runner tiers and the runs-on label picks between them.
+# ubuntu-latest is advertised only by builders that hand their docker socket
+# to jobs, so anything landing there is a step away from root on the builder;
+# podman-general has no socket. Jobs needing nothing but a Go toolchain ask
+# for podman-general and stay off that tier. Jobs that drive docker cannot,
+# so they are GitHub-only and each says why.
 on:
   push:
     branches: [main]
@@ -18,7 +25,7 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.server_url == 'https://github.com' && 'ubuntu-latest' || 'podman-general' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -30,7 +37,7 @@ jobs:
       - run: go test -tags integration ./... -run '^$'
 
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.server_url == 'https://github.com' && 'ubuntu-latest' || 'podman-general' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -49,7 +56,11 @@ jobs:
   # Build (don't push) the image so a broken Dockerfile is caught here rather
   # than only when a release tag first builds it. Single-arch is enough to
   # exercise the Dockerfile; the multi-arch push lives in release.yaml.
+  #
+  # GitHub-only: buildx wants a daemon. The forge covers the same ground in
+  # .woodpecker/checks.yml, where kaniko builds both Dockerfiles without one.
   image:
+    if: github.server_url == 'https://github.com'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -64,7 +75,11 @@ jobs:
   # at them, so the job proves the real container contract without depending on
   # a published tag. No runtime mapping is installed: the fixture image stands
   # in for an opaque runtime, and the mapping file is written per test.
+  #
+  # GitHub-only: it shells out to docker throughout, and the only forge runner
+  # that could serve it is the socket-mounting tier.
   herder-docker:
+    if: github.server_url == 'https://github.com'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -94,12 +109,14 @@ jobs:
           docker ps -a --filter label=io.unifi-emu.herder=true
           test "$left" -eq 0
 
-  # Live classic-controller integration tests via Testcontainers. GitHub
-  # runners have native Docker, so no runtime plumbing is needed. This boots
-  # real controllers, so it runs in minutes, not seconds. UOS is excluded: it
-  # needs host cgroup ns and an unpublished seeded image, so it stays a manual
-  # gate (the Woodpecker gate only compiles the integration tests).
+  # Live classic-controller integration tests via Testcontainers. GitHub-only
+  # for the same reason as the jobs above; GitHub runners have native Docker,
+  # so no runtime plumbing is needed. This boots real controllers, so it runs
+  # in minutes, not seconds. UOS is excluded: it needs host cgroup ns and an
+  # unpublished seeded image, so it stays a manual gate (the Woodpecker gate
+  # only compiles the integration tests).
   itest:
+    if: github.server_url == 'https://github.com'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:

@@ -19,7 +19,7 @@ require github.com/golang/snappy v1.0.0
 require (
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/moby/docker-image-spec v1.3.1
-	github.com/moby/moby/api v1.54.1
+	github.com/moby/moby/api v1.56.0
 	github.com/moby/moby/client v0.4.0
 	github.com/testcontainers/testcontainers-go v0.42.0
 	gopkg.in/yaml.v3 v3.0.1

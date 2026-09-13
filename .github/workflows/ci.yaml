@@ -7,8 +7,8 @@ name: ci
 # The forge runs two runner tiers and the runs-on label picks between them.
 # ubuntu-latest is advertised only by builders that hand their docker socket
 # to jobs, so anything landing there is a step away from root on the builder;
-# podman-general has no socket. Jobs needing nothing but a Go toolchain ask
-# for podman-general and stay off that tier. Jobs that drive docker cannot,
+# podman-general has no socket. Every job that needs no daemon asks for
+# podman-general and stays off that tier. Jobs that drive docker cannot,
 # so they are GitHub-only and each says why.
 on:
   push:
@@ -48,10 +48,14 @@ jobs:
           version: v2.12.2
 
   yamllint:
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.server_url == 'https://github.com' && 'ubuntu-latest' || 'podman-general' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: pipx run yamllint .
+      # uv, not pipx: podman-general's image carries neither pipx nor pip, and
+      # this job wanted the docker tier for a linter that needs no daemon.
+      - run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          "$HOME/.local/bin/uvx" yamllint .
 
   # Build (don't push) the image so a broken Dockerfile is caught here rather
   # than only when a release tag first builds it. Single-arch is enough to

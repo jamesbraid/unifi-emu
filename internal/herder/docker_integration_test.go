@@ -32,6 +32,7 @@ import (
 const (
 	syntheticImageEnv = "UNIFI_EMU_HERDER_ITEST_SYNTHETIC_IMAGE"
 	fixtureImageEnv   = "UNIFI_EMU_HERDER_ITEST_FIXTURE_IMAGE"
+	fixtureCapsEnv    = "UNIFI_EMU_HERDER_ITEST_FIXTURE_CAPS"
 )
 
 // dockerITest is one acceptance run: an isolated network, an inform sink on
@@ -186,12 +187,19 @@ func (it *dockerITest) runHerder(request string, opts ...func(*Options)) (int, [
 // fixtureConfig writes a runtime file in the test's temporary directory that
 // maps model to the public fixture image. The repository never carries an
 // installed mapping; this is created per run and thrown away.
+//
+// The capabilities come from the environment for the same reason the image
+// does: the fixture is a stand-in, and whoever substitutes a real runtime for
+// it knows what that runtime needs. Unset means no cap_add at all, which is
+// what the repository's own fixture wants -- it is a static binary that never
+// asks the kernel for anything.
 func (it *dockerITest) fixtureConfig(models ...string) string {
 	it.t.Helper()
 	digest := it.imageDigest(it.fixture)
+	caps := it.fixtureCaps()
 	entries := make([]string, 0, len(models))
 	for _, m := range models {
-		entries = append(entries, fmt.Sprintf(`%q:{"image":%q}`, m, digest))
+		entries = append(entries, fmt.Sprintf(`%q:{"image":%q%s}`, m, digest, caps))
 	}
 	path := filepath.Join(it.t.TempDir(), "runtimes.json")
 	body := `{"version":1,"models":{` + strings.Join(entries, ",") + `}}`
@@ -199,6 +207,26 @@ func (it *dockerITest) fixtureConfig(models ...string) string {
 		it.t.Fatalf("write runtime config: %v", err)
 	}
 	return path
+}
+
+// fixtureCaps renders the cap_add member of a runtime entry from a
+// comma-separated environment value, or the empty string when nothing is
+// named. Blank items are dropped so a trailing comma is not a capability.
+func (it *dockerITest) fixtureCaps() string {
+	it.t.Helper()
+	var wanted []string
+	for _, c := range strings.Split(os.Getenv(fixtureCapsEnv), ",") {
+		if c = strings.TrimSpace(c); c != "" {
+			wanted = append(wanted, c)
+		}
+	}
+	if len(wanted) == 0 {
+		return ""
+	}
+	// A []string always marshals, and json.Marshal is the escaping the
+	// herder's own decoder will read back.
+	encoded, _ := json.Marshal(wanted)
+	return `,"cap_add":` + string(encoded)
 }
 
 // imageDigest resolves a local tag to the digest-pinned reference the runtime

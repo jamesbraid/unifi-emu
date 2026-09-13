@@ -1,0 +1,41 @@
+# Dependency updates for this repository.
+#
+# In .github/ so the repo's own CI keeps working on the forge: Forgejo reads
+# .forgejo/workflows OR .github/workflows, never both, resolved per branch --
+# so a renovate.yml in .forgejo/ hides ci.yaml and release.yaml from every
+# branch that has it. The server guard below is what keeps this from running
+# on the GitHub mirror, where RENOVATE_TOKEN does not exist.
+#
+# builders advertise that label, and a job there has the guest docker
+# socket, while RENOVATE_TOKEN is write-capable across every org.
+---
+name: renovate
+on:
+  schedule:
+    - cron: '49 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  renovate:
+    if: github.server_url != 'https://github.com'
+    runs-on: podman-general
+    container:
+      image: ghcr.io/renovatebot/renovate:44
+    steps:
+      - name: Refuse to pretend without a token
+        run: |
+          if [ -z "${{ secrets.RENOVATE_TOKEN }}" ]; then
+            echo "::error::RENOVATE_TOKEN is not set; the renovate team's org secret should provide it"
+            exit 1
+          fi
+      - name: Run renovate
+        env:
+          RENOVATE_PLATFORM: forgejo
+          RENOVATE_ENDPOINT: ${{ github.server_url }}/api/v1
+          RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+          GITHUB_COM_TOKEN: ${{ secrets.RENOVATE_GITHUB_TOKEN }}
+          RENOVATE_REPOSITORIES: infra/unifi-emu
+          RENOVATE_ONBOARDING: 'false'
+          RENOVATE_REQUIRE_CONFIG: optional
+          LOG_LEVEL: info
+        run: renovate

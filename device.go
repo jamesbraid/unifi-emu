@@ -206,6 +206,8 @@ func (d *device) applyResponse(body []byte) {
 				d.lastMgmt = e.Text
 				logs = append(logs, fmt.Sprintf("%s: mgmt_cfg: %q", d.spec.MAC, e.Text))
 			}
+		case inform.EffectLocate:
+			logs = append(logs, fmt.Sprintf("%s: locate LED %s", d.spec.MAC, e.Text))
 		case inform.EffectUnknownCmd:
 			logs = append(logs, fmt.Sprintf("%s: ignoring cmd %q", d.spec.MAC, e.Text))
 		case inform.EffectUnknownType:

@@ -22,6 +22,7 @@ type Session struct {
 	useAESGCM  bool
 	informURL  string
 	setstate   map[string]json.RawMessage
+	locating   bool
 	bootTime   time.Time
 }
 
@@ -43,6 +44,7 @@ func (s *Session) AuthKey() string   { return s.key }
 func (s *Session) InformURL() string { return s.informURL }
 func (s *Session) Adopted() bool     { return s.adopted }
 func (s *Session) UseAESGCM() bool   { return s.useAESGCM }
+func (s *Session) Locating() bool    { return s.locating }
 
 // EncodeInform builds the current payload and encrypts it in the negotiated
 // mode (AES-GCM once the controller enabled it, AES-CBC before).
@@ -79,7 +81,7 @@ func (s *Session) BuildPayload(now time.Time) []byte {
 		"state":          1,
 		"fw_caps":        s.desc.FWCaps,
 		"isolated":       false,
-		"locating":       false,
+		"locating":       s.locating,
 		"selfrun_beacon": true,
 	}
 	// A device that runs the UDAPI config plane reports its schema version
@@ -175,6 +177,7 @@ const (
 	EffectUnknownCmd  // Text = the ignored cmd
 	EffectUnknownType // Text = the ignored _type
 	EffectDecodeError // Text = the decode error
+	EffectLocate      // Text = "on" or "off": the locate LED state the controller asked for
 )
 
 // Effect is one thing Apply did. Text and Interval carry the kind's payload.
@@ -237,10 +240,20 @@ func (s *Session) applyCmd(now time.Time, r informResponse) []Effect {
 		s.cfgversion = "0"
 		s.useAESGCM = false
 		s.setstate = nil
+		s.locating = false
 		return []Effect{{Kind: EffectFactoryReset}}
 	case "reboot":
 		s.bootTime = now
 		return []Effect{{Kind: EffectRebooted}}
+	case "set-locate", "locate":
+		// The UI's "Locate" toggle. Network 10.6 sends set-locate/unset-locate;
+		// older builds used locate/unlocate. The device reports the state back
+		// as "locating" on its next inform, which is what the UI watches.
+		s.locating = true
+		return []Effect{{Kind: EffectLocate, Text: "on"}}
+	case "unset-locate", "unlocate":
+		s.locating = false
+		return []Effect{{Kind: EffectLocate, Text: "off"}}
 	default:
 		return []Effect{{Kind: EffectUnknownCmd, Text: r.Cmd}}
 	}

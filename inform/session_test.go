@@ -221,3 +221,51 @@ func TestUnknownCmdIgnored(t *testing.T) {
 		t.Errorf("unknown cmd mutated state: adopted=%v key=%q", s.Adopted(), s.AuthKey())
 	}
 }
+
+// Locate replies as a Network 10.6.106 controller sends them (captured from a
+// real controller, identifiers scrubbed). The device reports the LED state
+// back as "locating" on its next inform; that is what the UI watches.
+const (
+	setLocateReply   = `{"_id": "0000000000000000000000000000000a", "_type": "cmd", "cmd": "set-locate", "datetime": "2026-09-20T14:30:23Z", "device_id": "00000000000000000000000000000009", "server_time_in_utc": "1789914676051", "time": 1789914623425}`
+	unsetLocateReply = `{"_id": "0000000000000000000000000000000b", "_type": "cmd", "cmd": "unset-locate", "datetime": "2026-09-20T14:32:03Z", "device_id": "00000000000000000000000000000009", "server_time_in_utc": "1789914777142", "time": 1789914723492}`
+)
+
+func TestLocateCmdsToggleLocating(t *testing.T) {
+	for _, names := range [][2]string{{"set-locate", "unset-locate"}, {"locate", "unlocate"}} {
+		t.Run(names[0], func(t *testing.T) {
+			s := NewSession(uswDesc(), testInformURL, testClock)
+			adopt(s)
+			on, off := setLocateReply, unsetLocateReply
+			if names[0] == "locate" {
+				on, off = `{"_type":"cmd","cmd":"locate"}`, `{"_type":"cmd","cmd":"unlocate"}`
+			}
+			fx := s.Apply(testClock, []byte(on))
+			if len(fx) != 1 || fx[0].Kind != EffectLocate || fx[0].Text != "on" {
+				t.Fatalf("%s: effects = %+v, want one EffectLocate on", names[0], fx)
+			}
+			if !s.Locating() || decode(t, s)["locating"] != true {
+				t.Errorf("%s: locating not reported on the next inform", names[0])
+			}
+			fx = s.Apply(testClock, []byte(off))
+			if len(fx) != 1 || fx[0].Kind != EffectLocate || fx[0].Text != "off" {
+				t.Fatalf("%s: effects = %+v, want one EffectLocate off", names[1], fx)
+			}
+			if s.Locating() || decode(t, s)["locating"] != false {
+				t.Errorf("%s: locating still reported after unset", names[1])
+			}
+			if !s.Adopted() {
+				t.Error("locate cmds mutated adoption state: adopted=false")
+			}
+		})
+	}
+}
+
+func TestSetdefaultClearsLocating(t *testing.T) {
+	s := NewSession(uswDesc(), testInformURL, testClock)
+	adopt(s)
+	s.Apply(testClock, []byte(setLocateReply))
+	s.Apply(testClock, []byte(`{"_type":"cmd","cmd":"setdefault"}`))
+	if s.Locating() || decode(t, s)["locating"] != false {
+		t.Error("factory reset must stop locating")
+	}
+}

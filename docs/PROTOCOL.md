@@ -157,6 +157,21 @@ it would otherwise compute. A device that takes provisioned config and then
 reports its own defaults looks, from the controller's side, exactly like one
 that rejected the push.
 
+On Network 10.6.106 a switch's configuration does not arrive that way: every
+port and switch setting made in the UI (port state, name, speed, VLANs, STP,
+storm control, aggregation, mirroring, IGMP snooping, NTP, syslog, SNMP, the
+site's SSH keys) is pushed as a `setparam` reply carrying `system_cfg`, the
+UniFi device configuration file as one string of `key=value` lines
+(`switch.port.N.status=disabled`, `switch.vlan.<slot>.port.N.mode=tagged`,
+`switch.stp.priority=4096`, `ntpclient.1.server=...`, `sshd.auth.key.N.*`,
+...), next to the `mgmt_cfg` block and a top-level `cfgversion`. The
+controller only writes a key when the setting is non-default in the site.
+The device is expected to apply the file and then report that `cfgversion`;
+until it does, the controller keeps re-sending the same push on every
+inform. No `setstate` with `port_overrides` or `port_table` was observed for
+a switch on that build (captured from a real switch and a bridged one over
+several days).
+
 ## Adoption handshake
 
 ### Sequence
@@ -166,7 +181,10 @@ that rejected the push.
    controller lists it as pending. An unadopted device commonly gets **HTTP
    404** back. That is benign and expected: it means nothing is queued for this
    device, not an error, and a 404 carries no body while every other reply is a
-   TNBU packet. Keep informing through the 404s.
+   TNBU packet. Keep informing through the 404s. One more benign reply: for
+   about a minute after a device is *forgotten* in the controller, its informs
+   get **HTTP 400 with an empty body** before the 404s resume (Network
+   10.6.106). Treat it the same way.
 2. An operator, or an API call, adopts the device on the controller.
 3. On a later inform, the controller delivers a new authkey through one of the
    two channels below. The device adopts the new key, updates its `inform_url`
@@ -243,6 +261,43 @@ The repository ships `capability_bits.json`, a dictionary mapping each bitmap's
 named bits to their integer values. Which model claims which bit is a separate
 per-model fact the controller can't check — it trusts whatever the device
 reports — and is out of scope here.
+
+What the claims change in the UI, observed on Network 10.6.106 with a switch
+that sent `udapi_version`: the per-port settings drawer shows storm control,
+FEC, mirroring, aggregation, STP port options, LLDP-MED and isolation only for
+the bits claimed in `switch_caps`; and two per-port reports from the device
+override the model profile, `port_table[].media` (which icon the port draws)
+and `port_table[].speed_caps` (which speeds the picker offers, validated by
+the controller against every speed request). Port count, display name, PoE
+controls and default port names still come from the profile. Claims are only
+stored while `udapi_version` is present, per the pairing rule above.
+
+## Other commands seen on Network 10.6.106
+
+Besides the adoption and reset commands above, a real controller sends these
+`cmd` replies; an emulator can ignore them, but should know their names:
+
+- `set-locate` / `unset-locate` — the UI's Locate toggle; the device echoes the
+  state as `locating` on its next inform.
+- `power-cycle` with `port_idx` — the UI's Power Cycle button, offered only
+  for a PoE port that is currently powering a device (the REST call answers
+  `api.err.InvalidTargetPort` for any other port, so a non-PoE device never
+  receives it).
+- `build-ssh-session` — sent when the operator opens the device's Debug
+  terminal in the UI. It carries a session id, STUN/TURN servers and a TURN
+  username: the device is expected to open a WebRTC session with the
+  browser and pipe its shell over the data channel. The terminal is not SSH
+  to the device's IP. A device that does not claim the terminal capability
+  (`fw_caps` UTERM) never gets the Debug entry.
+
+## Where to see what a real device sends
+
+The UniFi OS console's support bundle (Settings → Control Plane → Console →
+Support File → Download) contains every adopted device's decrypted last
+inform under `unifi/devices/<type>/<mac>/last.inform`, and the site's edge
+list in `unifi/topology.json`. That is the definitive reference for the keys
+and types a real switch, AP or gateway reports on a given controller build,
+and the fastest way to check an emulated payload against the real thing.
 
 ## L2 discovery packet
 

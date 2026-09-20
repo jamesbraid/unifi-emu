@@ -210,6 +210,11 @@ common path.
    knows its controller only by DNS name must resolve it to an IPv4 address
    before reporting `inform_url`.
 
+The UI's **Locate** toggle also arrives as a `cmd` reply: `set-locate` to start
+blinking and `unset-locate` to stop (Network 10.6 names; older builds sent
+`locate`/`unlocate`). The device answers by reporting `locating` `true` or
+`false` on its next inform, which is what the UI watches; nothing else changes.
+
 Two related resets arrive as `cmd` replies, handled like `set-adopt`.
 **`setdefault`** (factory reset) clears `adopted`, resets the key to
 `DefaultKey` and `cfgversion` to `"0"`, drops back to CBC, and forgets any

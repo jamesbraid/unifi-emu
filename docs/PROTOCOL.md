@@ -133,8 +133,15 @@ Per device type, adopted only:
   `full_duplex`, `rx_bytes`, `tx_bytes`).
 - **Switch** (`usw`): `port_table`, one entry per port (`ifname`, `name`,
   `port_idx`, `media`, `poe_caps`, `is_uplink`, `up`, `speed`, `full_duplex`,
-  `rx_bytes`, `tx_bytes`), and `ethernet_table`, a single entry (`mac`, `name`,
-  `num_port`).
+  `rx_bytes`, `tx_bytes`), `ethernet_table`, a single entry (`mac`, `name`,
+  `num_port`), `if_table`, a single entry for the management interface (`name`,
+  `ip`, `mac`, `netmask`, `num_port`, `up`, `speed`, `full_duplex`, counters),
+  and `uplink`, which for a switch is **a string**: the `name` of that
+  `if_table` entry (`"eth0"`), not the object a gateway sends. The controller
+  composes a switch's uplink record (parent device, remote port, media, depth)
+  from `is_uplink`, `lldp_table` and this interface; an `uplink` object from a
+  switch is silently ignored (verified on Network 10.6.106 against real
+  switches' informs).
 - **AP** (`uap`) sends three radio tables plus its own wired-port tables:
     - `radio_table`, one entry per radio: `name`, `radio`, `channel`, `ht`,
       `min_txpower`, `max_txpower`, `nss`, `tx_power`, `radio_caps`,

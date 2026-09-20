@@ -128,6 +128,13 @@ func (s *Session) BuildPayload(now time.Time) []byte {
 		case "usw":
 			m["port_table"] = portTable(s.desc)
 			m["ethernet_table"] = ethernetTable(s.desc)
+			// A switch's uplink is the *name* of its management interface in
+			// if_table, not an object like a gateway's: the controller
+			// builds the uplink record itself from is_uplink and LLDP and
+			// silently ignores an object here (verified on Network 10.6.106
+			// against real switches' informs).
+			m["uplink"] = "eth0"
+			m["if_table"] = ifTable(s.desc)
 		case "uap":
 			m["radio_table"] = radioTable(s.desc)
 			m["radio_table_stats"] = radioTableStats(s.desc)

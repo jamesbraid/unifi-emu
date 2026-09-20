@@ -151,3 +151,48 @@ func TestUDAPIKeysPairing(t *testing.T) {
 		t.Error("udapi_caps present with no UDAPIVersion; want neither key")
 	}
 }
+
+// A real USW-XG-16 on Network 10.6.106 reports its uplink as the name of the
+// management interface in if_table (captured from the UniFi OS support
+// bundle's decrypted last.inform, identifiers scrubbed). The controller builds
+// the switch's uplink record from that plus is_uplink and lldp_table; an
+// uplink object, as a gateway sends, is ignored for a switch.
+const realUSWIfTableEntry = `{"full_duplex": true, "ip": "192.0.2.3", "mac": "02:00:00:00:00:03", "name": "eth0", "netmask": "255.255.0.0", "num_port": 16, "rx_bytes": 459312130, "rx_dropped": 0, "rx_errors": 0, "rx_multicast": 0, "rx_packets": 2741205, "speed": 10, "tx_bytes": 10035517, "tx_dropped": 0, "tx_errors": 0, "tx_packets": 63412, "up": true}`
+
+func TestAdoptedPayloadUSWUplinkIsInterfaceName(t *testing.T) {
+	s := NewSession(uswDesc(), testInformURL, testClock)
+	adopt(s)
+	m := decode(t, s)
+	if m["uplink"] != "eth0" {
+		t.Fatalf("uplink = %#v, want the string \"eth0\"", m["uplink"])
+	}
+	table, ok := m["if_table"].([]any)
+	if !ok || len(table) != 1 {
+		t.Fatalf("if_table = %#v, want one entry", m["if_table"])
+	}
+	entry := table[0].(map[string]any)
+	var real map[string]any
+	if err := json.Unmarshal([]byte(realUSWIfTableEntry), &real); err != nil {
+		t.Fatal(err)
+	}
+	for k := range real {
+		if _, ok := entry[k]; !ok {
+			t.Errorf("if_table entry lacks %q, which a real switch sends", k)
+		}
+	}
+	if entry["name"] != m["uplink"] || entry["ip"] != "10.0.0.3" || entry["mac"] != "00:27:22:00:00:02" || entry["num_port"] != float64(1) {
+		t.Errorf("if_table entry = %v", entry)
+	}
+}
+
+func TestAdoptedPayloadUGWUplinkStaysAnObject(t *testing.T) {
+	s := NewSession(ugwDesc(), testInformURL, testClock)
+	adopt(s)
+	m := decode(t, s)
+	if _, ok := m["uplink"].(map[string]any); !ok {
+		t.Errorf("gateway uplink = %#v, want an object", m["uplink"])
+	}
+	if _, ok := m["if_table"]; ok {
+		t.Errorf("if_table present on a gateway; only switches send it here")
+	}
+}

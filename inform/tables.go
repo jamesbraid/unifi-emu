@@ -37,6 +37,34 @@ func portTable(desc Descriptor) []map[string]any {
 	return table
 }
 
+// ifTable is a switch's management interface as a real switch reports it:
+// one entry carrying the address the device informs from, named like the
+// top-level "uplink" string. The controller composes the device's uplink
+// record (parent, remote port, media, depth) from this entry together with
+// port_table[].is_uplink and lldp_table; it does not take an uplink object
+// from a switch. Counters are static, as elsewhere in the emulator.
+func ifTable(desc Descriptor) []map[string]any {
+	return []map[string]any{{
+		"name":         "eth0",
+		"ip":           desc.IP,
+		"mac":          desc.MAC,
+		"netmask":      "255.255.255.0",
+		"num_port":     len(desc.Ports),
+		"up":           true,
+		"speed":        1000,
+		"full_duplex":  true,
+		"rx_bytes":     0,
+		"tx_bytes":     0,
+		"rx_packets":   0,
+		"tx_packets":   0,
+		"rx_errors":    0,
+		"tx_errors":    0,
+		"rx_dropped":   0,
+		"tx_dropped":   0,
+		"rx_multicast": 0,
+	}}
+}
+
 func ethernetTable(desc Descriptor) []map[string]any {
 	return []map[string]any{{
 		"mac":      desc.MAC,

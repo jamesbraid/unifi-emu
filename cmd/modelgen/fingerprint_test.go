@@ -200,3 +200,53 @@ func TestFirmwareCapsPrefersTheModelEntry(t *testing.T) {
 		})
 	}
 }
+
+// A switch commonly powers only some of its ports, and a PoE-powered switch
+// has an uplink that takes power in. Describing either as delivering power
+// offers a capability the device will not honour, so the ports that do have to
+// be nameable.
+func TestPoEPortsRestrictsWhichPortsDeliverPower(t *testing.T) {
+	meta := deviceDBModel{
+		Ports: map[string]json.RawMessage{"standard": json.RawMessage(`8`)},
+		Features: struct {
+			PoE bool `json:"poe"`
+		}{PoE: true},
+	}
+
+	all, err := switchMetadataPorts(meta, modelOverride{})
+	if err != nil {
+		t.Fatalf("switchMetadataPorts: %v", err)
+	}
+	powered := func(ports []catalogPort) []int {
+		var out []int
+		for _, p := range ports {
+			if p.PoECaps != 0 {
+				out = append(out, p.PortIdx)
+			}
+		}
+		return out
+	}
+	// Absent stays the existing behaviour: every copper port is powered.
+	if got := len(powered(all)); got != 8 {
+		t.Errorf("with no override %d of 8 ports are powered, want all 8", got)
+	}
+
+	some, err := switchMetadataPorts(meta, modelOverride{PoEPorts: "1-4"})
+	if err != nil {
+		t.Fatalf("switchMetadataPorts: %v", err)
+	}
+	want := []int{1, 2, 3, 4}
+	if got := powered(some); len(got) != len(want) {
+		t.Errorf("powered ports = %v, want %v", got, want)
+	}
+	// The unpowered ports keep their media; only the power claim goes.
+	if some[7].Media != "GE" {
+		t.Errorf("port 8 media = %q, want it untouched", some[7].Media)
+	}
+
+	// An unparseable list fails the model rather than quietly powering
+	// everything, which is the failure that would go unnoticed.
+	if _, err := switchMetadataPorts(meta, modelOverride{PoEPorts: "not-a-range"}); err == nil {
+		t.Error("an unparseable poe_ports was accepted")
+	}
+}

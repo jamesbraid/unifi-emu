@@ -42,9 +42,22 @@ type modelOverride struct {
 	// because the interesting case is false: the bundle marks a couple of
 	// non-PoE SKUs PoE-capable by inheriting their PoE sibling's record,
 	// and an absent key has to stay distinguishable from a deliberate no.
-	PoE    *bool          `json:"poe,omitempty"`
-	UDAPI  *udapiOverride `json:"udapi,omitempty"`
-	Source string         `json:"source,omitempty"`
+	PoE *bool `json:"poe,omitempty"`
+	// PoEPorts names the ports that deliver power, in the bundle's own
+	// "1-16,19" notation, for a switch that powers only some of them. The
+	// derivation otherwise flags every copper port, which is right for the
+	// Pro and Enterprise lines and wrong for most of the rest: a switch
+	// commonly powers half its ports, and a PoE-powered switch has an
+	// uplink that takes power *in* and must not be described as giving it
+	// out.
+	//
+	// Absent means every copper port delivers power, which stays the
+	// common case and the safe default: a port wrongly described as
+	// powered offers capability the device will not honour, while one
+	// wrongly described as unpowered only understates it.
+	PoEPorts string         `json:"poe_ports,omitempty"`
+	UDAPI    *udapiOverride `json:"udapi,omitempty"`
+	Source   string         `json:"source,omitempty"`
 }
 
 // udapiOverride is what a model reports for the UDAPI config plane.

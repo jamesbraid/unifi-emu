@@ -782,6 +782,20 @@ func switchMetadataPorts(meta deviceDBModel, o modelOverride) ([]catalogPort, er
 	if o.PoE != nil {
 		poe = *o.PoE
 	}
+	// nil means every copper port delivers power; a set restricts it to the
+	// ports named. Empty is not the same as absent, and an unparseable list
+	// fails the model rather than silently powering everything.
+	var poePorts map[int]bool
+	if o.PoEPorts != "" {
+		indexes, err := expandPortIndexes(json.RawMessage(strconv.Quote(o.PoEPorts)))
+		if err != nil {
+			return nil, fmt.Errorf("poe_ports: %w", err)
+		}
+		poePorts = make(map[int]bool, len(indexes))
+		for _, idx := range indexes {
+			poePorts[idx] = true
+		}
+	}
 	indexes := make([]int, 0, len(mediaByIndex))
 	for idx := range mediaByIndex {
 		indexes = append(indexes, idx)
@@ -794,7 +808,7 @@ func switchMetadataPorts(meta deviceDBModel, o modelOverride) ([]catalogPort, er
 		// copper port was described as gigabit; a 2.5G or 10G PoE port
 		// would silently lose its power.
 		poeCaps := 0
-		if poe && isCopper(mediaByIndex[idx]) {
+		if poe && isCopper(mediaByIndex[idx]) && (poePorts == nil || poePorts[idx]) {
 			poeCaps = 7
 		}
 		ports = append(ports, catalogPort{

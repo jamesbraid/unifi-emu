@@ -270,9 +270,16 @@ func TestModelRegistryPayloads(t *testing.T) {
 				if _, ok := m["vap_table"].([]any); !ok {
 					t.Errorf("vap_table missing or not an array for uap model %s", model)
 				}
-			case "usw":
+			case "usw", "usp":
 				table(t, m, "port_table")
 				table(t, m, "ethernet_table")
+				// usp is the battery-backed power lineup, and the only
+				// reason it is a type of its own. A model typed usp that
+				// reported no outlets would be a switch wearing a UPS's
+				// name, which is the state this work set out to fix.
+				if profile.Type == "usp" {
+					table(t, m, "outlet_table")
+				}
 			case "ugw", "uxg":
 				stats, ok := m["system-stats"].(map[string]any)
 				if !ok || len(stats) == 0 {

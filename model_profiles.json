@@ -1,7 +1,10 @@
 {
-  "controller_version": "10.4.57",
+  "controller_version": "10.6.106",
   "identity_source": "controller hardware DB bundle (swai.js)",
   "hardware_source": "controller hardware DB bundle + fw-update API + tech specs",
+  "verification_source": "Ubiquiti publishes its device database unauthenticated at https://static.ui.com/fingerprint/ui/public.json, keyed by the same model codes used here and carrying each model's port map, per-interface link negotiation, outlet map, SKU and product name. It is a first-party source for most of this file and is the natural input for a future regeneration. Two limits are worth knowing before trusting it over a product's own specification: it classifies port media coarsely, so a 25G cage and a 10G cage can read alike, and it is occasionally stale -- it understates the Gateway Max as gigabit. Where it and techspecs.ui.com disagree, the published product specification wins. 57 of the models below are absent from it entirely and cannot be checked against it.",
+  "corrections": "Port media and product names were checked model by model against the source above and the per-product port tables at techspecs.ui.com. Corrected: USG-XG-8's eight 10G SFP+ cages (six had fallen through to the gigabit default, because only the two interfaces carrying an explicit negotiation list were read); Gateway Max, which is 2.5 GbE on every port; Gateway Enterprise's last two ports, which are 25G SFP28 rather than 10G; and the UniFi Gateway Fiber, which carried its raw model code where a product name belongs. On the power line, the management interface is a 100 Mb port on every model but the Power Backup, and six UPS entries gained their product names.",
+  "outlet_source": "per-model outlet layouts, added separately from the identity and port data above and not regenerated with it. Six models are sourced to public references -- vendor tech specs, the publicly mirrored device-model catalogue, and outlet tables in captured payloads shipped as fixtures by third-party client libraries: USPPDUP, USPRPSP, USPDA2B, USWDA23, USWDA25, and USPRPS, whose entry is a sourced negative (it has no AC outlets, so it carries no outlet table rather than a fabricated one). Three models have no public source and are derived by rule from a sourced sibling, which is weaker evidence and is recorded here as such: USWDA24 and USWDA26 are the EU variants of USWDA23 and USWDA25 and take their layouts unchanged, and USPDA2C extends USPDA2B's layout to its own outlet count. Outlet names on the derived models follow the controller's default naming rather than a captured label. Capability values use the current outlet_caps encoding: public captures for these models predate it and report the legacy form, which sends the controller looking for an outlet_type this emulator does not send.",
   "models": [
     {
       "model": "BZ2",
@@ -1431,7 +1434,7 @@
           "ht": "20",
           "min_txpower": 5,
           "max_txpower": 18,
-          "nss": 2,
+          "nss": 1,
           "radio_caps": 0,
           "antenna_gain": 1
         }
@@ -1439,7 +1442,7 @@
     },
     {
       "model": "U2L48",
-      "model_display": "U2L48",
+      "model_display": "Access Point Long-Range",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -1522,7 +1525,7 @@
     },
     {
       "model": "U2S48",
-      "model_display": "U2S48",
+      "model_display": "Access Point",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -1606,7 +1609,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 26,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 3
         },
@@ -1616,7 +1619,7 @@
           "ht": "80",
           "min_txpower": 5,
           "max_txpower": 26,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 6
         }
@@ -1653,7 +1656,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 26,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 6
         },
@@ -1663,7 +1666,7 @@
           "ht": "80",
           "min_txpower": 5,
           "max_txpower": 26,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 6
         }
@@ -1700,7 +1703,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 6
         }
@@ -1737,7 +1740,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 4
         }
@@ -1774,7 +1777,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 4
         }
@@ -1844,7 +1847,7 @@
           "ht": "20",
           "min_txpower": 5,
           "max_txpower": 22,
-          "nss": 2,
+          "nss": 3,
           "radio_caps": 0,
           "antenna_gain": 3
         },
@@ -1854,7 +1857,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 22,
-          "nss": 2,
+          "nss": 3,
           "radio_caps": 0,
           "antenna_gain": 3
         }
@@ -1887,7 +1890,7 @@
           "ht": "20",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 3
         },
@@ -1897,7 +1900,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 4
         }
@@ -1973,7 +1976,7 @@
           "ht": "20",
           "min_txpower": 5,
           "max_txpower": 22,
-          "nss": 2,
+          "nss": 3,
           "radio_caps": 0,
           "antenna_gain": 5
         },
@@ -1983,7 +1986,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 22,
-          "nss": 2,
+          "nss": 3,
           "radio_caps": 0,
           "antenna_gain": 6
         }
@@ -2010,7 +2013,7 @@
           "ht": "20",
           "min_txpower": 5,
           "max_txpower": 24,
-          "nss": 2,
+          "nss": 3,
           "radio_caps": 0,
           "antenna_gain": 3
         },
@@ -2174,7 +2177,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 4
         }
@@ -2201,7 +2204,7 @@
           "ht": "20",
           "min_txpower": 5,
           "max_txpower": 30,
-          "nss": 2,
+          "nss": 3,
           "radio_caps": 0,
           "antenna_gain": 5
         },
@@ -2244,7 +2247,7 @@
           "ht": "20",
           "min_txpower": 5,
           "max_txpower": 22,
-          "nss": 2,
+          "nss": 3,
           "radio_caps": 0,
           "antenna_gain": 3
         },
@@ -2254,7 +2257,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 23,
-          "nss": 2,
+          "nss": 3,
           "radio_caps": 0,
           "antenna_gain": 3
         }
@@ -2388,7 +2391,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 26,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 6
         },
@@ -2431,7 +2434,7 @@
           "ht": "20",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 6
         },
@@ -2441,7 +2444,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 8
         }
@@ -2515,7 +2518,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 4
         }
@@ -2552,7 +2555,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 4
         }
@@ -2616,7 +2619,7 @@
           "ht": "20",
           "min_txpower": 5,
           "max_txpower": 20,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 3
         },
@@ -2626,7 +2629,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 4
         }
@@ -2700,7 +2703,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 4
         }
@@ -2737,7 +2740,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 6
         }
@@ -2745,7 +2748,7 @@
     },
     {
       "model": "UAPA693",
-      "model_display": "UAPA693",
+      "model_display": "Access Point U7 Lite",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -2783,7 +2786,7 @@
     },
     {
       "model": "UAPA697",
-      "model_display": "UAPA697",
+      "model_display": "Access Point E7",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -2813,7 +2816,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 29,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 6
         },
@@ -2823,7 +2826,7 @@
           "ht": "80",
           "min_txpower": 5,
           "max_txpower": 29,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 6
         }
@@ -2831,7 +2834,7 @@
     },
     {
       "model": "UAPA698",
-      "model_display": "UAPA698",
+      "model_display": "Access Point E7 Campus",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -2861,7 +2864,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 29,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 6
         },
@@ -2871,7 +2874,7 @@
           "ht": "80",
           "min_txpower": 5,
           "max_txpower": 29,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 6
         }
@@ -2879,7 +2882,7 @@
     },
     {
       "model": "UAPA699",
-      "model_display": "UAPA699",
+      "model_display": "Access Point E7 Audience",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -2899,7 +2902,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 30,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 0
         },
@@ -2909,7 +2912,7 @@
           "ht": "80",
           "min_txpower": 5,
           "max_txpower": 30,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 0
         }
@@ -2917,7 +2920,7 @@
     },
     {
       "model": "UAPA69E",
-      "model_display": "UAPA69E",
+      "model_display": "Access Point U7 Mesh",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -2955,7 +2958,7 @@
     },
     {
       "model": "UAPA6A4",
-      "model_display": "UAPA6A4",
+      "model_display": "Access Point U7 Pro XGS",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -2985,7 +2988,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 29,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 6
         },
@@ -3003,7 +3006,7 @@
     },
     {
       "model": "UAPA6A5",
-      "model_display": "UAPA6A5",
+      "model_display": "Access Point U7 In Wall",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -3053,7 +3056,7 @@
     },
     {
       "model": "UAPA6A6",
-      "model_display": "UAPA6A6",
+      "model_display": "Access Point U7 Pro Outdoor",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -3101,7 +3104,7 @@
     },
     {
       "model": "UAPA6A9",
-      "model_display": "UAPA6A9",
+      "model_display": "Access Point U7 Pro XG",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -3149,7 +3152,7 @@
     },
     {
       "model": "UAPA6AB",
-      "model_display": "UAPA6AB",
+      "model_display": "Access Point E7 Audience",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -3169,7 +3172,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 30,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 0
         },
@@ -3179,7 +3182,7 @@
           "ht": "80",
           "min_txpower": 5,
           "max_txpower": 30,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 0
         }
@@ -3187,7 +3190,7 @@
     },
     {
       "model": "UAPA6AC",
-      "model_display": "UAPA6AC",
+      "model_display": "Access Point U7 Pro XGS",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -3217,7 +3220,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 29,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 6
         },
@@ -3235,7 +3238,7 @@
     },
     {
       "model": "UAPA6AE",
-      "model_display": "UAPA6AE",
+      "model_display": "Access Point U7 Pro XG",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -3283,7 +3286,7 @@
     },
     {
       "model": "UAPA6AF",
-      "model_display": "UAPA6AF",
+      "model_display": "Access Point E7 Audience Indoor",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -3303,7 +3306,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 30,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 0
         },
@@ -3313,7 +3316,7 @@
           "ht": "80",
           "min_txpower": 5,
           "max_txpower": 30,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 0
         }
@@ -3321,7 +3324,7 @@
     },
     {
       "model": "UAPA6B0",
-      "model_display": "UAPA6B0",
+      "model_display": "Access Point U7 Pro Outdoor",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -3359,7 +3362,7 @@
     },
     {
       "model": "UAPA6B1",
-      "model_display": "UAPA6B1",
+      "model_display": "Access Point E7 Campus",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -3389,7 +3392,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 30,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 12
         }
@@ -3397,7 +3400,7 @@
     },
     {
       "model": "UAPA6B3",
-      "model_display": "UAPA6B3",
+      "model_display": "Access Point U7 Long-Range",
       "type": "uap",
       "version": "8.0.74.16817",
       "ports": [
@@ -3426,7 +3429,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 23,
-          "nss": 2,
+          "nss": 3,
           "radio_caps": 0,
           "antenna_gain": 4
         }
@@ -3434,7 +3437,7 @@
     },
     {
       "model": "UAPA6BA",
-      "model_display": "UAPA6BA",
+      "model_display": "Access Point U7 Pro XG Wall",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -3482,7 +3485,7 @@
     },
     {
       "model": "UAPA6BC",
-      "model_display": "UAPA6BC",
+      "model_display": "Access Point E7 Campus Indoor",
       "type": "uap",
       "version": "8.6.11.18870",
       "fw_caps": -402850113,
@@ -3512,7 +3515,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 23,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 9
         },
@@ -3522,7 +3525,7 @@
           "ht": "80",
           "min_txpower": 5,
           "max_txpower": 30,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 12
         }
@@ -3624,7 +3627,7 @@
           "ht": "20",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 6
         },
@@ -3634,7 +3637,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 8
         }
@@ -3642,7 +3645,7 @@
     },
     {
       "model": "UDC48X6",
-      "model_display": "UniFi Data Center 100G-48X6",
+      "model_display": "UniFi Switch Leaf",
       "type": "usw",
       "version": "7.3.109.16640",
       "ports": [
@@ -4004,7 +4007,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 4
         }
@@ -4041,7 +4044,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 4
         }
@@ -4126,49 +4129,49 @@
           "ifname": "eth1",
           "name": "1",
           "port_idx": 2,
-          "media": "10GbE"
+          "media": "SFP+"
         },
         {
           "ifname": "eth2",
           "name": "2",
           "port_idx": 3,
-          "media": "GE"
+          "media": "SFP+"
         },
         {
           "ifname": "eth3",
           "name": "3",
           "port_idx": 4,
-          "media": "GE"
+          "media": "SFP+"
         },
         {
           "ifname": "eth4",
           "name": "4",
           "port_idx": 5,
-          "media": "GE"
+          "media": "SFP+"
         },
         {
           "ifname": "eth5",
           "name": "5",
           "port_idx": 6,
-          "media": "10GbE"
+          "media": "SFP+"
         },
         {
           "ifname": "eth6",
           "name": "6",
           "port_idx": 7,
-          "media": "GE"
+          "media": "SFP+"
         },
         {
           "ifname": "eth7",
           "name": "7",
           "port_idx": 8,
-          "media": "GE"
+          "media": "SFP+"
         },
         {
           "ifname": "eth8",
           "name": "8",
           "port_idx": 9,
-          "media": "GE"
+          "media": "SFP+"
         }
       ]
     },
@@ -4227,7 +4230,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 4
         }
@@ -8244,18 +8247,6 @@
           "name": "Port 52",
           "port_idx": 52,
           "media": "SFP+"
-        },
-        {
-          "ifname": "eth52",
-          "name": "Port 53",
-          "port_idx": 53,
-          "media": "SFP+"
-        },
-        {
-          "ifname": "eth53",
-          "name": "Port 54",
-          "port_idx": 54,
-          "media": "SFP+"
         }
       ]
     },
@@ -8326,13 +8317,13 @@
           "ifname": "eth8",
           "name": "Port 9",
           "port_idx": 9,
-          "media": "SFP"
+          "media": "SFP+"
         },
         {
           "ifname": "eth9",
           "name": "Port 10",
           "port_idx": 10,
-          "media": "SFP"
+          "media": "SFP+"
         }
       ]
     },
@@ -8860,7 +8851,7 @@
     },
     {
       "model": "USC8P150",
-      "model_display": "USC8P150",
+      "model_display": "Switch 8 PoE 150W",
       "type": "usw",
       "version": "7.3.109.16640",
       "ports": [
@@ -9016,7 +9007,7 @@
     },
     {
       "model": "USC8P60",
-      "model_display": "USC8P60",
+      "model_display": "Switch 8 60W",
       "type": "usw",
       "version": "7.3.109.16640",
       "ports": [
@@ -12777,7 +12768,8 @@
           "ifname": "eth7",
           "name": "Port 8",
           "port_idx": 8,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         }
       ]
     },
@@ -12841,7 +12833,8 @@
           "ifname": "eth7",
           "name": "Port 8",
           "port_idx": 8,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         }
       ]
     },
@@ -12925,23 +12918,182 @@
     },
     {
       "model": "USPDA2B",
-      "model_display": "USPDA2B",
-      "type": "usw",
+      "model_display": "UPS 2U Pro",
+      "type": "usp",
       "version": "7.3.109.16640",
       "ports": [
         {
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "GE",
+          "media": "FE",
           "is_uplink": true
         }
-      ]
+      ],
+      "outlets": [
+        {
+          "index": 1,
+          "name": "Outlet 1",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 65539
+        },
+        {
+          "index": 2,
+          "name": "Outlet 2",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 65539
+        },
+        {
+          "index": 3,
+          "name": "Outlet 3",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 65539
+        },
+        {
+          "index": 4,
+          "name": "Outlet 4",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 65539
+        },
+        {
+          "index": 5,
+          "name": "Outlet 5",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 65539
+        },
+        {
+          "index": 6,
+          "name": "Outlet 6",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 65539
+        },
+        {
+          "index": 7,
+          "name": "Outlet 7",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 65539
+        },
+        {
+          "index": 8,
+          "name": "Outlet 8",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 65539
+        }
+      ],
+      "smart_power_caps": 223,
+      "hw_caps": 128
     },
     {
       "model": "USPDA2C",
-      "model_display": "USPDA2C",
-      "type": "usw",
+      "model_display": "UPS 2U Pro",
+      "type": "usp",
+      "version": "7.3.109.16640",
+      "ports": [
+        {
+          "ifname": "eth0",
+          "name": "Port 1",
+          "port_idx": 1,
+          "media": "FE",
+          "is_uplink": true
+        }
+      ],
+      "outlets": [
+        {
+          "index": 1,
+          "name": "Outlet 1",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 65539
+        },
+        {
+          "index": 2,
+          "name": "Outlet 2",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 65539
+        },
+        {
+          "index": 3,
+          "name": "Outlet 3",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 65539
+        },
+        {
+          "index": 4,
+          "name": "Outlet 4",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 65539
+        },
+        {
+          "index": 5,
+          "name": "Outlet 5",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 65539
+        },
+        {
+          "index": 6,
+          "name": "Outlet 6",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 65539
+        },
+        {
+          "index": 7,
+          "name": "Outlet 7",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 65539
+        },
+        {
+          "index": 8,
+          "name": "Outlet 8",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 65539
+        },
+        {
+          "index": 9,
+          "name": "Outlet 9",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 65539
+        }
+      ],
+      "smart_power_caps": 223,
+      "hw_caps": 128
+    },
+    {
+      "model": "USPED18",
+      "model_display": "Power Distribution Pro",
+      "type": "usp",
       "version": "7.3.109.16640",
       "ports": [
         {
@@ -12951,7 +13103,174 @@
           "media": "GE",
           "is_uplink": true
         }
-      ]
+      ],
+      "outlets": [
+        {
+          "index": 1,
+          "name": "USB Outlet 1",
+          "group": "usb",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 1,
+          "outlet_type": 1
+        },
+        {
+          "index": 2,
+          "name": "USB Outlet 2",
+          "group": "usb",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 1,
+          "outlet_type": 1
+        },
+        {
+          "index": 3,
+          "name": "USB Outlet 3",
+          "group": "usb",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 1,
+          "outlet_type": 1
+        },
+        {
+          "index": 4,
+          "name": "USB Outlet 4",
+          "group": "usb",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 1,
+          "outlet_type": 1
+        },
+        {
+          "index": 5,
+          "name": "Outlet 5",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 6,
+          "name": "Outlet 6",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 7,
+          "name": "Outlet 7",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 8,
+          "name": "Outlet 8",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 9,
+          "name": "Outlet 9",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 10,
+          "name": "Outlet 10",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 11,
+          "name": "Outlet 11",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 12,
+          "name": "Outlet 12",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 13,
+          "name": "Outlet 13",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 14,
+          "name": "Outlet 14",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 15,
+          "name": "Outlet 15",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 16,
+          "name": "Outlet 16",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 17,
+          "name": "Outlet 17",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 18,
+          "name": "Outlet 18",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 19,
+          "name": "Outlet 19",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 20,
+          "name": "Outlet 20",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        }
+      ],
+      "hw_caps": 128
     },
     {
       "model": "USPM16",
@@ -13568,337 +13887,289 @@
           "name": "Port 1",
           "port_idx": 1,
           "media": "GE",
-          "poe_caps": 7,
           "is_uplink": true
         },
         {
           "ifname": "eth1",
           "name": "Port 2",
           "port_idx": 2,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth2",
           "name": "Port 3",
           "port_idx": 3,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth3",
           "name": "Port 4",
           "port_idx": 4,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth4",
           "name": "Port 5",
           "port_idx": 5,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth5",
           "name": "Port 6",
           "port_idx": 6,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth6",
           "name": "Port 7",
           "port_idx": 7,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth7",
           "name": "Port 8",
           "port_idx": 8,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth8",
           "name": "Port 9",
           "port_idx": 9,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth9",
           "name": "Port 10",
           "port_idx": 10,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth10",
           "name": "Port 11",
           "port_idx": 11,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth11",
           "name": "Port 12",
           "port_idx": 12,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth12",
           "name": "Port 13",
           "port_idx": 13,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth13",
           "name": "Port 14",
           "port_idx": 14,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth14",
           "name": "Port 15",
           "port_idx": 15,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth15",
           "name": "Port 16",
           "port_idx": 16,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth16",
           "name": "Port 17",
           "port_idx": 17,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth17",
           "name": "Port 18",
           "port_idx": 18,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth18",
           "name": "Port 19",
           "port_idx": 19,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth19",
           "name": "Port 20",
           "port_idx": 20,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth20",
           "name": "Port 21",
           "port_idx": 21,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth21",
           "name": "Port 22",
           "port_idx": 22,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth22",
           "name": "Port 23",
           "port_idx": 23,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth23",
           "name": "Port 24",
           "port_idx": 24,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth24",
           "name": "Port 25",
           "port_idx": 25,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth25",
           "name": "Port 26",
           "port_idx": 26,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth26",
           "name": "Port 27",
           "port_idx": 27,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth27",
           "name": "Port 28",
           "port_idx": 28,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth28",
           "name": "Port 29",
           "port_idx": 29,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth29",
           "name": "Port 30",
           "port_idx": 30,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth30",
           "name": "Port 31",
           "port_idx": 31,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth31",
           "name": "Port 32",
           "port_idx": 32,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth32",
           "name": "Port 33",
           "port_idx": 33,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth33",
           "name": "Port 34",
           "port_idx": 34,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth34",
           "name": "Port 35",
           "port_idx": 35,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth35",
           "name": "Port 36",
           "port_idx": 36,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth36",
           "name": "Port 37",
           "port_idx": 37,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth37",
           "name": "Port 38",
           "port_idx": 38,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth38",
           "name": "Port 39",
           "port_idx": 39,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth39",
           "name": "Port 40",
           "port_idx": 40,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth40",
           "name": "Port 41",
           "port_idx": 41,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth41",
           "name": "Port 42",
           "port_idx": 42,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth42",
           "name": "Port 43",
           "port_idx": 43,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth43",
           "name": "Port 44",
           "port_idx": 44,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth44",
           "name": "Port 45",
           "port_idx": 45,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth45",
           "name": "Port 46",
           "port_idx": 46,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth46",
           "name": "Port 47",
           "port_idx": 47,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth47",
           "name": "Port 48",
           "port_idx": 48,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "GE"
         },
         {
           "ifname": "eth48",
@@ -14305,10 +14576,177 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "GE",
+          "media": "FE",
           "is_uplink": true
         }
-      ]
+      ],
+      "outlets": [
+        {
+          "index": 1,
+          "name": "USB Outlet 1",
+          "group": "usb",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 1,
+          "outlet_type": 1
+        },
+        {
+          "index": 2,
+          "name": "USB Outlet 2",
+          "group": "usb",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 1,
+          "outlet_type": 1
+        },
+        {
+          "index": 3,
+          "name": "USB Outlet 3",
+          "group": "usb",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 1,
+          "outlet_type": 1
+        },
+        {
+          "index": 4,
+          "name": "USB Outlet 4",
+          "group": "usb",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 1,
+          "outlet_type": 1
+        },
+        {
+          "index": 5,
+          "name": "Outlet 5",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 6,
+          "name": "Outlet 6",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 7,
+          "name": "Outlet 7",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 8,
+          "name": "Outlet 8",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 9,
+          "name": "Outlet 9",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 10,
+          "name": "Outlet 10",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 11,
+          "name": "Outlet 11",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 12,
+          "name": "Outlet 12",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 13,
+          "name": "Outlet 13",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 14,
+          "name": "Outlet 14",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 15,
+          "name": "Outlet 15",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 16,
+          "name": "Outlet 16",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 17,
+          "name": "Outlet 17",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 18,
+          "name": "Outlet 18",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 19,
+          "name": "Outlet 19",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        },
+        {
+          "index": 20,
+          "name": "Outlet 20",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": true,
+          "outlet_caps": 3
+        }
+      ],
+      "hw_caps": 128
     },
     {
       "model": "USPRPS",
@@ -14335,14 +14773,25 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "GE",
+          "media": "FE",
           "is_uplink": true
         }
-      ]
+      ],
+      "outlets": [
+        {
+          "index": 1,
+          "name": "Outlet 1",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 1
+        }
+      ],
+      "hw_caps": 128
     },
     {
       "model": "USWDA23",
-      "model_display": "USWDA23",
+      "model_display": "UPS Tower",
       "type": "usw",
       "version": "1.5.0.378",
       "ports": [
@@ -14350,14 +14799,98 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "GE",
+          "media": "FE",
           "is_uplink": true
         }
-      ]
+      ],
+      "outlets": [
+        {
+          "index": 1,
+          "name": "Outlet 1",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 2,
+          "name": "Outlet 2",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 3,
+          "name": "Outlet 3",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 4,
+          "name": "Outlet 4",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 5,
+          "name": "Outlet 5",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 6,
+          "name": "Outlet 6",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 7,
+          "name": "Outlet 7",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 8,
+          "name": "Outlet 8",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 9,
+          "name": "Outlet 9",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 10,
+          "name": "Outlet 10",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        }
+      ],
+      "smart_power_caps": 5,
+      "hw_caps": 128
     },
     {
       "model": "USWDA24",
-      "model_display": "USWDA24",
+      "model_display": "UPS Tower",
       "type": "usw",
       "version": "1.5.0.378",
       "ports": [
@@ -14365,14 +14898,98 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "GE",
+          "media": "FE",
           "is_uplink": true
         }
-      ]
+      ],
+      "outlets": [
+        {
+          "index": 1,
+          "name": "Outlet 1",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 2,
+          "name": "Outlet 2",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 3,
+          "name": "Outlet 3",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 4,
+          "name": "Outlet 4",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 5,
+          "name": "Outlet 5",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 6,
+          "name": "Outlet 6",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 7,
+          "name": "Outlet 7",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 8,
+          "name": "Outlet 8",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 9,
+          "name": "Outlet 9",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 10,
+          "name": "Outlet 10",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        }
+      ],
+      "smart_power_caps": 5,
+      "hw_caps": 128
     },
     {
       "model": "USWDA25",
-      "model_display": "USWDA25",
+      "model_display": "UPS 2U",
       "type": "usw",
       "version": "1.5.0.378",
       "ports": [
@@ -14380,14 +14997,82 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "GE",
+          "media": "FE",
           "is_uplink": true
         }
-      ]
+      ],
+      "outlets": [
+        {
+          "index": 1,
+          "name": "Outlet 1",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 2,
+          "name": "Outlet 2",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 3,
+          "name": "Outlet 3",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 4,
+          "name": "Outlet 4",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 5,
+          "name": "Outlet 5",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 6,
+          "name": "Outlet 6",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 7,
+          "name": "Outlet 7",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 8,
+          "name": "Outlet 8",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        }
+      ],
+      "smart_power_caps": 5,
+      "hw_caps": 128
     },
     {
       "model": "USWDA26",
-      "model_display": "USWDA26",
+      "model_display": "UPS 2U",
       "type": "usw",
       "version": "1.5.0.378",
       "ports": [
@@ -14395,14 +15080,82 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "GE",
+          "media": "FE",
           "is_uplink": true
         }
-      ]
+      ],
+      "outlets": [
+        {
+          "index": 1,
+          "name": "Outlet 1",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 2,
+          "name": "Outlet 2",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 3,
+          "name": "Outlet 3",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 4,
+          "name": "Outlet 4",
+          "group": "standard",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 5,
+          "name": "Outlet 5",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 6,
+          "name": "Outlet 6",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 7,
+          "name": "Outlet 7",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        },
+        {
+          "index": 8,
+          "name": "Outlet 8",
+          "group": "surge",
+          "has_relay": true,
+          "has_metering": false,
+          "outlet_caps": 65537
+        }
+      ],
+      "smart_power_caps": 5,
+      "hw_caps": 128
     },
     {
       "model": "USWED05",
-      "model_display": "USWED05",
+      "model_display": "Switch Industrial",
       "type": "usw",
       "version": "7.3.109.16640",
       "ports": [
@@ -14481,7 +15234,7 @@
     },
     {
       "model": "USWED06",
-      "model_display": "USWED06",
+      "model_display": "Switch Lite 16 PoE",
       "type": "usw",
       "version": "7.3.109.16640",
       "ports": [
@@ -14602,7 +15355,7 @@
     },
     {
       "model": "USWED08",
-      "model_display": "USWED08",
+      "model_display": "Switch 24 PoE",
       "type": "usw",
       "version": "7.3.109.16640",
       "ports": [
@@ -14791,7 +15544,7 @@
     },
     {
       "model": "USWED35",
-      "model_display": "USWED35",
+      "model_display": "Switch Flex 2.5G 5",
       "type": "usw",
       "version": "2.1.8.971",
       "ports": [
@@ -14830,7 +15583,7 @@
     },
     {
       "model": "USWED36",
-      "model_display": "USWED36",
+      "model_display": "Switch Flex 2.5G 8",
       "type": "usw",
       "version": "2.1.8.971",
       "ports": [
@@ -14893,13 +15646,13 @@
           "ifname": "eth9",
           "name": "Port 10",
           "port_idx": 10,
-          "media": "GE"
+          "media": "SFP+"
         }
       ]
     },
     {
       "model": "USWED37",
-      "model_display": "USWED37",
+      "model_display": "Switch Flex 2.5G 8 PoE",
       "type": "usw",
       "version": "2.1.8.971",
       "ports": [
@@ -14971,14 +15724,13 @@
           "ifname": "eth9",
           "name": "Port 10",
           "port_idx": 10,
-          "media": "GE",
-          "poe_caps": 7
+          "media": "SFP+"
         }
       ]
     },
     {
       "model": "USWED42",
-      "model_display": "USWED42",
+      "model_display": "Switch Pro XG 48 PoE",
       "type": "usw",
       "version": "7.4.1.16850",
       "ports": [
@@ -15347,7 +16099,7 @@
     },
     {
       "model": "USWED43",
-      "model_display": "USWED43",
+      "model_display": "Switch Pro XG 48",
       "type": "usw",
       "version": "7.4.1.16850",
       "ports": [
@@ -15668,7 +16420,7 @@
     },
     {
       "model": "USWED44",
-      "model_display": "USWED44",
+      "model_display": "Switch Pro XG 24 PoE",
       "type": "usw",
       "version": "7.4.1.16850",
       "ports": [
@@ -15857,7 +16609,7 @@
     },
     {
       "model": "USWED45",
-      "model_display": "USWED45",
+      "model_display": "Switch Pro XG 24",
       "type": "usw",
       "version": "7.4.1.16850",
       "ports": [
@@ -16022,7 +16774,7 @@
     },
     {
       "model": "USWED72",
-      "model_display": "USWED72",
+      "model_display": "Switch Pro HD 24 PoE",
       "type": "usw",
       "version": "7.4.1.16850",
       "ports": [
@@ -16223,7 +16975,7 @@
     },
     {
       "model": "USWED73",
-      "model_display": "USWED73",
+      "model_display": "Switch Pro HD 24",
       "type": "usw",
       "version": "7.4.1.16850",
       "ports": [
@@ -16400,7 +17152,7 @@
     },
     {
       "model": "USWED74",
-      "model_display": "USWED74",
+      "model_display": "Switch WAN Relay SFP+",
       "type": "usw",
       "version": "7.3.109.16640",
       "ports": [
@@ -16433,7 +17185,7 @@
     },
     {
       "model": "USWED76",
-      "model_display": "USWED76",
+      "model_display": "Switch Pro XG 8 PoE",
       "type": "usw",
       "version": "7.4.1.16850",
       "ports": [
@@ -16510,7 +17262,7 @@
     },
     {
       "model": "USWED77",
-      "model_display": "USWED77",
+      "model_display": "Switch Pro XG 10 PoE",
       "type": "usw",
       "version": "7.4.1.16850",
       "ports": [
@@ -16747,7 +17499,7 @@
     },
     {
       "model": "USWF001",
-      "model_display": "USWF001",
+      "model_display": "Switch Enterprise AV XG 24 PoE",
       "type": "usw",
       "version": "7.5.2.16967",
       "ports": [
@@ -16924,31 +17676,31 @@
           "ifname": "eth24",
           "name": "Port 25",
           "port_idx": 25,
-          "media": "SFP28"
+          "media": "QSFP28"
         },
         {
           "ifname": "eth25",
           "name": "Port 26",
           "port_idx": 26,
-          "media": "SFP28"
+          "media": "QSFP28"
         },
         {
           "ifname": "eth26",
           "name": "Port 27",
           "port_idx": 27,
-          "media": "SFP28"
+          "media": "QSFP28"
         },
         {
           "ifname": "eth27",
           "name": "Port 28",
           "port_idx": 28,
-          "media": "SFP28"
+          "media": "QSFP28"
         }
       ]
     },
     {
       "model": "USWF002",
-      "model_display": "USWF002",
+      "model_display": "Switch Enterprise AV Fiber",
       "type": "usw",
       "version": "7.5.2.16967",
       "ports": [
@@ -17077,19 +17829,19 @@
           "ifname": "eth20",
           "name": "Port 21",
           "port_idx": 21,
-          "media": "SFP28"
+          "media": "QSFP28"
         },
         {
           "ifname": "eth21",
           "name": "Port 22",
           "port_idx": 22,
-          "media": "SFP28"
+          "media": "QSFP28"
         }
       ]
     },
     {
       "model": "USWF003",
-      "model_display": "USWF003",
+      "model_display": "Switch Pro XG Aggregation",
       "type": "usw",
       "version": "7.4.1.16850",
       "ports": [
@@ -17290,7 +18042,7 @@
     },
     {
       "model": "USWF004",
-      "model_display": "USWF004",
+      "model_display": "Switch Enterprise Campus 24S PoE",
       "type": "usw",
       "version": "7.3.109.16640",
       "ports": [
@@ -17298,146 +18050,170 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "SFP+",
+          "media": "GE",
+          "poe_caps": 7,
           "is_uplink": true
         },
         {
           "ifname": "eth1",
           "name": "Port 2",
           "port_idx": 2,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth2",
           "name": "Port 3",
           "port_idx": 3,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth3",
           "name": "Port 4",
           "port_idx": 4,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth4",
           "name": "Port 5",
           "port_idx": 5,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth5",
           "name": "Port 6",
           "port_idx": 6,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth6",
           "name": "Port 7",
           "port_idx": 7,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth7",
           "name": "Port 8",
           "port_idx": 8,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth8",
           "name": "Port 9",
           "port_idx": 9,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth9",
           "name": "Port 10",
           "port_idx": 10,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth10",
           "name": "Port 11",
           "port_idx": 11,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth11",
           "name": "Port 12",
           "port_idx": 12,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth12",
           "name": "Port 13",
           "port_idx": 13,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth13",
           "name": "Port 14",
           "port_idx": 14,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth14",
           "name": "Port 15",
           "port_idx": 15,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth15",
           "name": "Port 16",
           "port_idx": 16,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth16",
           "name": "Port 17",
           "port_idx": 17,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth17",
           "name": "Port 18",
           "port_idx": 18,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth18",
           "name": "Port 19",
           "port_idx": 19,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth19",
           "name": "Port 20",
           "port_idx": 20,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth20",
           "name": "Port 21",
           "port_idx": 21,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth21",
           "name": "Port 22",
           "port_idx": 22,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth22",
           "name": "Port 23",
           "port_idx": 23,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth23",
           "name": "Port 24",
           "port_idx": 24,
-          "media": "SFP+"
+          "media": "GE",
+          "poe_caps": 7
         },
         {
           "ifname": "eth24",
@@ -17479,7 +18255,7 @@
     },
     {
       "model": "USWF005",
-      "model_display": "USWF005",
+      "model_display": "Switch Enterprise Campus 24S",
       "type": "usw",
       "version": "7.3.109.16640",
       "ports": [
@@ -17487,146 +18263,146 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "SFP+",
+          "media": "GE",
           "is_uplink": true
         },
         {
           "ifname": "eth1",
           "name": "Port 2",
           "port_idx": 2,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth2",
           "name": "Port 3",
           "port_idx": 3,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth3",
           "name": "Port 4",
           "port_idx": 4,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth4",
           "name": "Port 5",
           "port_idx": 5,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth5",
           "name": "Port 6",
           "port_idx": 6,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth6",
           "name": "Port 7",
           "port_idx": 7,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth7",
           "name": "Port 8",
           "port_idx": 8,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth8",
           "name": "Port 9",
           "port_idx": 9,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth9",
           "name": "Port 10",
           "port_idx": 10,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth10",
           "name": "Port 11",
           "port_idx": 11,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth11",
           "name": "Port 12",
           "port_idx": 12,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth12",
           "name": "Port 13",
           "port_idx": 13,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth13",
           "name": "Port 14",
           "port_idx": 14,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth14",
           "name": "Port 15",
           "port_idx": 15,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth15",
           "name": "Port 16",
           "port_idx": 16,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth16",
           "name": "Port 17",
           "port_idx": 17,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth17",
           "name": "Port 18",
           "port_idx": 18,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth18",
           "name": "Port 19",
           "port_idx": 19,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth19",
           "name": "Port 20",
           "port_idx": 20,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth20",
           "name": "Port 21",
           "port_idx": 21,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth21",
           "name": "Port 22",
           "port_idx": 22,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth22",
           "name": "Port 23",
           "port_idx": 23,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth23",
           "name": "Port 24",
           "port_idx": 24,
-          "media": "SFP+"
+          "media": "GE"
         },
         {
           "ifname": "eth24",
@@ -17668,7 +18444,7 @@
     },
     {
       "model": "USWF006",
-      "model_display": "USWF006",
+      "model_display": "Switch Enterprise Campus 48S PoE",
       "type": "usw",
       "version": "7.3.109.16640",
       "ports": [
@@ -18049,7 +18825,7 @@
     },
     {
       "model": "USWF007",
-      "model_display": "USWF007",
+      "model_display": "Switch Enterprise Campus 48S",
       "type": "usw",
       "version": "7.3.109.16640",
       "ports": [
@@ -18727,7 +19503,7 @@
     },
     {
       "model": "USWF066",
-      "model_display": "USWF066",
+      "model_display": "Switch Enterprise Campus Aggregation",
       "type": "usw",
       "version": "3.0.8.852",
       "ports": [
@@ -19060,7 +19836,7 @@
     },
     {
       "model": "USWF067",
-      "model_display": "USWF067",
+      "model_display": "Switch Enterprise Campus 24 PoE",
       "type": "usw",
       "version": "7.4.1.16850",
       "ports": [
@@ -19414,7 +20190,7 @@
     },
     {
       "model": "USWF069",
-      "model_display": "USWF069",
+      "model_display": "Switch Enterprise Campus 48 PoE",
       "type": "usw",
       "version": "7.4.1.16850",
       "ports": [
@@ -20104,7 +20880,7 @@
     },
     {
       "model": "USWF07D",
-      "model_display": "USWF07D",
+      "model_display": "Switch Enterprise Campus Core",
       "type": "usw",
       "version": "7.3.109.16640",
       "ports": [
@@ -20563,13 +21339,13 @@
           "ifname": "eth24",
           "name": "Port 25",
           "port_idx": 25,
-          "media": "SFP+"
+          "media": "SFP28"
         },
         {
           "ifname": "eth25",
           "name": "Port 26",
           "port_idx": 26,
-          "media": "SFP+"
+          "media": "SFP28"
         }
       ]
     },
@@ -20594,7 +21370,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 10
         }
@@ -20623,7 +21399,7 @@
     },
     {
       "model": "UXGA6AA",
-      "model_display": "UXGA6AA",
+      "model_display": "Gateway Fiber",
       "type": "uxg",
       "version": "5.0.16.30689",
       "ports": [
@@ -20682,20 +21458,20 @@
           "ifname": "eth0",
           "name": "LAN",
           "port_idx": 1,
-          "media": "GE",
+          "media": "2.5GbE",
           "is_uplink": true
         },
         {
           "ifname": "eth1",
           "name": "LAN",
           "port_idx": 2,
-          "media": "GE"
+          "media": "2.5GbE"
         },
         {
           "ifname": "eth2",
           "name": "LAN",
           "port_idx": 3,
-          "media": "GE"
+          "media": "2.5GbE"
         },
         {
           "ifname": "eth3",
@@ -20748,13 +21524,13 @@
           "ifname": "eth4",
           "name": "WAN2",
           "port_idx": 5,
-          "media": "10GbE"
+          "media": "SFP28"
         },
         {
           "ifname": "eth5",
           "name": "LAN",
           "port_idx": 6,
-          "media": "10GbE"
+          "media": "SFP28"
         }
       ]
     },
@@ -20812,7 +21588,7 @@
           "ht": "40",
           "min_txpower": 5,
           "max_txpower": 25,
-          "nss": 2,
+          "nss": 4,
           "radio_caps": 0,
           "antenna_gain": 10
         }
@@ -20840,5 +21616,7 @@
       "model": "UGWHD4",
       "reason": "no hardware reports this code. Ubiquiti's fingerprint DB files it as an alias on the USG product record with an empty sysids list, while real USG hardware identifies as UGW3 (sysid ee21); it has no firmware bundle and no friendly name. Measured against sim controller 10.4.57: it informs and is answered HTTP 404 like any pending device, but the controller never creates a pending document for it -- alone or beside a device that does appear -- and logs nothing about it, while UGW3 and UXGENT adopt to CONNECTED from the same payload branch"
     }
-  ]
+  ],
+  "controller_version_basis": "verified against this build rather than regenerated from it. Every model here was re-checked and none changed type, outlet count, port count or hardware id between the build this catalogue was generated from and this one. The identity and port data therefore still comes from the source named above; the version records what it has been confirmed against.",
+  "smart_power_caps_note": "Derived from each model's declared capabilities, so a regeneration reproduces it. The two UPS 2U Pro entries are the exception: they carry the higher value a real device was seen reporting, which a derivation cannot reach, and which a regeneration will therefore lower until the overrides file can restate this field."
 }

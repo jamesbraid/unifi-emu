@@ -11,33 +11,75 @@
     }
   },
   "models": {
+    "U2IW": {
+      "radios": {
+        "ng": {
+          "nss": 1
+        }
+      },
+      "source": "nss from dl.ubnt.com/datasheets/unifi/UniFi_AP_DS.pdf: 150 Mbps at HT40, one stream (MCS0-MCS7), against 300 Mbps for the 2x2 UAP"
+    },
     "U6ENT": {
       "eth": {
         "count": 1,
         "media": "2.5GbE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Enterprise)"
+      "radios": {
+        "6e": {
+          "nss": 4
+        },
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Enterprise); nss from techspecs.ui.com/unifi/wifi/u6-enterprise (6 and 5 GHz 4x4, 2.4 GHz 2x2)"
     },
     "U6ENTIW": {
       "eth": {
         "count": 1,
         "media": "2.5GbE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Enterprise-IW)"
+      "radios": {
+        "6e": {
+          "nss": 4
+        },
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Enterprise-IW); nss from techspecs.ui.com/unifi/wifi/u6-enterprise-iw (6 and 5 GHz 4x4, 2.4 GHz 2x2)"
+    },
+    "U6EXT": {
+      "radios": {
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "nss from techspecs.ui.com/unifi/wifi/u6-extender (5 GHz 4x4, 2.4 GHz 2x2)"
     },
     "U6IW": {
       "eth": {
         "count": 1,
         "media": "GE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-IW)"
+      "radios": {
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-IW); nss from techspecs.ui.com/unifi/wifi/u6-iw (5 GHz 4x4, 2.4 GHz 2x2)"
     },
     "U6M": {
       "eth": {
         "count": 1,
         "media": "GE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Mesh)"
+      "radios": {
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Mesh); nss from techspecs.ui.com/unifi/wifi/u6-mesh (5 GHz 4x4, 2.4 GHz 2x2)"
     },
     "U6MP": {
       "eth": {
@@ -45,6 +87,17 @@
         "media": "GE"
       },
       "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Mesh-Pro)"
+    },
+    "U7EDU": {
+      "radios": {
+        "na": {
+          "nss": 3
+        },
+        "ng": {
+          "nss": 3
+        }
+      },
+      "source": "nss from dl.ubnt.com/datasheets/unifi/UniFi_AC_APs_DS.pdf model comparison: 3x3 on both bands"
     },
     "U7ENT": {
       "eth": {
@@ -58,7 +111,15 @@
         "count": 2,
         "media": "GE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-AC-HD)"
+      "radios": {
+        "na": {
+          "nss": 4
+        },
+        "ng": {
+          "nss": 4
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-AC-HD); nss from techspecs.ui.com/unifi/wifi/uap-ac-hd (4x4 on both bands, 8 spatial streams)"
     },
     "U7IW": {
       "eth": {
@@ -67,12 +128,28 @@
       },
       "source": "techspecs.ui.com networking-interface (fingerprint sku U7-IW)"
     },
+    "U7IWP": {
+      "radios": {
+        "na": {
+          "nss": 3
+        },
+        "ng": {
+          "nss": 3
+        }
+      },
+      "source": "nss from dl.ubnt.com/datasheets/unifi/UniFi_AC_APs_DS.pdf model comparison: 3x3 on both bands"
+    },
     "U7LR": {
       "eth": {
         "count": 1,
         "media": "2.5GbE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-LR)"
+      "radios": {
+        "ng": {
+          "nss": 3
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-LR); nss from techspecs.ui.com/unifi/wifi/unifi-ac-lr (2.4 GHz 3x3, 5 GHz 2x2, 5 spatial streams)"
     },
     "U7LT": {
       "eth": {
@@ -97,14 +174,35 @@
         "count": 1,
         "media": "GE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-nanoHD)"
+      "radios": {
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-nanoHD); nss from techspecs.ui.com/unifi/wifi/uap-nanohd (5 GHz 4x4, 2.4 GHz 2x2)"
+    },
+    "U7P": {
+      "radios": {
+        "ng": {
+          "nss": 3
+        }
+      },
+      "source": "nss from dl.ubnt.com/datasheets/unifi/UniFi_AP_DS.pdf: 2.4 GHz 3x3 at 450 Mbps, 5 GHz 2x2"
     },
     "U7PG2": {
       "eth": {
         "count": 2,
         "media": "GE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-AC-Pro)"
+      "radios": {
+        "na": {
+          "nss": 3
+        },
+        "ng": {
+          "nss": 3
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-AC-Pro); nss from techspecs.ui.com/unifi/wifi/uap-ac-pro (3x3 on both bands, 6 spatial streams)"
     },
     "U7PIW": {
       "eth": {
@@ -125,21 +223,47 @@
         "count": 1,
         "media": "2.5GbE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Pro-Max)"
+      "radios": {
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Pro-Max); nss from techspecs.ui.com/unifi/wifi/u7-pro-max (5 GHz 4x4, 6 GHz and 2.4 GHz 2x2)"
     },
     "U7SHD": {
       "eth": {
         "count": 2,
         "media": "GE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-AC-SHD)"
+      "radios": {
+        "na": {
+          "nss": 4
+        },
+        "ng": {
+          "nss": 4
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-AC-SHD); nss from techspecs.ui.com/unifi/wifi/uap-ac-shd (4x4 on both bands, 8 spatial streams)"
+    },
+    "UAE6": {
+      "radios": {
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "nss from techspecs.ui.com/unifi/wifi/u6-extender (5 GHz 4x4, 2.4 GHz 2x2)"
     },
     "UAIW6": {
       "eth": {
         "count": 1,
         "media": "GE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-IW)"
+      "radios": {
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-IW); nss from techspecs.ui.com/unifi/wifi/u6-iw (5 GHz 4x4, 2.4 GHz 2x2)"
     },
     "UAL6": {
       "eth": {
@@ -148,19 +272,40 @@
       },
       "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Lite)"
     },
+    "UALR6": {
+      "radios": {
+        "na": {
+          "nss": 4
+        },
+        "ng": {
+          "nss": 4
+        }
+      },
+      "source": "nss from techspecs.ui.com/unifi/wifi/u6-lr (4x4 on both bands, 8 spatial streams)"
+    },
     "UAM6": {
       "eth": {
         "count": 1,
         "media": "GE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Mesh)"
+      "radios": {
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Mesh); nss from techspecs.ui.com/unifi/wifi/u6-mesh (5 GHz 4x4, 2.4 GHz 2x2)"
     },
     "UAP6MP": {
       "eth": {
         "count": 1,
         "media": "GE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Pro)"
+      "radios": {
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Pro); nss from techspecs.ui.com/unifi/wifi/u6-pro (5 GHz 4x4, 2.4 GHz 2x2)"
     },
     "UAPA693": {
       "eth": {
@@ -168,6 +313,39 @@
         "media": "2.5GbE"
       },
       "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Lite)"
+    },
+    "UAPA697": {
+      "radios": {
+        "6e": {
+          "nss": 4
+        },
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "nss from techspecs.ui.com/unifi/wifi/e7 (6 and 5 GHz 4x4, 2.4 GHz 2x2)"
+    },
+    "UAPA698": {
+      "radios": {
+        "6e": {
+          "nss": 4
+        },
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "nss from techspecs.ui.com/unifi/wifi/e7-campus-us (6 and 5 GHz 4x4, 2.4 GHz 2x2)"
+    },
+    "UAPA699": {
+      "radios": {
+        "6e": {
+          "nss": 4
+        },
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "nss from techspecs.ui.com/unifi/wifi/e7-audience-us (every radio 4x4, 12 spatial streams)"
     },
     "UAPA69E": {
       "eth": {
@@ -181,7 +359,12 @@
         "count": 1,
         "media": "10GbE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Pro-XGS)"
+      "radios": {
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Pro-XGS); nss from techspecs.ui.com/unifi/wifi/u7-pro-xgs (5 GHz 4x4, 6 GHz and 2.4 GHz 2x2; XGS and XGS-B are the same product)"
     },
     "UAPA6A5": {
       "eth": {
@@ -197,12 +380,55 @@
       },
       "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Pro-XG)"
     },
+    "UAPA6AB": {
+      "radios": {
+        "6e": {
+          "nss": 4
+        },
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "nss from techspecs.ui.com/unifi/wifi/e7-audience-us (every radio 4x4, 12 spatial streams)"
+    },
+    "UAPA6AC": {
+      "radios": {
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "nss from techspecs.ui.com/unifi/wifi/u7-pro-xgs (5 GHz 4x4, 6 GHz and 2.4 GHz 2x2; XGS and XGS-B are the same product)"
+    },
+    "UAPA6AF": {
+      "radios": {
+        "6e": {
+          "nss": 4
+        },
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "nss from techspecs.ui.com/unifi/wifi/e7-audience-indoor (every radio 4x4, 12 spatial streams)"
+    },
+    "UAPA6B1": {
+      "radios": {
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "nss from techspecs.ui.com/unifi/wifi/e7-campus-us (5 GHz 4x4, 2.4 GHz 2x2; the EU SKU has no 6 GHz radio)"
+    },
     "UAPA6B3": {
       "eth": {
         "count": 1,
         "media": "2.5GbE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-LR)"
+      "radios": {
+        "na": {
+          "nss": 3
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U7-LR); nss from techspecs.ui.com/unifi/wifi/u7-lr (5 GHz 3x3, 2.4 GHz 2x2, 5 spatial streams)"
     },
     "UAPA6BA": {
       "eth": {
@@ -211,26 +437,67 @@
       },
       "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Pro-XG-Wall)"
     },
+    "UAPA6BC": {
+      "radios": {
+        "6e": {
+          "nss": 4
+        },
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "nss from techspecs.ui.com/unifi/wifi/e7-campus-indoor (6 and 5 GHz 4x4, 2.4 GHz 2x2)"
+    },
     "UCXG": {
       "eth": {
         "count": 1,
         "media": "10GbE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-XG)"
+      "radios": {
+        "na": {
+          "nss": 4
+        },
+        "ng": {
+          "nss": 4
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-XG); nss from techspecs.ui.com/unifi/wifi/uap-xg (4x4 on both bands, 8 spatial streams)"
+    },
+    "UDC48X6": {
+      "display": "UniFi Switch Leaf",
+      "source": "fingerprint DB f060: sku USW-Leaf, product name \"Switch Leaf\"; dl.ui.com/product_sheets/USW-Leaf_Brief.pdf. The bundle's \"UniFi Data Center 100G-48X6\" was never a retail name"
+    },
+    "UDMB": {
+      "radios": {
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "nss from techspecs.ui.com/unifi/wifi/uap-beaconhd (5 GHz 4x4, 2.4 GHz 2x2)"
     },
     "UFLHD": {
       "eth": {
         "count": 1,
         "media": "GE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-FlexHD)"
+      "radios": {
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-FlexHD); nss from techspecs.ui.com/unifi/wifi/uap-flexhd (5 GHz 4x4, 2.4 GHz 2x2)"
     },
     "UHDIW": {
       "eth": {
         "count": 5,
         "media": "GE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-IW-HD)"
+      "radios": {
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-IW-HD); nss from techspecs.ui.com/unifi/wifi/uap-iw-hd (5 GHz 4x4, 2.4 GHz 2x2)"
     },
     "UKPW": {
       "eth": {
@@ -239,6 +506,22 @@
       },
       "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Outdoor)"
     },
+    "US648P": {
+      "ports": {
+        "plus": {
+          "indexes": "49-52"
+        }
+      },
+      "source": "https://techspecs.ui.com/unifi/switching/usw-enterprise-48-poe: 48x 2.5GbE RJ45 (all PoE+) + 4x 10G SFP+ = 52 ports. The bundle says plus 49-54, contradicting its own numberOfPorts of 52"
+    },
+    "US68P": {
+      "ports": {
+        "sfp": {
+          "media": "SFP+"
+        }
+      },
+      "source": "https://techspecs.ui.com/unifi/switching/usw-enterprise-8-poe: the 2 uplinks are 10G SFP+, not 1G SFP"
+    },
     "USM8P": {
       "ports": {
         "plus": {
@@ -246,6 +529,90 @@
         }
       },
       "source": "USW-Ultra PoE++ input is 1GbE RJ45, not SFP+"
+    },
+    "USM8P210": {
+      "ports": {
+        "plus": {
+          "media": "GE"
+        }
+      },
+      "source": "https://techspecs.ui.com/unifi/switching/usw-ultra-210w: 8 GbE RJ45 (7 PoE+, 1 PoE++ input) and no SFP cage; the bundle files the PoE++ input under \"plus\" as it does on USM8P"
+    },
+    "USM8P60": {
+      "ports": {
+        "plus": {
+          "media": "GE"
+        }
+      },
+      "source": "https://techspecs.ui.com/unifi/switching/usw-ultra-60w: 8 GbE RJ45 (7 PoE+, 1 PoE++ input) and no SFP cage; the bundle files the PoE++ input under \"plus\" as it does on USM8P"
+    },
+    "USPM48": {
+      "poe": false,
+      "source": "https://techspecs.ui.com/unifi/switching/usw-pro-max-48 lists no PoE row at all; the PSE is on the separate USW-Pro-Max-48-PoE SKU (USPM48P). The bundle and the fingerprint DB both mark this one PoE-capable"
+    },
+    "USWED36": {
+      "ports": {
+        "plus": {
+          "indexes": "10"
+        }
+      },
+      "source": "https://techspecs.ui.com/unifi/switching/usw-flex-2-5g-8: 8x 2.5GbE RJ45 + a 10GbE RJ45 / 10G SFP+ combo pair. The bundle records both halves of the pair as copper"
+    },
+    "USWED37": {
+      "ports": {
+        "plus": {
+          "indexes": "10"
+        }
+      },
+      "source": "https://techspecs.ui.com/unifi/switching/usw-flex-2-5g-8-poe: 8x 2.5GbE RJ45 (PoE++) + a 10GbE RJ45 / 10G SFP+ combo pair. The bundle records both halves of the pair as copper"
+    },
+    "USWF001": {
+      "ports": {
+        "sfp28": {
+          "media": "QSFP28"
+        }
+      },
+      "source": "https://techspecs.ui.com/unifi/switching/eav-xg-24-poe: 24x 10GbE RJ45 (all PoE+++) + 4x 100G QSFP28 uplinks"
+    },
+    "USWF002": {
+      "ports": {
+        "sfp28": {
+          "media": "QSFP28"
+        }
+      },
+      "source": "https://techspecs.ui.com/unifi/switching/eav-fiber: 20x 10G SFP+ + 2x 100G QSFP28 uplinks"
+    },
+    "USWF004": {
+      "ports": {
+        "plus": {
+          "media": "GE"
+        }
+      },
+      "source": "https://techspecs.ui.com/unifi/switching/ecs-24s-poe: the 24 access ports are RJ45 (8x 2.5GbE + 16x 10GbE), all PoE+++, not SFP+"
+    },
+    "USWF005": {
+      "ports": {
+        "plus": {
+          "media": "GE"
+        }
+      },
+      "source": "https://techspecs.ui.com/unifi/switching/ecs-24s: the 24 access ports are RJ45 (8x 2.5GbE + 16x 10GbE), not SFP+"
+    },
+    "USXG24": {
+      "ports": {
+        "plus": {
+          "media": "SFP28"
+        }
+      },
+      "source": "https://techspecs.ui.com/unifi/switching/usw-enterprisexg-24: the 2 uplinks are 25G SFP28, not 10G SFP+"
+    },
+    "UXBSDM": {
+      "radios": {
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "nss by analogy with UWB-XG (techspecs.ui.com/unifi/wifi/uwb-xg, 4x4): the black SKU has no tech-specs page of its own, and fingerprint e585 carries the same radio block as e580"
     },
     "UXGENT": {
       "udapi": {
@@ -261,7 +628,12 @@
         "count": 1,
         "media": "10GbE"
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku UWB-XG)"
+      "radios": {
+        "na": {
+          "nss": 4
+        }
+      },
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UWB-XG); nss from techspecs.ui.com/unifi/wifi/uwb-xg (three 5 GHz radios, all 4x4, 12 spatial streams)"
     }
   }
 }

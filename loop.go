@@ -102,11 +102,18 @@ func (d *device) informOnce(ctx context.Context) {
 	enc, err := d.session.EncodeInform(now)
 	url := d.session.InformURL()
 	key := d.session.AuthKey()
+	// Captured before the packet is encrypted, which is the only place the
+	// payload is readable without the key.
+	var sent []byte
+	if c := captureTo(); c != nil {
+		sent = d.session.BuildPayload(now)
+	}
 	d.mu.Unlock()
 	if err != nil {
 		log.Printf("[%s] encode inform: %v", d.spec.MAC, err)
 		return
 	}
+	captureTo().record(d.spec.MAC, d.spec.Model, "inform", sent)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(enc))
 	if err != nil {
 		log.Printf("[%s] build inform request: %v", d.spec.MAC, err)
@@ -142,6 +149,7 @@ func (d *device) informOnce(ctx context.Context) {
 		log.Printf("[%s] decode inform response: %v", d.spec.MAC, err)
 		return
 	}
+	captureTo().record(d.spec.MAC, d.spec.Model, "response", dec.Payload)
 	d.mu.Lock()
 	wasAdopting := d.state == StateAdopting
 	d.mu.Unlock()

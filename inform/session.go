@@ -2,6 +2,7 @@ package inform
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +24,12 @@ type Session struct {
 	informURL  string
 	setstate   map[string]json.RawMessage
 	bootTime   time.Time
+	// outletRelay holds relay states the controller pushed as system_cfg
+	// lines, keyed by 1-based outlet index. Outlet switching is
+	// configuration, not a command: the controller writes the desired
+	// state into the device config and expects to read it back in the
+	// next inform's outlet_table.
+	outletRelay map[int]bool
 }
 
 // NewSession starts a device on the default adoption key, pending, informing at
@@ -113,27 +120,71 @@ func (s *Session) BuildPayload(now time.Time) []byte {
 		}
 		switch s.desc.Type {
 		case "ugw", "uxg":
+			// Whole numbers: these three are read with an integer
+			// accessor that parses a decimal integer, so "1.5"
+			// reads as 0 and the gateway looks idle.
 			m["system-stats"] = map[string]any{
-				"cpu": "1.5", "mem": "50.0", "uptime": strconv.FormatInt(uptime, 10),
+				"cpu": "2", "mem": "50", "uptime": strconv.FormatInt(uptime, 10),
 			}
+			// Mandatory. With config_network_wan absent the
+			// controller logs the missing key and skips WAN
+			// processing entirely, so the WAN never bootstraps.
 			m["config_network_wan"] = map[string]any{"type": "dhcp"}
 			m["netmask"] = "255.255.255.0"
-			m["uplink"] = map[string]any{
-				"name": "eth0", "num_port": 1,
-				"ip": s.desc.IP, "mac": s.desc.MAC,
-				"type": "wire", "up": true,
-				"speed": 1000, "max_speed": 1000, "full_duplex": true,
-				"rx_bytes": 0, "tx_bytes": 0,
-			}
-		case "usw":
+			m["if_table"] = ifTable(s.desc)
+			// uplink is the *name* of an interface in if_table, not
+			// an object: the controller looks the name up and builds
+			// its own uplink record from the entry it finds. An
+			// object here is silently discarded, and the device ends
+			// up with no uplink at all.
+			m["uplink"] = uplinkName(s.desc)
+		case "usw", "usp":
+			// usp is the battery-backed power devices. They report the
+			// same wired shape a switch does -- a management port and
+			// its ethernet entry -- and carry their outlets and battery
+			// state on top, below.
 			m["port_table"] = portTable(s.desc)
 			m["ethernet_table"] = ethernetTable(s.desc)
+			// Same shape as the gateway uplink: the name of an interface
+			// in if_table, which the controller resolves to build the
+			// device's parent and uplink record. Without it the device
+			// adopts and reports fine but hangs off nothing, showing no
+			// uplink and no parent.
+			m["if_table"] = ifTable(s.desc)
+			m["uplink"] = uplinkName(s.desc)
 		case "uap":
 			m["radio_table"] = radioTable(s.desc)
 			m["radio_table_stats"] = radioTableStats(s.desc)
 			m["vap_table"] = vapTable(s.desc)
 			m["ethernet_table"] = ethernetTable(s.desc)
 			m["port_table"] = portTable(s.desc)
+		}
+		// Power devices are not one device type: rack PDUs and RPS
+		// units report as switches, smart plugs as access points, and
+		// only the newer battery-backed models have a type of their
+		// own. So the power tables hang off what the device actually
+		// has, not off its type.
+		if len(s.desc.Outlets) > 0 {
+			m["outlet_table"] = s.outletTableWithOverrides()
+			m["outlet_enabled"] = true
+		}
+		// What the device physically has. The outlet bit is load-bearing:
+		// without it the controller discards the outlet table above and
+		// logs nothing, so the device adopts, reports its outlets on every
+		// inform, and shows none of them.
+		if s.desc.HWCaps != 0 {
+			m["hw_caps"] = s.desc.HWCaps
+		}
+		if len(s.desc.PSUs) > 0 {
+			m["psu_table"] = psuTable(s.desc)
+		}
+		if s.desc.SmartPowerCaps != 0 {
+			m["smart_power_caps"] = s.desc.SmartPowerCaps
+		}
+		// The bit that makes the controller treat the device as a UPS
+		// rather than a plain power strip.
+		if s.desc.SmartPowerCaps&SmartPowerCapNUTInformationAccess != 0 {
+			m["vbms_table"] = vbmsTable(s.desc)
 		}
 	}
 	// Echo back provisioned config the controller pushed via setstate.
@@ -150,12 +201,26 @@ func (s *Session) BuildPayload(now time.Time) []byte {
 // informResponse is the controller's reply to an inform. mgmt_cfg is a single
 // string of newline-separated k=v pairs, not a JSON object.
 type informResponse struct {
-	Type       string `json:"_type"`
-	Cmd        string `json:"cmd"`
-	Key        string `json:"key"`
-	URI        string `json:"uri"`
-	Interval   int    `json:"interval"`
-	MgmtCfg    string `json:"mgmt_cfg"`
+	Type      string `json:"_type"`
+	Cmd       string `json:"cmd"`
+	Key       string `json:"key"`
+	URI       string `json:"uri"`
+	Interval  int    `json:"interval"`
+	MgmtCfg   string `json:"mgmt_cfg"`
+	SystemCfg string `json:"system_cfg"` // device config file, one key=value per line
+	// Command arguments. Port is the target of power-cycle and
+	// rps-port-recovery; SourceInterface is the speed-test source, which
+	// the controller sends in the literal "if!<ifname>" form.
+	Port            int    `json:"port"`
+	UnitID          int    `json:"unit_id"`
+	SourceInterface string `json:"source_interface"`
+	// OutletTable is relayctl's selection list: the controller names the
+	// outlets to act on, carrying only their index. One variant of the
+	// command omits it entirely, so an absent list is valid and means the
+	// device applies the command to itself.
+	OutletTable []struct {
+		Index int `json:"index"`
+	} `json:"outlet_table"`
 	Cfgversion string `json:"cfgversion"`
 	Version    string `json:"version"` // upgrade target firmware version
 }
@@ -175,6 +240,12 @@ const (
 	EffectUnknownCmd  // Text = the ignored cmd
 	EffectUnknownType // Text = the ignored _type
 	EffectDecodeError // Text = the decode error
+	// Appended at the end so the existing values never shift.
+	EffectOutletState     // Text = "outlet <n> on|off", from a config push
+	EffectPowerCycle      // Text = the port being cycled
+	EffectRelayCtl        // relay control command, no argument
+	EffectRPSPortRecovery // Text = the RPS port being recovered
+	EffectSpeedTest       // Text = the source interface, "" if none
 )
 
 // Effect is one thing Apply did. Text and Interval carry the kind's payload.
@@ -237,10 +308,30 @@ func (s *Session) applyCmd(now time.Time, r informResponse) []Effect {
 		s.cfgversion = "0"
 		s.useAESGCM = false
 		s.setstate = nil
+		s.outletRelay = nil
 		return []Effect{{Kind: EffectFactoryReset}}
 	case "reboot":
 		s.bootTime = now
 		return []Effect{{Kind: EffectRebooted}}
+	case "power-cycle":
+		// Sent for a PoE port that is powering a device, and for a
+		// switched outlet on a power device. The port comes back as the
+		// effect text so a consumer can act on the specific port.
+		return []Effect{{Kind: EffectPowerCycle, Text: strconv.Itoa(r.Port)}}
+	case "relayctl":
+		// The controller picks the outlets to act on and sends them as a
+		// selection list carrying nothing but each index. A second form
+		// of the command carries no list at all, so an empty selection
+		// is valid rather than a malformed reply.
+		idx := make([]string, 0, len(r.OutletTable))
+		for _, o := range r.OutletTable {
+			idx = append(idx, strconv.Itoa(o.Index))
+		}
+		return []Effect{{Kind: EffectRelayCtl, Text: strings.Join(idx, ",")}}
+	case "rps-port-recovery":
+		return []Effect{{Kind: EffectRPSPortRecovery, Text: strconv.Itoa(r.Port)}}
+	case "speed-test":
+		return []Effect{{Kind: EffectSpeedTest, Text: r.SourceInterface}}
 	default:
 		return []Effect{{Kind: EffectUnknownCmd, Text: r.Cmd}}
 	}
@@ -279,7 +370,67 @@ func (s *Session) applySetparam(r informResponse) []Effect {
 			s.useAESGCM = enabled
 		}
 	}
+	effects = append(effects, s.applySystemCfg(r.SystemCfg)...)
 	return effects
+}
+
+// applySystemCfg reads the device configuration file the controller pushes
+// alongside mgmt_cfg. Only the outlet relay lines are interpreted: they are how
+// outlet switching reaches the device, and the controller re-sends the whole
+// file on every inform until the device reports the new state back.
+func (s *Session) applySystemCfg(cfg string) []Effect {
+	if cfg == "" {
+		return nil
+	}
+	var effects []Effect
+	for _, line := range strings.Split(cfg, "\n") {
+		k, v, ok := strings.Cut(strings.TrimSpace(line), "=")
+		if !ok {
+			continue
+		}
+		// outlet.<n>.relay_state=enabled|disabled
+		rest, found := strings.CutPrefix(k, "outlet.")
+		if !found {
+			continue
+		}
+		idxStr, field, ok := strings.Cut(rest, ".")
+		if !ok || field != "relay_state" {
+			continue
+		}
+		idx, err := strconv.Atoi(idxStr)
+		if err != nil || idx <= 0 {
+			continue
+		}
+		on := v == "enabled"
+		if s.outletRelay == nil {
+			s.outletRelay = make(map[int]bool)
+		}
+		s.outletRelay[idx] = on
+		state := "off"
+		if on {
+			state = "on"
+		}
+		effects = append(effects, Effect{
+			Kind: EffectOutletState,
+			Text: fmt.Sprintf("outlet %d %s", idx, state),
+		})
+	}
+	return effects
+}
+
+// outletTableWithOverrides reports the outlet layout with any relay state the
+// controller pushed applied over the default. Reporting the pushed state back
+// is what stops the controller re-sending the same configuration on every
+// inform.
+func (s *Session) outletTableWithOverrides() []map[string]any {
+	table := outletTable(s.desc)
+	for _, entry := range table {
+		idx, _ := entry["index"].(int)
+		if on, ok := s.outletRelay[idx]; ok {
+			entry["relay_state"] = on
+		}
+	}
+	return table
 }
 
 func (s *Session) applySetstate(body []byte, cfgversion string) []Effect {

@@ -61,6 +61,10 @@ type DeviceSpec struct {
 	Name         string `json:"name" yaml:"name"`
 	IP           string `json:"ip" yaml:"ip"`
 	Ports        int    `json:"ports" yaml:"ports"` // overrides the profile port layout when > 0
+	// Outlets overrides the profile outlet layout when > 0, the way Ports
+	// does for the port layout. Only meaningful for a model the catalogue
+	// gives outlets; it synthesizes a switched, metered AC bank.
+	Outlets int `json:"outlets" yaml:"outlets"`
 	// SSIDs opts the AP into emitting vaps. Empty by default: this
 	// controller build rejects default vaps with log noise until a
 	// setstate provisions real WLAN config (the setstate echo path
@@ -83,7 +87,7 @@ type DeviceSpec struct {
 var deviceSpecKeys = map[string]bool{
 	"mac": true, "serial": true, "type": true, "model": true,
 	"modeldisplay": true, "version": true, "name": true, "ip": true,
-	"ports": true, "ssids": true, "fwcaps": true,
+	"ports": true, "ssids": true, "fwcaps": true, "outlets": true,
 }
 
 // UnmarshalYAML lets a fleet-list entry be a bare model string ("U7PRO") or
@@ -212,6 +216,24 @@ func (d *device) applyResponse(body []byte) {
 			logs = append(logs, fmt.Sprintf("%s: ignoring unknown response _type %q", d.spec.MAC, e.Text))
 		case inform.EffectDecodeError:
 			logs = append(logs, fmt.Sprintf("%s: ignoring undecodable response: %s", d.spec.MAC, e.Text))
+		case inform.EffectOutletState:
+			logs = append(logs, fmt.Sprintf("%s: %s (config push)", d.spec.MAC, e.Text))
+		case inform.EffectPowerCycle:
+			logs = append(logs, fmt.Sprintf("%s: power-cycle requested for port %s (emulated)", d.spec.MAC, e.Text))
+		case inform.EffectRelayCtl:
+			if e.Text != "" {
+				logs = append(logs, fmt.Sprintf("%s: relayctl for outlets %s (emulated)", d.spec.MAC, e.Text))
+			} else {
+				logs = append(logs, fmt.Sprintf("%s: relayctl with no outlet selection (emulated)", d.spec.MAC))
+			}
+		case inform.EffectRPSPortRecovery:
+			logs = append(logs, fmt.Sprintf("%s: RPS port %s recovery requested (emulated)", d.spec.MAC, e.Text))
+		case inform.EffectSpeedTest:
+			if e.Text != "" {
+				logs = append(logs, fmt.Sprintf("%s: speed-test requested via %s (emulated)", d.spec.MAC, e.Text))
+			} else {
+				logs = append(logs, fmt.Sprintf("%s: speed-test requested (emulated)", d.spec.MAC))
+			}
 		}
 	}
 	d.mu.Unlock()

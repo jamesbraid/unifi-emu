@@ -86,6 +86,33 @@ func TestGeneratedModelRegistryMatchesControllerMetadata(t *testing.T) {
 			t.Errorf("%s port 1 poe_caps = %d, want %d", model, got, wantPoE)
 		}
 	}
+	// A switch that powers only some of its ports says which. The US-8's
+	// single output and the Ultra's rear input are the two shapes that go
+	// wrong in opposite directions: one under-powers a bank, the other
+	// describes a port that takes power as one that gives it.
+	for model, want := range map[string][]int{
+		"US8":    {8},
+		"USF5P":  {2, 3, 4, 5},
+		"USM8P":  {1, 2, 3, 4, 5, 6, 7},
+		"USL24P": {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+	} {
+		var powered []int
+		for _, p := range modelRegistry[model].Ports {
+			if p.PoECaps != 0 {
+				powered = append(powered, p.PortIdx)
+			}
+		}
+		if len(powered) != len(want) {
+			t.Errorf("%s powers %v, want %v", model, powered, want)
+			continue
+		}
+		for i := range want {
+			if powered[i] != want[i] {
+				t.Errorf("%s powers %v, want %v", model, powered, want)
+				break
+			}
+		}
+	}
 	// The non-PoE Pro Max 48 inherits its PoE sibling's PoE flag upstream.
 	if got := modelRegistry["USPM48"].Ports[0].PoECaps; got != 0 {
 		t.Errorf("USPM48 port 1 poe_caps = %d, want 0 (the PSE is on USPM48P)", got)

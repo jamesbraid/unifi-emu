@@ -12,20 +12,24 @@ import (
 // here so the inform package stays a pure reporter.
 func buildDescriptor(spec DeviceSpec, profile ModelProfile) inform.Descriptor {
 	return inform.Descriptor{
-		MAC:          spec.MAC,
-		Serial:       resolveSerial(spec),
-		Model:        spec.Model,
-		ModelDisplay: spec.ModelDisplay,
-		Version:      spec.Version,
-		IP:           spec.IP,
-		Hostname:     spec.Name,
-		Type:         profile.Type,
-		FWCaps:       resolveFWCaps(spec, profile),
-		UDAPIVersion: profile.UDAPIVersion,
-		UDAPICaps:    profile.UDAPICaps,
-		Ports:        resolvePorts(spec, profile),
-		Radios:       profile.Radios,
-		SSIDs:        spec.SSIDs,
+		MAC:            spec.MAC,
+		Serial:         resolveSerial(spec),
+		Model:          spec.Model,
+		ModelDisplay:   spec.ModelDisplay,
+		Version:        spec.Version,
+		IP:             spec.IP,
+		Hostname:       spec.Name,
+		Type:           profile.Type,
+		FWCaps:         resolveFWCaps(spec, profile),
+		UDAPIVersion:   profile.UDAPIVersion,
+		UDAPICaps:      profile.UDAPICaps,
+		Ports:          resolvePorts(spec, profile),
+		Radios:         profile.Radios,
+		SSIDs:          spec.SSIDs,
+		Outlets:        resolveOutlets(spec, profile),
+		PSUs:           profile.PSUs,
+		SmartPowerCaps: profile.SmartPowerCaps,
+		HWCaps:         profile.HWCaps,
 	}
 }
 
@@ -68,4 +72,26 @@ func resolvePorts(spec DeviceSpec, profile ModelProfile) []inform.Port {
 		})
 	}
 	return ports
+}
+
+// resolveOutlets returns the spec outlet-count override synthesized in the
+// profile's style, or the profile layout when no override is set. It mirrors
+// resolvePorts: a caller driving a synthetic fleet can ask for an N-outlet
+// power device without the catalogue carrying that exact model.
+func resolveOutlets(spec DeviceSpec, profile ModelProfile) []inform.Outlet {
+	if spec.Outlets <= 0 {
+		return profile.Outlets
+	}
+	outlets := make([]inform.Outlet, 0, spec.Outlets)
+	for i := 1; i <= spec.Outlets; i++ {
+		outlets = append(outlets, inform.Outlet{
+			Index:       i,
+			Name:        fmt.Sprintf("Outlet %d", i),
+			Group:       "standard",
+			HasRelay:    true,
+			HasMetering: true,
+			Caps:        inform.OutletCapHasRelay | inform.OutletCapPowerMeter | inform.OutletCapAC,
+		})
+	}
+	return outlets
 }

@@ -27,11 +27,17 @@ type firmwareCapsOverride struct {
 }
 
 type modelOverride struct {
-	Eth    *ethOverride             `json:"eth,omitempty"`
-	Radios map[string]radioOverride `json:"radios,omitempty"`
-	Ports  map[string]portOverride  `json:"ports,omitempty"`
-	UDAPI  *udapiOverride           `json:"udapi,omitempty"`
-	Source string                   `json:"source,omitempty"`
+	Display string                   `json:"display,omitempty"`
+	Eth     *ethOverride             `json:"eth,omitempty"`
+	Radios  map[string]radioOverride `json:"radios,omitempty"`
+	Ports   map[string]portOverride  `json:"ports,omitempty"`
+	// PoE restates whether the switch has a PSE at all. It is a pointer
+	// because the interesting case is false: the bundle marks a couple of
+	// non-PoE SKUs PoE-capable by inheriting their PoE sibling's record,
+	// and an absent key has to stay distinguishable from a deliberate no.
+	PoE    *bool          `json:"poe,omitempty"`
+	UDAPI  *udapiOverride `json:"udapi,omitempty"`
+	Source string         `json:"source,omitempty"`
 }
 
 // udapiOverride is what a model reports for the UDAPI config plane.
@@ -54,8 +60,15 @@ type ethOverride struct {
 type radioOverride struct {
 	NSS int `json:"nss,omitempty"`
 }
+
+// portOverride restates one of the bundle's port categories. Media replaces
+// the connector the category implies; Indexes replaces the set of port numbers
+// it covers, in the bundle's own "1-24,26" notation, and may name a category
+// the bundle omits entirely so a miscategorised port can be moved rather than
+// only relabelled.
 type portOverride struct {
-	Media string `json:"media,omitempty"`
+	Media   string `json:"media,omitempty"`
+	Indexes string `json:"indexes,omitempty"`
 }
 
 func loadOverrides(path string) (overrides, error) {
@@ -71,8 +84,9 @@ func loadOverrides(path string) (overrides, error) {
 }
 
 // applyOverride patches a derived catalog model. Eth builds the AP port
-// layout the bundle can't supply; Radios patch nss by band; Ports patch a
-// port's media by the bundle port category name (handled in derivation).
+// layout the bundle can't supply; Radios patch nss by band. Display, Ports
+// and PoE are consumed during derivation instead, because they decide what
+// gets derived rather than adjusting the result.
 func applyOverride(m *catalogModel, o modelOverride) {
 	if o.Eth != nil {
 		count := o.Eth.Count

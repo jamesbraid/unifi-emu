@@ -541,8 +541,12 @@ func harvestModels(models map[string]deviceDBModel, display map[string]string, f
 			continue
 		}
 		// fw_caps comes from the firmware branch, so it is looked up by
-		// type@version and applies to every model sharing that build.
-		if fc, ok := ov.FirmwareCaps[m.Type+"@"+m.Version]; ok {
+		// type@version and applies to every model sharing that build. A
+		// model measured to differ from its branch-mates can say so with
+		// a model@version entry, which wins.
+		if fc, ok := ov.FirmwareCaps[m.Model+"@"+m.Version]; ok {
+			m.FWCaps = fc.FWCaps
+		} else if fc, ok := ov.FirmwareCaps[m.Type+"@"+m.Version]; ok {
 			m.FWCaps = fc.FWCaps
 		}
 		if hasOverride {

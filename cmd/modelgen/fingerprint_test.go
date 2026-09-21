@@ -163,3 +163,40 @@ func TestMergeDisplayPrefersThePrimarySource(t *testing.T) {
 		}
 	}
 }
+
+// fw_caps is a property of a firmware branch for almost every model, so the
+// type-level entry is what a model normally gets. A model measured to differ
+// from its branch-mates -- a switch on a different chipset reports a different
+// switch bit than the model beside it on the same build -- says so with its own
+// entry, and that has to win rather than being averaged away by the branch.
+func TestFirmwareCapsPrefersTheModelEntry(t *testing.T) {
+	ov := overrides{FirmwareCaps: map[string]firmwareCapsOverride{
+		"usw@7.4.1":     {FWCaps: 111},
+		"USWED74@7.4.1": {FWCaps: 222},
+	}}
+	cases := []struct {
+		name  string
+		model string
+		typ   string
+		want  int
+	}{
+		{"a model with its own entry takes it", "USWED74", "usw", 222},
+		{"a model without one takes the branch's", "USWED76", "usw", 111},
+		// Neither key matching leaves the model on the placeholder rather
+		// than borrowing a bitmap nobody measured on it.
+		{"a model on an uncaptured branch gets nothing", "USWED76", "uap", 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := catalogModel{Model: tc.model, Type: tc.typ, Version: "7.4.1"}
+			if fc, ok := ov.FirmwareCaps[m.Model+"@"+m.Version]; ok {
+				m.FWCaps = fc.FWCaps
+			} else if fc, ok := ov.FirmwareCaps[m.Type+"@"+m.Version]; ok {
+				m.FWCaps = fc.FWCaps
+			}
+			if m.FWCaps != tc.want {
+				t.Errorf("fw_caps = %d, want %d", m.FWCaps, tc.want)
+			}
+		})
+	}
+}

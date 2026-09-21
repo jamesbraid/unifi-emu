@@ -8,16 +8,23 @@ import (
 
 type overrides struct {
 	Models map[string]modelOverride `json:"models"`
-	// FirmwareCaps is keyed "<type>@<version>", not by model, because
-	// fw_caps is a property of a firmware branch rather than of a SKU:
-	// three switch models on 7.4.1.16850 report byte-identical bitmaps,
-	// and within one AP firmware the whole model-to-model spread is a
-	// bit or two. Keying it per model would imply a precision the
-	// captures do not have, and would leave 96% of the catalog guessing.
+	// FirmwareCaps is keyed "<type>@<version>", because fw_caps is mostly
+	// a property of a firmware branch rather than of a SKU: three switch
+	// models on 7.4.1.16850 report byte-identical bitmaps, and within one
+	// AP firmware the whole model-to-model spread is a bit or two. Keying
+	// it per model throughout would imply a precision the captures do not
+	// have, and would leave 96% of the catalog guessing.
 	//
-	// A type@version with no entry gets nothing, so a model on firmware
-	// nobody has captured keeps the placeholder rather than borrowing a
-	// neighbour's bitmap.
+	// A "<model>@<version>" entry is also accepted, and wins where it
+	// exists. Mostly the branch is the right unit, but not always: models
+	// on one firmware can differ where the hardware does, and a switch
+	// built on a different chipset reports a different switch bit than its
+	// branch-mate. The per-model key is for a model measured to differ,
+	// not for filling in models nobody has captured.
+	//
+	// Neither key matching gets nothing, so a model on firmware nobody has
+	// captured keeps the placeholder rather than borrowing a neighbour's
+	// bitmap.
 	FirmwareCaps map[string]firmwareCapsOverride `json:"firmware_caps,omitempty"`
 }
 

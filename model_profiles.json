@@ -7787,84 +7787,84 @@
           "ifname": "eth12",
           "name": "Port 13",
           "port_idx": 13,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth13",
           "name": "Port 14",
           "port_idx": 14,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth14",
           "name": "Port 15",
           "port_idx": 15,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth15",
           "name": "Port 16",
           "port_idx": 16,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth16",
           "name": "Port 17",
           "port_idx": 17,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth17",
           "name": "Port 18",
           "port_idx": 18,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth18",
           "name": "Port 19",
           "port_idx": 19,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth19",
           "name": "Port 20",
           "port_idx": 20,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth20",
           "name": "Port 21",
           "port_idx": 21,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth21",
           "name": "Port 22",
           "port_idx": 22,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth22",
           "name": "Port 23",
           "port_idx": 23,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth23",
           "name": "Port 24",
           "port_idx": 24,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
@@ -7891,7 +7891,7 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7,
           "is_uplink": true
         },
@@ -7899,329 +7899,329 @@
           "ifname": "eth1",
           "name": "Port 2",
           "port_idx": 2,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth2",
           "name": "Port 3",
           "port_idx": 3,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth3",
           "name": "Port 4",
           "port_idx": 4,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth4",
           "name": "Port 5",
           "port_idx": 5,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth5",
           "name": "Port 6",
           "port_idx": 6,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth6",
           "name": "Port 7",
           "port_idx": 7,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth7",
           "name": "Port 8",
           "port_idx": 8,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth8",
           "name": "Port 9",
           "port_idx": 9,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth9",
           "name": "Port 10",
           "port_idx": 10,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth10",
           "name": "Port 11",
           "port_idx": 11,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth11",
           "name": "Port 12",
           "port_idx": 12,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth12",
           "name": "Port 13",
           "port_idx": 13,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth13",
           "name": "Port 14",
           "port_idx": 14,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth14",
           "name": "Port 15",
           "port_idx": 15,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth15",
           "name": "Port 16",
           "port_idx": 16,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth16",
           "name": "Port 17",
           "port_idx": 17,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth17",
           "name": "Port 18",
           "port_idx": 18,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth18",
           "name": "Port 19",
           "port_idx": 19,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth19",
           "name": "Port 20",
           "port_idx": 20,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth20",
           "name": "Port 21",
           "port_idx": 21,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth21",
           "name": "Port 22",
           "port_idx": 22,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth22",
           "name": "Port 23",
           "port_idx": 23,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth23",
           "name": "Port 24",
           "port_idx": 24,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth24",
           "name": "Port 25",
           "port_idx": 25,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth25",
           "name": "Port 26",
           "port_idx": 26,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth26",
           "name": "Port 27",
           "port_idx": 27,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth27",
           "name": "Port 28",
           "port_idx": 28,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth28",
           "name": "Port 29",
           "port_idx": 29,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth29",
           "name": "Port 30",
           "port_idx": 30,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth30",
           "name": "Port 31",
           "port_idx": 31,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth31",
           "name": "Port 32",
           "port_idx": 32,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth32",
           "name": "Port 33",
           "port_idx": 33,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth33",
           "name": "Port 34",
           "port_idx": 34,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth34",
           "name": "Port 35",
           "port_idx": 35,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth35",
           "name": "Port 36",
           "port_idx": 36,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth36",
           "name": "Port 37",
           "port_idx": 37,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth37",
           "name": "Port 38",
           "port_idx": 38,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth38",
           "name": "Port 39",
           "port_idx": 39,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth39",
           "name": "Port 40",
           "port_idx": 40,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth40",
           "name": "Port 41",
           "port_idx": 41,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth41",
           "name": "Port 42",
           "port_idx": 42,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth42",
           "name": "Port 43",
           "port_idx": 43,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth43",
           "name": "Port 44",
           "port_idx": 44,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth44",
           "name": "Port 45",
           "port_idx": 45,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth45",
           "name": "Port 46",
           "port_idx": 46,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth46",
           "name": "Port 47",
           "port_idx": 47,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth47",
           "name": "Port 48",
           "port_idx": 48,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
@@ -8260,7 +8260,7 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7,
           "is_uplink": true
         },
@@ -8268,49 +8268,49 @@
           "ifname": "eth1",
           "name": "Port 2",
           "port_idx": 2,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth2",
           "name": "Port 3",
           "port_idx": 3,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth3",
           "name": "Port 4",
           "port_idx": 4,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth4",
           "name": "Port 5",
           "port_idx": 5,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth5",
           "name": "Port 6",
           "port_idx": 6,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth6",
           "name": "Port 7",
           "port_idx": 7,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth7",
           "name": "Port 8",
           "port_idx": 8,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
@@ -8337,7 +8337,7 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7,
           "is_uplink": true
         },
@@ -8345,21 +8345,21 @@
           "ifname": "eth1",
           "name": "Port 2",
           "port_idx": 2,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth2",
           "name": "Port 3",
           "port_idx": 3,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth3",
           "name": "Port 4",
           "port_idx": 4,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
@@ -9124,26 +9124,26 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "GE",
+          "media": "10GbE",
           "is_uplink": true
         },
         {
           "ifname": "eth1",
           "name": "Port 2",
           "port_idx": 2,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth2",
           "name": "Port 3",
           "port_idx": 3,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth3",
           "name": "Port 4",
           "port_idx": 4,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth4",
@@ -15591,56 +15591,56 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "GE",
+          "media": "2.5GbE",
           "is_uplink": true
         },
         {
           "ifname": "eth1",
           "name": "Port 2",
           "port_idx": 2,
-          "media": "GE"
+          "media": "2.5GbE"
         },
         {
           "ifname": "eth2",
           "name": "Port 3",
           "port_idx": 3,
-          "media": "GE"
+          "media": "2.5GbE"
         },
         {
           "ifname": "eth3",
           "name": "Port 4",
           "port_idx": 4,
-          "media": "GE"
+          "media": "2.5GbE"
         },
         {
           "ifname": "eth4",
           "name": "Port 5",
           "port_idx": 5,
-          "media": "GE"
+          "media": "2.5GbE"
         },
         {
           "ifname": "eth5",
           "name": "Port 6",
           "port_idx": 6,
-          "media": "GE"
+          "media": "2.5GbE"
         },
         {
           "ifname": "eth6",
           "name": "Port 7",
           "port_idx": 7,
-          "media": "GE"
+          "media": "2.5GbE"
         },
         {
           "ifname": "eth7",
           "name": "Port 8",
           "port_idx": 8,
-          "media": "GE"
+          "media": "2.5GbE"
         },
         {
           "ifname": "eth8",
           "name": "Port 9",
           "port_idx": 9,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth9",
@@ -15660,7 +15660,7 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7,
           "is_uplink": true
         },
@@ -15668,56 +15668,56 @@
           "ifname": "eth1",
           "name": "Port 2",
           "port_idx": 2,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth2",
           "name": "Port 3",
           "port_idx": 3,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth3",
           "name": "Port 4",
           "port_idx": 4,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth4",
           "name": "Port 5",
           "port_idx": 5,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth5",
           "name": "Port 6",
           "port_idx": 6,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth6",
           "name": "Port 7",
           "port_idx": 7,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth7",
           "name": "Port 8",
           "port_idx": 8,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth8",
           "name": "Port 9",
           "port_idx": 9,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
@@ -17507,7 +17507,7 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7,
           "is_uplink": true
         },
@@ -17515,161 +17515,161 @@
           "ifname": "eth1",
           "name": "Port 2",
           "port_idx": 2,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth2",
           "name": "Port 3",
           "port_idx": 3,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth3",
           "name": "Port 4",
           "port_idx": 4,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth4",
           "name": "Port 5",
           "port_idx": 5,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth5",
           "name": "Port 6",
           "port_idx": 6,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth6",
           "name": "Port 7",
           "port_idx": 7,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth7",
           "name": "Port 8",
           "port_idx": 8,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth8",
           "name": "Port 9",
           "port_idx": 9,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth9",
           "name": "Port 10",
           "port_idx": 10,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth10",
           "name": "Port 11",
           "port_idx": 11,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth11",
           "name": "Port 12",
           "port_idx": 12,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth12",
           "name": "Port 13",
           "port_idx": 13,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth13",
           "name": "Port 14",
           "port_idx": 14,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth14",
           "name": "Port 15",
           "port_idx": 15,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth15",
           "name": "Port 16",
           "port_idx": 16,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth16",
           "name": "Port 17",
           "port_idx": 17,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth17",
           "name": "Port 18",
           "port_idx": 18,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth18",
           "name": "Port 19",
           "port_idx": 19,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth19",
           "name": "Port 20",
           "port_idx": 20,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth20",
           "name": "Port 21",
           "port_idx": 21,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth21",
           "name": "Port 22",
           "port_idx": 22,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth22",
           "name": "Port 23",
           "port_idx": 23,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth23",
           "name": "Port 24",
           "port_idx": 24,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
@@ -18050,7 +18050,7 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7,
           "is_uplink": true
         },
@@ -18058,161 +18058,161 @@
           "ifname": "eth1",
           "name": "Port 2",
           "port_idx": 2,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth2",
           "name": "Port 3",
           "port_idx": 3,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth3",
           "name": "Port 4",
           "port_idx": 4,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth4",
           "name": "Port 5",
           "port_idx": 5,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth5",
           "name": "Port 6",
           "port_idx": 6,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth6",
           "name": "Port 7",
           "port_idx": 7,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth7",
           "name": "Port 8",
           "port_idx": 8,
-          "media": "GE",
+          "media": "2.5GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth8",
           "name": "Port 9",
           "port_idx": 9,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth9",
           "name": "Port 10",
           "port_idx": 10,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth10",
           "name": "Port 11",
           "port_idx": 11,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth11",
           "name": "Port 12",
           "port_idx": 12,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth12",
           "name": "Port 13",
           "port_idx": 13,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth13",
           "name": "Port 14",
           "port_idx": 14,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth14",
           "name": "Port 15",
           "port_idx": 15,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth15",
           "name": "Port 16",
           "port_idx": 16,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth16",
           "name": "Port 17",
           "port_idx": 17,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth17",
           "name": "Port 18",
           "port_idx": 18,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth18",
           "name": "Port 19",
           "port_idx": 19,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth19",
           "name": "Port 20",
           "port_idx": 20,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth20",
           "name": "Port 21",
           "port_idx": 21,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth21",
           "name": "Port 22",
           "port_idx": 22,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth22",
           "name": "Port 23",
           "port_idx": 23,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
           "ifname": "eth23",
           "name": "Port 24",
           "port_idx": 24,
-          "media": "GE",
+          "media": "10GbE",
           "poe_caps": 7
         },
         {
@@ -18263,146 +18263,146 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "GE",
+          "media": "2.5GbE",
           "is_uplink": true
         },
         {
           "ifname": "eth1",
           "name": "Port 2",
           "port_idx": 2,
-          "media": "GE"
+          "media": "2.5GbE"
         },
         {
           "ifname": "eth2",
           "name": "Port 3",
           "port_idx": 3,
-          "media": "GE"
+          "media": "2.5GbE"
         },
         {
           "ifname": "eth3",
           "name": "Port 4",
           "port_idx": 4,
-          "media": "GE"
+          "media": "2.5GbE"
         },
         {
           "ifname": "eth4",
           "name": "Port 5",
           "port_idx": 5,
-          "media": "GE"
+          "media": "2.5GbE"
         },
         {
           "ifname": "eth5",
           "name": "Port 6",
           "port_idx": 6,
-          "media": "GE"
+          "media": "2.5GbE"
         },
         {
           "ifname": "eth6",
           "name": "Port 7",
           "port_idx": 7,
-          "media": "GE"
+          "media": "2.5GbE"
         },
         {
           "ifname": "eth7",
           "name": "Port 8",
           "port_idx": 8,
-          "media": "GE"
+          "media": "2.5GbE"
         },
         {
           "ifname": "eth8",
           "name": "Port 9",
           "port_idx": 9,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth9",
           "name": "Port 10",
           "port_idx": 10,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth10",
           "name": "Port 11",
           "port_idx": 11,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth11",
           "name": "Port 12",
           "port_idx": 12,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth12",
           "name": "Port 13",
           "port_idx": 13,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth13",
           "name": "Port 14",
           "port_idx": 14,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth14",
           "name": "Port 15",
           "port_idx": 15,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth15",
           "name": "Port 16",
           "port_idx": 16,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth16",
           "name": "Port 17",
           "port_idx": 17,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth17",
           "name": "Port 18",
           "port_idx": 18,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth18",
           "name": "Port 19",
           "port_idx": 19,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth19",
           "name": "Port 20",
           "port_idx": 20,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth20",
           "name": "Port 21",
           "port_idx": 21,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth21",
           "name": "Port 22",
           "port_idx": 22,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth22",
           "name": "Port 23",
           "port_idx": 23,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth23",
           "name": "Port 24",
           "port_idx": 24,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth24",
@@ -21194,146 +21194,146 @@
           "ifname": "eth0",
           "name": "Port 1",
           "port_idx": 1,
-          "media": "GE",
+          "media": "10GbE",
           "is_uplink": true
         },
         {
           "ifname": "eth1",
           "name": "Port 2",
           "port_idx": 2,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth2",
           "name": "Port 3",
           "port_idx": 3,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth3",
           "name": "Port 4",
           "port_idx": 4,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth4",
           "name": "Port 5",
           "port_idx": 5,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth5",
           "name": "Port 6",
           "port_idx": 6,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth6",
           "name": "Port 7",
           "port_idx": 7,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth7",
           "name": "Port 8",
           "port_idx": 8,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth8",
           "name": "Port 9",
           "port_idx": 9,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth9",
           "name": "Port 10",
           "port_idx": 10,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth10",
           "name": "Port 11",
           "port_idx": 11,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth11",
           "name": "Port 12",
           "port_idx": 12,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth12",
           "name": "Port 13",
           "port_idx": 13,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth13",
           "name": "Port 14",
           "port_idx": 14,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth14",
           "name": "Port 15",
           "port_idx": 15,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth15",
           "name": "Port 16",
           "port_idx": 16,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth16",
           "name": "Port 17",
           "port_idx": 17,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth17",
           "name": "Port 18",
           "port_idx": 18,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth18",
           "name": "Port 19",
           "port_idx": 19,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth19",
           "name": "Port 20",
           "port_idx": 20,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth20",
           "name": "Port 21",
           "port_idx": 21,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth21",
           "name": "Port 22",
           "port_idx": 22,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth22",
           "name": "Port 23",
           "port_idx": 23,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth23",
           "name": "Port 24",
           "port_idx": 24,
-          "media": "GE"
+          "media": "10GbE"
         },
         {
           "ifname": "eth24",

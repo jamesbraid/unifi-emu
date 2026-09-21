@@ -70,12 +70,20 @@ func TestGeneratedModelRegistryMatchesControllerMetadata(t *testing.T) {
 		}
 	}
 	// The ECS-24S pair's 24 access ports are RJ45, and the hardware DB calls
-	// them SFP+. Only the PoE SKU powers them.
+	// them SFP+. The bank is split by speed -- eight at 2.5G, sixteen at
+	// 10G -- which the source describes as one gigabit category. Only the
+	// PoE SKU powers them, and it powers them at those speeds: PoE follows
+	// copper, not gigabit specifically.
 	for model, wantPoE := range map[string]int{"USWF004": 7, "USWF005": 0} {
-		port := modelRegistry[model].Ports[0]
-		if port.Media != "GE" || port.PoECaps != wantPoE {
-			t.Errorf("%s port 1 = media %q poe_caps %d, want GE and %d",
-				model, port.Media, port.PoECaps, wantPoE)
+		ports := modelRegistry[model].Ports
+		if got := ports[0].Media; got != "2.5GbE" {
+			t.Errorf("%s port 1 media = %q, want 2.5GbE", model, got)
+		}
+		if got := ports[8].Media; got != "10GbE" {
+			t.Errorf("%s port 9 media = %q, want 10GbE", model, got)
+		}
+		if got := ports[0].PoECaps; got != wantPoE {
+			t.Errorf("%s port 1 poe_caps = %d, want %d", model, got, wantPoE)
 		}
 	}
 	// The non-PoE Pro Max 48 inherits its PoE sibling's PoE flag upstream.

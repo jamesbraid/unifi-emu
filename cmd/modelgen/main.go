@@ -743,6 +743,15 @@ func switchMetadataPorts(meta deviceDBModel, o modelOverride) ([]catalogPort, er
 		{"plus", "SFP+"},
 		{"sfp28", "SFP28"},
 		{"qsfp28", "QSFP28"},
+		// Copper above a gigabit. The source describes every RJ45 port as
+		// "standard" whatever it negotiates, so a switch with a mixed
+		// copper bank -- twelve gigabit ports beside twelve 2.5G ones, or
+		// a 2.5G bank with a 10G uplink port -- cannot say so through
+		// that one category. These carry no ports on their own and exist
+		// for an override to move indexes into, which is the only way the
+		// faster half of such a bank gets described.
+		{"multigig2.5", "2.5GbE"},
+		{"multigig10", "10GbE"},
 	} {
 		po, patched := o.Ports[category.name]
 		raw, ok := meta.Ports[category.name]
@@ -780,8 +789,12 @@ func switchMetadataPorts(meta deviceDBModel, o modelOverride) ([]catalogPort, er
 	sort.Ints(indexes)
 	ports := make([]catalogPort, 0, len(indexes))
 	for _, idx := range indexes {
+		// PoE runs over copper, at whatever speed the port negotiates.
+		// Testing for gigabit specifically was safe only while every
+		// copper port was described as gigabit; a 2.5G or 10G PoE port
+		// would silently lose its power.
 		poeCaps := 0
-		if poe && mediaByIndex[idx] == "GE" {
+		if poe && isCopper(mediaByIndex[idx]) {
 			poeCaps = 7
 		}
 		ports = append(ports, catalogPort{
@@ -1198,5 +1211,18 @@ func main() {
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "modelgen:", err)
 		os.Exit(1)
+	}
+}
+
+// isCopper reports whether a media token describes an RJ45 port. Power over
+// Ethernet and the copper-only features key off this rather than off gigabit,
+// which stopped being a synonym for copper once the faster RJ45 ports were
+// described as what they are.
+func isCopper(media string) bool {
+	switch media {
+	case "GE", "FE", "2.5GbE", "10GbE":
+		return true
+	default:
+		return false
 	}
 }

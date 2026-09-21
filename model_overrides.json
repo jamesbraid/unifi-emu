@@ -506,21 +506,51 @@
       },
       "source": "techspecs.ui.com networking-interface (fingerprint sku U7-Outdoor)"
     },
+    "US624P": {
+      "ports": {
+        "multigig2.5": {
+          "indexes": "13-24"
+        }
+      },
+      "source": "https://techspecs.ui.com/unifi/switching/usw-enterprise-24-poe: the copper bank is split, 12x 1GbE then 12x 2.5GbE, with 2x 10G SFP+ uplinks"
+    },
     "US648P": {
       "ports": {
         "plus": {
           "indexes": "49-52"
+        },
+        "multigig2.5": {
+          "indexes": "1-48"
         }
       },
-      "source": "https://techspecs.ui.com/unifi/switching/usw-enterprise-48-poe: 48x 2.5GbE RJ45 (all PoE+) + 4x 10G SFP+ = 52 ports. The bundle says plus 49-54, contradicting its own numberOfPorts of 52"
+      "source": "https://techspecs.ui.com/unifi/switching/usw-enterprise-48-poe: 48x 2.5GbE RJ45 (all PoE+) + 4x 10G SFP+ = 52 ports. The bundle says plus 49-54, contradicting its own numberOfPorts of 52 | https://techspecs.ui.com/unifi/switching/usw-enterprise-48-poe: all 48 copper ports are 2.5GbE, not gigabit"
     },
     "US68P": {
       "ports": {
         "sfp": {
           "media": "SFP+"
+        },
+        "multigig2.5": {
+          "indexes": "1-8"
         }
       },
-      "source": "https://techspecs.ui.com/unifi/switching/usw-enterprise-8-poe: the 2 uplinks are 10G SFP+, not 1G SFP"
+      "source": "https://techspecs.ui.com/unifi/switching/usw-enterprise-8-poe: the 2 uplinks are 10G SFP+, not 1G SFP | https://techspecs.ui.com/unifi/switching/usw-enterprise-8-poe: the 8 copper ports are 2.5GbE, not gigabit"
+    },
+    "US6XG150": {
+      "ports": {
+        "multigig10": {
+          "indexes": "1-4"
+        }
+      },
+      "source": "https://techspecs.ui.com/unifi/switching/us-xg-6poe: the 4 copper ports negotiate up to 10GbE, not gigabit"
+    },
+    "USFXG": {
+      "ports": {
+        "multigig10": {
+          "indexes": "1-4"
+        }
+      },
+      "source": "https://techspecs.ui.com/unifi/switching/usw-flex-xg: 4x 10GbE RJ45 plus a single gigabit management port"
     },
     "USM8P": {
       "ports": {
@@ -554,25 +584,40 @@
       "ports": {
         "plus": {
           "indexes": "10"
+        },
+        "multigig2.5": {
+          "indexes": "1-8"
+        },
+        "multigig10": {
+          "indexes": "9"
         }
       },
-      "source": "https://techspecs.ui.com/unifi/switching/usw-flex-2-5g-8: 8x 2.5GbE RJ45 + a 10GbE RJ45 / 10G SFP+ combo pair. The bundle records both halves of the pair as copper"
+      "source": "https://techspecs.ui.com/unifi/switching/usw-flex-2-5g-8: 8x 2.5GbE RJ45 + a 10GbE RJ45 / 10G SFP+ combo pair. The bundle records both halves of the pair as copper | https://techspecs.ui.com/unifi/switching/usw-flex-2-5g-8: 8x 2.5GbE RJ45 plus a 10GbE RJ45 half of the combo pair"
     },
     "USWED37": {
       "ports": {
         "plus": {
           "indexes": "10"
+        },
+        "multigig2.5": {
+          "indexes": "1-8"
+        },
+        "multigig10": {
+          "indexes": "9"
         }
       },
-      "source": "https://techspecs.ui.com/unifi/switching/usw-flex-2-5g-8-poe: 8x 2.5GbE RJ45 (PoE++) + a 10GbE RJ45 / 10G SFP+ combo pair. The bundle records both halves of the pair as copper"
+      "source": "https://techspecs.ui.com/unifi/switching/usw-flex-2-5g-8-poe: 8x 2.5GbE RJ45 (PoE++) + a 10GbE RJ45 / 10G SFP+ combo pair. The bundle records both halves of the pair as copper | https://techspecs.ui.com/unifi/switching/usw-flex-2-5g-8-poe: 8x 2.5GbE RJ45 plus a 10GbE RJ45 half of the combo pair"
     },
     "USWF001": {
       "ports": {
         "sfp28": {
           "media": "QSFP28"
+        },
+        "multigig10": {
+          "indexes": "1-24"
         }
       },
-      "source": "https://techspecs.ui.com/unifi/switching/eav-xg-24-poe: 24x 10GbE RJ45 (all PoE+++) + 4x 100G QSFP28 uplinks"
+      "source": "https://techspecs.ui.com/unifi/switching/eav-xg-24-poe: 24x 10GbE RJ45 (all PoE+++) + 4x 100G QSFP28 uplinks | https://techspecs.ui.com/unifi/switching/eav-xg-24-poe: the 24 copper ports are 10GbE, not gigabit"
     },
     "USWF002": {
       "ports": {
@@ -586,25 +631,40 @@
       "ports": {
         "plus": {
           "media": "GE"
+        },
+        "multigig2.5": {
+          "indexes": "1-8"
+        },
+        "multigig10": {
+          "indexes": "9-24"
         }
       },
-      "source": "https://techspecs.ui.com/unifi/switching/ecs-24s-poe: the 24 access ports are RJ45 (8x 2.5GbE + 16x 10GbE), all PoE+++, not SFP+"
+      "source": "https://techspecs.ui.com/unifi/switching/ecs-24s-poe: the 24 access ports are RJ45 (8x 2.5GbE + 16x 10GbE), all PoE+++, not SFP+ | https://techspecs.ui.com/unifi/switching/ecs-24s-poe: the copper bank is split, 8x 2.5GbE then 16x 10GbE"
     },
     "USWF005": {
       "ports": {
         "plus": {
           "media": "GE"
+        },
+        "multigig2.5": {
+          "indexes": "1-8"
+        },
+        "multigig10": {
+          "indexes": "9-24"
         }
       },
-      "source": "https://techspecs.ui.com/unifi/switching/ecs-24s: the 24 access ports are RJ45 (8x 2.5GbE + 16x 10GbE), not SFP+"
+      "source": "https://techspecs.ui.com/unifi/switching/ecs-24s: the 24 access ports are RJ45 (8x 2.5GbE + 16x 10GbE), not SFP+ | https://techspecs.ui.com/unifi/switching/ecs-24s: the copper bank is split, 8x 2.5GbE then 16x 10GbE"
     },
     "USXG24": {
       "ports": {
         "plus": {
           "media": "SFP28"
+        },
+        "multigig10": {
+          "indexes": "1-24"
         }
       },
-      "source": "https://techspecs.ui.com/unifi/switching/usw-enterprisexg-24: the 2 uplinks are 25G SFP28, not 10G SFP+"
+      "source": "https://techspecs.ui.com/unifi/switching/usw-enterprisexg-24: the 2 uplinks are 25G SFP28, not 10G SFP+ | https://techspecs.ui.com/unifi/switching/usw-enterprisexg-24: the 24 copper ports are 10GbE, not gigabit"
     },
     "UXBSDM": {
       "radios": {

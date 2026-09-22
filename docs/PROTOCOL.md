@@ -127,7 +127,7 @@ the wire.
 
 Per device type, adopted only:
 
-- **Gateway** (`ugw`/`uxg`/`udm`/`ucg`): `if_table`, `config_network_wan`,
+- **Gateway** (`ugw`/`uxg`/`udm`/`ucg`): `if_table`, `network_table`, `config_network_wan`,
   `uplink` (**a string**, not an object), `system-stats` (`cpu`, `mem`,
   `uptime`) and `cfgversion`. Everything else about the gateway's network state
   is derived from `if_table`. Full detail under *Gateway payload* below.
@@ -172,7 +172,10 @@ rather than failing the inform.
 Two consequences bite in practice. A `system-stats` block sent as
 `{"cpu": "1.5"}` is read by the gateway path with an int accessor — `"1.5"` is
 not a decimal integer, so it stores `0`, while the time-series path reads the
-same key as a double and stores `1.5`. And a misspelled key is not an error: it
+same key as a double and stores `1.5`. A real gateway sends fractional strings
+here (`"cpu": "13.9"`) and displays a figure regardless, so the int path's zero
+evidently costs it nothing visible; whole numbers satisfy both readers and cost
+nothing either. And a misspelled key is not an error: it
 is silently dropped, never reaches the device document, and produces no log
 line. Spelling is the whole contract.
 
@@ -677,6 +680,14 @@ different shape again (`uplink_mac`, `uplink_remote_port`, `media`, `max_vlan`),
 which is why the two public clients model `uplink` differently — they model
 different device classes, and both are right.
 
+One observation to set beside the mechanism. Switches on current firmware
+(7.5.x) send the string; switches on older 7.3.x firmware have been seen
+sending `uplink` as an *object* in the port-stats shape (`name`, `port_idx`,
+`media`, `max_speed`, `type: "wire"`, counters), and those switches still show
+a parent. The generic path's fallback to the device's own port stats is the
+likely route. A device on current firmware sends the string and does not rely
+on it.
+
 ### What a gateway must send
 
 - `if_table` — the authoritative interface list. Everything else about the
@@ -688,9 +699,15 @@ different device classes, and both are right.
 - `system-stats` — `cpu`, `mem`, `uptime`.
 - `cfgversion` — echoed from the last `setparam`.
 
-Should send: `network_table`, `config_port_table`, `port_overrides`,
-`config_network_lan`, `config_network_wan2` on dual-WAN models, `usg_caps` and
-the `has_*` feature flags.
+Should send, and a real gateway does:
+
+- `network_table` — its networks, keyed by interface (below).
+- `usg_caps`, and the `has_*` booleans that say the same thing — a real
+  gateway sends both, `has_default_route_distance` and `has_ssh_disable` true
+  with bits 4 and 8 set to match. See *Capability bitmaps*.
+- `hw_caps`, when non-zero — read on the gateway path as on every other.
+- `config_port_table`, `port_overrides`, `config_network_lan`, and
+  `config_network_wan2` on dual-WAN models.
 
 Need not bother sending:
 
@@ -737,6 +754,19 @@ only ones worth populating accurately. Link state and addressing: `ip`,
 `rx_dropped`, `rx_errors`, `rx_packets`, `tx_bytes`, `tx_dropped`, `tx_errors`,
 `tx_packets`, `rx_multicast`. Anything else in the entry stays behind.
 
+**How many entries.** One per layer-3 interface, not one per port. A switch
+sends exactly one — its management interface, `eth0`, with `num_port` set to
+the number of ports behind it; a 32-port aggregation switch reports a single
+row with `num_port: 32`. A gateway sends one per interface that carries an
+address of its own, which is its WAN uplinks: a captured gateway lists three
+(its WAN-capable ports) and none of its LAN ports, which sit behind the `br0`
+bridge reported in `network_table`. Real gateway rows also carry `comment` (the
+port label), `physical_ports` (the port indexes behind the interface),
+`gateway_present` (`["ipv4", "ipv6"]`), `latency`, `uptime`, `rx_rate`/`tx_rate`,
+`drops`, `xput_down`/`xput_up` and the `speedtest_*` trio; they carry `gateways`
+but, on current firmware, no `nameservers`. A real switch row is the bare set:
+link state, addressing, `num_port`, counters.
+
 ### `config_port_table`, and the tables the controller builds
 
 The gateway's `port_table` is assembled by the controller from three inputs: a
@@ -766,29 +796,40 @@ that stops reporting it loses its port layout.
 
 ### `network_table`
 
-Top-level array describing the *networks* configured on the gateway, as distinct
-from the physical interfaces.
+Top-level array: the gateway's networks, as distinct from its physical ports. On
+the wire a real gateway keys it **by interface**, one row per layer-3 interface
+— the WAN uplinks by name (`eth4`) and each LAN as its bridge (`br0`, `br2`, …)
+— and a row is link state and addressing, not DHCP settings or purpose:
 
 | Key | Type | Notes |
 |---|---|---|
-| `name` | string | Network / bridge name, e.g. `br0`. The join key. |
-| `ifname` | string | Joins to `if_table[].name`. |
-| `ip` | string | IPv4 address on this network. |
-| `mac` | string | MAC. |
-| `nameservers` | array of string | Become the uplink's `dns`. |
-| `gateways` | array of string | Element 0 becomes the uplink's `gateway`. |
-| `addresses` | array of string | **IPv6 addresses.** The controller filters to the entry named `br0`, flattens its `addresses`, and stores the result as the device's `ipv6`. This is the only route by which a gateway's IPv6 addresses reach the controller. |
+| `name` | string | Interface name — `eth4`, `br0`. The join key. |
+| `mac` | string | Interface MAC. |
+| `up` | bool | Link up. |
+| `address` | string | Primary address as CIDR, `a.b.c.d/nn`. |
+| `addresses` | array of string | Every address as CIDR, IPv4 and IPv6 together. **The controller filters to the row named `br0`, flattens its `addresses`, and stores the result as the device's `ipv6`** — the only route by which a gateway's IPv6 addresses reach the controller. |
+| `deprecated_addresses` | array of string | Usually empty. |
+| `autoneg`, `duplex`, `mtu`, `speed` | **strings** | `"true"`, `"full"` / `"half"`, `"1500"`, `"25000"` — strings on the wire, not numbers or booleans. A bridge reports the placeholders a bridge has: `"10"`, `"half"`. |
+| `stats` | object | Per-interface counters: `rx_bytes`, `tx_bytes`, `rx_rate`, `tx_rate`, packets, drops, errors, and `multicast` as a string. |
+| `dhcpv6_pd` | array of string | WAN rows only: delegated IPv6 prefixes. |
+| `active_dhcp_lease_count` | int | Bridge (LAN) rows only. |
 
-Captured gateway payloads show a much wider entry — the `dhcpd_*` family
-(`dhcpd_enabled`, `dhcpd_start`, `dhcpd_stop`, `dhcpd_leasetime`,
-`dhcpd_dns_enabled`, `dhcpd_gateway_enabled`, …), `ip_subnet`, `purpose`,
-`networkgroup`, `vlan`, `vlan_enabled`, `is_guest`, `is_nat`, `domain_name`,
-`num_sta`, and per-network counters
+The controller would also read `nameservers` and `gateways` off the WAN row —
+element 0 of `gateways` becoming the uplink's `gateway` — and an `ifname` and
+`ip`. A real gateway on current firmware sends none of those here; it carries
+the route in `if_table` instead, so a device that reports `gateways` there
+needs nothing more.
+
+What the controller's REST output shows under `network_table` is a much wider,
+merged row — the `dhcpd_*` family (`dhcpd_enabled`, `dhcpd_start`, `dhcpd_stop`,
+`dhcpd_leasetime`, `dhcpd_dns_enabled`, `dhcpd_gateway_enabled`, …), `ip_subnet`,
+`purpose`, `networkgroup`, `vlan`, `vlan_enabled`, `is_guest`, `is_nat`,
+`domain_name`, `num_sta` and per-network counters
 ([`examples/ugw.json`](https://github.com/unpoller/unifi/blob/6f40ea1881efda07c91edd52eedc854594c76697/examples/ugw.json);
 [aiounifi `TypedDeviceNetworkTable`](https://github.com/Kane610/aiounifi/blob/7154e750dd0f1c7415b9c390fb2053f251c13a92/aiounifi/models/device.py#L70-L104)).
-`purpose` (`"wan"`) and `networkgroup` (`WAN` / `WAN2`) are what mark a row as
-the WAN. Those keys are stored and republished; `address`, `dhcpv6_pd` and
-`stats` are carried but **unconfirmed** as inputs to anything.
+Those come from the controller's own network configuration joined onto the
+row — `purpose` (`"wan"`) and `networkgroup` (`WAN` / `WAN2`) are how it marks
+the WAN — and are not inform-side keys.
 
 ### `config_network_wan` and `config_network_wan2`
 
@@ -853,8 +894,11 @@ without one — it appears in no client, no fixture and no captured
 `/stat/device` payload, which is unsurprising: it is an inform-side key, and the
 public corpus is built from the controller's REST output. Captured payloads
 carry a *different*, much smaller `config_network` (`{"ip", "type"}`) that is
-not the same field. The WAN port-level settings `autoneg`, `fec`, `full_duplex`
-and `speed` are in the vocabulary but **unconfirmed**.
+not the same field. A captured gateway on DHCP sends
+`{"type": "dhcp", "autoneg": true, "full_duplex": true, "speed": "auto",
+"dhcp_options": []}`, and the same again as `config_network_wan2`, so the
+port-level `autoneg`, `full_duplex` and `speed` are confirmed on the wire; `fec`
+remains **unconfirmed**.
 
 ### `config_network_lan`
 
@@ -881,7 +925,9 @@ sends. Both go on the wire.
 | `mem` | same two readers as `cpu` | Memory percentage |
 | `uptime` | int | Seconds since boot |
 
-Send integers — see *Value coercion*. `"1.5"` reads as `0` on the int path.
+Send integers — see *Value coercion*. `"1.5"` reads as `0` on the int path;
+a real gateway sends `"13.9"` and gets away with it, but a whole number costs
+nothing.
 
 ### `speedtest-status`
 
@@ -1168,7 +1214,14 @@ config against a gateway that never reported the routing bit answers
   among the 22 the controller checks, so it reads as a claim to nothing. Don't
   assume any other small value is equally safe.
 - **`udapi_caps`** — a top-level int, sent only alongside `udapi_version` (see
-  the pairing rule above). Gates the newer UDAPI config-plane features.
+  the pairing rule above). Gates the newer UDAPI config-plane features. On
+  the wire a real UniFi OS gateway's `udapi_version` is not a version string
+  but a sub-document — `{"path": "/system/ubios/<family>/configuration",
+  "version": <int>, "versionDetail": {"firewall/pbr": 10, "routes/static":
+  3, …}, "versionFormat": "v2"}` — where `versionDetail` maps each config
+  schema path to the schema version the device speaks, and the controller
+  gates per-feature config generation on those. Any non-empty object clears
+  the whole-payload drop; the schema map is what turns features on.
 - **`switch_caps`** — a nested object, not a single int: several sub-bitmaps
   under `switch_caps.*` (feature caps, STP caps, storm-control caps, IGMP-snoop
   caps, PTP caps), each its own int.
@@ -1178,7 +1231,13 @@ config against a gateway that never reported the routing bit answers
   redundant-power-supply port) and `UNIFI_HW_CAP_OUTLET` (128, the device has
   switchable outlets). The outlet bit is ORed with the model's own
   smart-outlet features, so a model the controller already knows has outlets
-  does not need to claim it.
+  does not need to claim it. It is read on the gateway path too. Values
+  captured from real units: a UDM-family gateway `8` (LCM); USP-PDU-Pro `136`
+  (outlet + LCM); Aggregation Pro and Enterprise-48-PoE `24` (LCM + RPS);
+  Lite-8-PoE `8`; Flex `8192` (802.3bt type 3 — the class of power the switch
+  *takes*); Wi-Fi 6/7 APs their PoE class (`2048` 802.3af, `4096` 802.3at)
+  plus `512` accelerometer and `2` LED bar where fitted; `0` on the US-8,
+  Lite-16 and Ultra lines.
 - **`fw2_caps`** and **`fw3_caps`** — two more top-level ints alongside
   `fw_caps`, in the same style.
 - **`smart_power_caps`** — a top-level int on power and UPS devices. It gates
@@ -1227,7 +1286,14 @@ config against a gateway that never reported the routing bit answers
   from four legacy booleans in the same inform before storing — `has_dpi` sets
   bit 1, `has_porta` bit 2, `has_default_route_distance` bit 4, `has_ssh_disable`
   bit 8 — and a non-zero `radius_caps` sets bit 16. A gateway can therefore
-  express these four features either way.
+  express these four features either way. A gateway on current firmware does
+  both: it sends `has_default_route_distance: true` and `has_ssh_disable: true`
+  alongside a `usg_caps` with bits 4 and 8 already set — and sets neither
+  `has_dpi` nor `has_porta`, with bits 1 and 2 clear. Its bitmap otherwise
+  claims most of the higher bits (DPI without offload, IPS, geo-IP filtering,
+  the traffic rules, jumbo frames, …). An emulated gateway claims bits 4 and 8
+  and the two booleans, and nothing the controller would offer against a
+  device that cannot serve it.
 - **`radius_caps`** — a top-level int that is never masked, only tested for
   non-zero. Any non-zero value behaves identically.
 

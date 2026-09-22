@@ -123,17 +123,39 @@ func TestUXGEnterprisePayloadReportsUDAPICaps(t *testing.T) {
 	}
 }
 
-// Only UXG-Enterprise has UDAPI routing among the gateways that adopt by
-// inform. Claiming it elsewhere makes the controller offer BGP against a
-// device that answers 404 for it -- worse than not claiming it.
-func TestOtherGatewaysReportNoUDAPICaps(t *testing.T) {
-	for _, model := range []string{"UXG", "UXGB", "UXGA6AA", "UXGPRO", "UGW3", "UGW4", "UGWXG"} {
+// The uxg line runs UniFiOS, whose capability-copy routine drops the entire
+// inform payload -- if_table, uplink, port_table, the lot -- when a device on
+// firmware >= 4.1.0 reports no udapi_version. So every uxg must report a
+// non-empty udapi_version to be stored at all. It reports zero caps, though:
+// only UXG-Enterprise (covered above) actually routes, and claiming BGP on a
+// device that answers 404 for it is worse than claiming nothing.
+func TestOtherUXGReportUDAPIVersionButNoCaps(t *testing.T) {
+	for _, model := range []string{"UXG", "UXGB", "UXGA6AA", "UXGPRO"} {
 		t.Run(model, func(t *testing.T) {
 			d := mustDevice(t, DeviceSpec{MAC: "00:27:22:e0:00:03", Model: model, IP: "10.0.0.3"})
 			markAdopted(d)
+			caps, hasCaps, hasVersion := udapiKeys(t, decodePayload(t, d))
+			if !hasVersion {
+				t.Errorf("%s reports no udapi_version; its whole payload would be dropped", model)
+			}
+			if !hasCaps || caps != 0 {
+				t.Errorf("%s udapi_caps = %v (present=%v); want 0, claiming no routing", model, caps, hasCaps)
+			}
+		})
+	}
+}
+
+// The legacy USG line (ugw) is not on the UniFiOS capability path and has no
+// udapi_version gate, so it reports neither key -- sending them would be a
+// claim the classic firmware never makes.
+func TestLegacyGatewaysReportNoUDAPI(t *testing.T) {
+	for _, model := range []string{"UGW3", "UGW4", "UGWXG"} {
+		t.Run(model, func(t *testing.T) {
+			d := mustDevice(t, DeviceSpec{MAC: "00:27:22:e0:00:04", Model: model, IP: "10.0.0.4"})
+			markAdopted(d)
 			_, hasCaps, hasVersion := udapiKeys(t, decodePayload(t, d))
 			if hasCaps || hasVersion {
-				t.Errorf("udapi_caps present=%v, udapi_version present=%v; want neither", hasCaps, hasVersion)
+				t.Errorf("udapi_caps present=%v, udapi_version present=%v; want neither on legacy ugw", hasCaps, hasVersion)
 			}
 		})
 	}

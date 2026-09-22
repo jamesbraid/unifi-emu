@@ -758,6 +758,27 @@
       },
       "source": "nss by analogy with UWB-XG (techspecs.ui.com/unifi/wifi/uwb-xg, 4x4): the black SKU has no tech-specs page of its own, and fingerprint e585 carries the same radio block as e580"
     },
+    "UXG": {
+      "udapi": {
+        "version": "2.0.0",
+        "caps": []
+      },
+      "source": "the uxg line runs UniFiOS, whose shared capability-copy routine returns before storing anything when the device is on firmware >= 4.1.0 and reports an empty or absent udapi_version -- dropping if_table, uplink, port_table, the caps set and all of it silently. A non-empty udapi_version disarms that; caps stays empty so no capability (e.g. BGP) is falsely claimed. Only UXGENT additionally reports a routing capability. Legacy ugw (USG) is not on this path and sends no udapi_version."
+    },
+    "UXGA6AA": {
+      "udapi": {
+        "version": "2.0.0",
+        "caps": []
+      },
+      "source": "the uxg line runs UniFiOS, whose shared capability-copy routine returns before storing anything when the device is on firmware >= 4.1.0 and reports an empty or absent udapi_version -- dropping if_table, uplink, port_table, the caps set and all of it silently. A non-empty udapi_version disarms that; caps stays empty so no capability (e.g. BGP) is falsely claimed. Only UXGENT additionally reports a routing capability. Legacy ugw (USG) is not on this path and sends no udapi_version."
+    },
+    "UXGB": {
+      "udapi": {
+        "version": "2.0.0",
+        "caps": []
+      },
+      "source": "the uxg line runs UniFiOS, whose shared capability-copy routine returns before storing anything when the device is on firmware >= 4.1.0 and reports an empty or absent udapi_version -- dropping if_table, uplink, port_table, the caps set and all of it silently. A non-empty udapi_version disarms that; caps stays empty so no capability (e.g. BGP) is falsely claimed. Only UXGENT additionally reports a routing capability. Legacy ugw (USG) is not on this path and sends no udapi_version."
+    },
     "UXGENT": {
       "udapi": {
         "version": "2.0.0",
@@ -766,6 +787,13 @@
         ]
       },
       "source": "help.ui.com/hc/en-us/articles/16271338193559 (UniFi BGP): of the gateways that adopt by inform, only UXG-Enterprise supports BGP, on firmware 4.1.8 or newer. Every other device on that list (EFG, EF-Core, UDM/UCG/UDW) is a standalone console that runs the Network app and never adopts, so none are in this catalog"
+    },
+    "UXGPRO": {
+      "udapi": {
+        "version": "2.0.0",
+        "caps": []
+      },
+      "source": "the uxg line runs UniFiOS, whose shared capability-copy routine returns before storing anything when the device is on firmware >= 4.1.0 and reports an empty or absent udapi_version -- dropping if_table, uplink, port_table, the caps set and all of it silently. A non-empty udapi_version disarms that; caps stays empty so no capability (e.g. BGP) is falsely claimed. Only UXGENT additionally reports a routing capability. Legacy ugw (USG) is not on this path and sends no udapi_version."
     },
     "UXSDM": {
       "eth": {

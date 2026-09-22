@@ -21245,6 +21245,8 @@
       "model_display": "Gateway Lite",
       "type": "uxg",
       "version": "5.0.16.30689",
+      "udapi_version": "2.0.0",
+      "udapi_caps": 0,
       "ports": [
         {
           "ifname": "eth0",
@@ -21266,6 +21268,8 @@
       "model_display": "Gateway Fiber",
       "type": "uxg",
       "version": "5.0.16.30689",
+      "udapi_version": "2.0.0",
+      "udapi_caps": 0,
       "ports": [
         {
           "ifname": "eth0",
@@ -21317,6 +21321,8 @@
       "model_display": "Gateway Max",
       "type": "uxg",
       "version": "5.0.16.30689",
+      "udapi_version": "2.0.0",
+      "udapi_caps": 0,
       "ports": [
         {
           "ifname": "eth0",
@@ -21403,6 +21409,8 @@
       "model_display": "Gateway Pro",
       "type": "uxg",
       "version": "1.13.8.4578",
+      "udapi_version": "2.0.0",
+      "udapi_caps": 0,
       "ports": [
         {
           "ifname": "eth0",

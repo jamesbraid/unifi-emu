@@ -83,6 +83,13 @@ type Descriptor struct {
 	// without declaring the outlet bit here has its outlet table discarded
 	// without a word in the log.
 	HWCaps int
+	// USGCaps is the gateway feature bitmap. The controller offers every
+	// claimed feature against the device, so it carries only the two a
+	// real gateway on current firmware claims and this one can honour;
+	// the same two go out as has_* booleans, which the controller ORs
+	// back into the bitmap before storing it. Zero on anything that is
+	// not a gateway.
+	USGCaps int
 }
 
 // Outlet capability bits, as reported per row in outlet_table[].outlet_caps.
@@ -128,6 +135,18 @@ const (
 	HWCapRPS     = 16
 	HWCapSpeaker = 32
 	HWCapOutlet  = 128
+)
+
+// Gateway feature bits, usg_caps. The five low bits double as booleans in
+// the same inform -- has_dpi, has_porta, has_default_route_distance,
+// has_ssh_disable, and a non-zero radius_caps -- and the controller ORs
+// those into the bitmap before it stores it.
+const (
+	USGCapDPI                  = 1
+	USGCapPortA                = 2
+	USGCapDefaultRouteDistance = 4
+	USGCapSSHDisable           = 8
+	USGCapRadius               = 16
 )
 
 // PlaceholderFWCaps is what a device reports when no real bitmap was captured

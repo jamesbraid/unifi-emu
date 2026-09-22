@@ -108,6 +108,14 @@ func (s *Session) BuildPayload(now time.Time) []byte {
 		m["udapi_version"] = map[string]any{"version": s.desc.UDAPIVersion}
 		m["udapi_caps"] = s.desc.UDAPICaps
 	}
+	// What the device physically has. It is read on every path, not
+	// only the power devices': the outlet bit is what makes a controller
+	// keep an outlet table, and a gateway's screen or a switch's RPS port
+	// live here too. Omitted when zero, which the controller reads the
+	// same way.
+	if s.desc.HWCaps != 0 {
+		m["hw_caps"] = s.desc.HWCaps
+	}
 	if s.adopted {
 		// Device-side state 4 means managed/adopted; it is not the same
 		// state enum as stat/device. OpenUniFi sends 4 for every adopted
@@ -129,9 +137,19 @@ func (s *Session) BuildPayload(now time.Time) []byte {
 			// Mandatory. With config_network_wan absent the
 			// controller logs the missing key and skips WAN
 			// processing entirely, so the WAN never bootstraps.
-			m["config_network_wan"] = map[string]any{"type": "dhcp"}
+			m["config_network_wan"] = configNetworkWAN()
 			m["netmask"] = "255.255.255.0"
 			m["if_table"] = ifTable(s.desc)
+			m["network_table"] = networkTable(s.desc)
+			// usg_caps and the has_* booleans say the same thing twice, as
+			// a real gateway does: the controller ORs the booleans into the
+			// bitmap before storing it, so a feature can be claimed either
+			// way and the two must not disagree.
+			if s.desc.USGCaps != 0 {
+				m["usg_caps"] = s.desc.USGCaps
+				m["has_default_route_distance"] = s.desc.USGCaps&USGCapDefaultRouteDistance != 0
+				m["has_ssh_disable"] = s.desc.USGCaps&USGCapSSHDisable != 0
+			}
 			// uplink is the *name* of an interface in if_table, not
 			// an object: the controller looks the name up and builds
 			// its own uplink record from the entry it finds. An
@@ -167,13 +185,6 @@ func (s *Session) BuildPayload(now time.Time) []byte {
 		if len(s.desc.Outlets) > 0 {
 			m["outlet_table"] = s.outletTableWithOverrides()
 			m["outlet_enabled"] = true
-		}
-		// What the device physically has. The outlet bit is load-bearing:
-		// without it the controller discards the outlet table above and
-		// logs nothing, so the device adopts, reports its outlets on every
-		// inform, and shows none of them.
-		if s.desc.HWCaps != 0 {
-			m["hw_caps"] = s.desc.HWCaps
 		}
 		if len(s.desc.PSUs) > 0 {
 			m["psu_table"] = psuTable(s.desc)

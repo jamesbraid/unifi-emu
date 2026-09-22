@@ -3,6 +3,7 @@ package inform
 import (
 	"fmt"
 	"net"
+	"strconv"
 )
 
 // macHeader parses mac into the 6-byte form used as a device identity and as
@@ -218,46 +219,138 @@ func psuTable(desc Descriptor) []map[string]any {
 	return table
 }
 
-// ifTable renders the device's interfaces. It is the join target for uplink,
-// which carries an interface *name*: the controller looks the name up here and
-// builds its own uplink record from the matching entry. A device that reports
-// no if_table has nothing for uplink to resolve against.
+// ifTable renders the device's layer-3 interfaces, which are not its ports.
+// A switch has one, the management interface, and reports it with num_port
+// set to the number of ports behind it. A gateway reports each interface
+// that carries an address of its own -- its WAN uplinks -- and keeps the LAN
+// on a bridge in network_table instead. That is the shape real devices send,
+// and it is the join target for uplink: the controller looks the uplink name
+// up here and builds its own uplink record from the matching entry, so a
+// device that reports no if_table hangs off nothing.
 //
 // Counters are static, like port_table's. time_delta is reported so the
 // controller derives the rate fields itself rather than reading zeros.
 func ifTable(desc Descriptor) []map[string]any {
-	table := make([]map[string]any, 0, len(desc.Ports))
+	switch desc.Type {
+	case "ugw", "uxg":
+		return gatewayIfTable(desc)
+	}
+	return []map[string]any{ifEntry(desc, uplinkName(desc), uplinkMedia(desc), len(desc.Ports))}
+}
+
+// The default route the uplink interface learned. Loopback addresses, since
+// the emulator routes nothing; the controller only stores and displays them.
+const (
+	uplinkNameserver = "127.0.0.53"
+	uplinkGateway    = "127.0.0.1"
+)
+
+// gatewayIfTable is one entry per uplink port, each carrying what the
+// controller reads off a WAN interface and a real gateway sends: the port it
+// sits on, the default route learned through it, and its reachability.
+func gatewayIfTable(desc Descriptor) []map[string]any {
+	var table []map[string]any
 	for _, p := range desc.Ports {
-		entry := map[string]any{
-			"name":        p.IfName,
-			"ip":          desc.IP,
-			"netmask":     "255.255.255.0",
-			"mac":         desc.MAC,
-			"up":          true,
-			"enable":      true,
-			"speed":       mediaSpeed(p.Media),
-			"full_duplex": true,
-			"num_port":    1,
-			"time_delta":  10.0,
-			"rx_bytes":    0,
-			"tx_bytes":    0,
-			"rx_packets":  0,
-			"tx_packets":  0,
-			"rx_dropped":  0,
-			"tx_dropped":  0,
-			"rx_errors":   0,
-			"tx_errors":   0,
+		if !p.IsUplink {
+			continue
 		}
-		// The uplink interface is the one the controller resolves the
-		// default route through, so it is the only one that carries
-		// learned DNS and gateway lists.
-		if p.IsUplink {
-			entry["nameservers"] = []string{"127.0.0.53"}
-			entry["gateways"] = []string{"127.0.0.1"}
-		}
-		table = append(table, entry)
+		e := ifEntry(desc, p.IfName, p.Media, 1)
+		e["comment"] = p.Name
+		e["physical_ports"] = []int{p.PortIdx}
+		e["nameservers"] = []string{uplinkNameserver}
+		e["gateways"] = []string{uplinkGateway}
+		e["gateway_present"] = []string{"ipv4"}
+		e["latency"] = 1
+		table = append(table, e)
+	}
+	// A layout with no uplink flagged still has to give the uplink name
+	// something to resolve against.
+	if len(table) == 0 {
+		table = append(table, ifEntry(desc, uplinkName(desc), uplinkMedia(desc), 1))
 	}
 	return table
+}
+
+func ifEntry(desc Descriptor, name, media string, numPort int) map[string]any {
+	return map[string]any{
+		"name":         name,
+		"ip":           desc.IP,
+		"netmask":      "255.255.255.0",
+		"mac":          desc.MAC,
+		"up":           true,
+		"enable":       true,
+		"speed":        mediaSpeed(media),
+		"full_duplex":  true,
+		"num_port":     numPort,
+		"time_delta":   10.0,
+		"rx_bytes":     0,
+		"tx_bytes":     0,
+		"rx_packets":   0,
+		"tx_packets":   0,
+		"rx_dropped":   0,
+		"tx_dropped":   0,
+		"rx_errors":    0,
+		"tx_errors":    0,
+		"rx_multicast": 0,
+	}
+}
+
+// networkTable renders the gateway's networks the way a real gateway keys
+// them: one row per WAN interface, named after it, and the LAN as the bridge
+// br0. Addresses are CIDR strings and the link fields are strings, which is
+// the shape on the wire rather than a reading of it. The controller takes the
+// br0 row's addresses as the device's IPv6 list, and would read nameservers
+// and gateways off a WAN row if a gateway put them there; real ones carry
+// those in if_table, and so does this.
+func networkTable(desc Descriptor) []map[string]any {
+	var table []map[string]any
+	for _, p := range desc.Ports {
+		if !p.IsUplink {
+			continue
+		}
+		table = append(table, networkEntry(desc, p.IfName, mediaSpeed(p.Media), "full"))
+	}
+	// A bridge reports the link fields a bridge has, which is to say
+	// placeholders: 10 Mb, half duplex, as a real one does.
+	lan := networkEntry(desc, "br0", 10, "half")
+	lan["active_dhcp_lease_count"] = 0
+	return append(table, lan)
+}
+
+func networkEntry(desc Descriptor, name string, speed int, duplex string) map[string]any {
+	cidr := desc.IP + "/24"
+	return map[string]any{
+		"name":                 name,
+		"mac":                  desc.MAC,
+		"up":                   true,
+		"address":              cidr,
+		"addresses":            []string{cidr},
+		"deprecated_addresses": []string{},
+		"autoneg":              "true",
+		"duplex":               duplex,
+		"mtu":                  "1500",
+		"speed":                strconv.Itoa(speed),
+		"stats": map[string]any{
+			"multicast": "0", "rx_bytes": 0, "rx_dropped": 0, "rx_errors": 0,
+			"rx_multicast": 0, "rx_packets": 0, "rx_rate": 0, "tx_bytes": 0,
+			"tx_dropped": 0, "tx_errors": 0, "tx_packets": 0, "tx_rate": 0,
+		},
+	}
+}
+
+// configNetworkWAN is the WAN configuration a gateway on DHCP reports: the
+// address type and the link settings, with the DHCP option list present and
+// empty. {"type": "dhcp"} alone clears the controller's missing-key skip; the
+// rest is what a real gateway sends and the controller learns about the port
+// from the device.
+func configNetworkWAN() map[string]any {
+	return map[string]any{
+		"type":         "dhcp",
+		"autoneg":      true,
+		"full_duplex":  true,
+		"speed":        "auto",
+		"dhcp_options": []string{},
+	}
 }
 
 // uplinkName is the interface the device reports as its uplink: the name the
@@ -274,6 +367,20 @@ func uplinkName(desc Descriptor) string {
 		return desc.Ports[0].IfName
 	}
 	return "eth0"
+}
+
+// uplinkMedia is the media of the interface uplinkName names, so the single
+// management entry a switch reports carries its uplink's speed.
+func uplinkMedia(desc Descriptor) string {
+	for _, p := range desc.Ports {
+		if p.IsUplink {
+			return p.Media
+		}
+	}
+	if len(desc.Ports) > 0 {
+		return desc.Ports[0].Media
+	}
+	return "GE"
 }
 
 // mediaSpeed maps a model profile's media string to the negotiated speed the

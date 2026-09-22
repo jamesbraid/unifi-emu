@@ -1,6 +1,9 @@
 package inform
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // uxgDesc is a multi-port gateway with mixed media, the shape the single
 // hardcoded gigabit uplink used to flatten.
@@ -51,24 +54,176 @@ func TestGatewayUplinkIsAnInterfaceName(t *testing.T) {
 	}
 }
 
-// The gateway branch used to report one gigabit eth0 whatever the model was,
-// so a six-port 10GbE gateway looked like a single gigabit port.
-func TestGatewayIfTableFollowsTheModelLayout(t *testing.T) {
+// A gateway's if_table lists its layer-3 interfaces -- the WAN uplinks --
+// not its ports: the LAN ports sit behind a bridge and never appear. The
+// entry carries the uplink's own media speed, the port it sits on, and the
+// default route learned through it, which is what the controller builds the
+// uplink record from.
+func TestGatewayIfTableListsTheUplinkInterfaces(t *testing.T) {
 	s := NewSession(uxgDesc(), testInformURL, testClock)
 	adopt(s)
 	m := decode(t, s)
 
 	ift := m["if_table"].([]any)
-	if len(ift) != 3 {
-		t.Fatalf("if_table has %d entries, want one per port", len(ift))
+	if len(ift) != 1 {
+		t.Fatalf("if_table has %d entries, want one per uplink port (the LAN ports are bridged): %v", len(ift), ift)
 	}
-	want := map[string]float64{"eth0": 2500, "eth1": 2500, "eth2": 10000}
-	for _, e := range ift {
-		entry := e.(map[string]any)
-		name := entry["name"].(string)
-		if got := entry["speed"]; got != want[name] {
-			t.Errorf("%s speed = %v, want %v", name, got, want[name])
+	e := ift[0].(map[string]any)
+	if e["name"] != "eth0" || e["speed"] != float64(2500) {
+		t.Errorf("uplink entry = %v, want eth0 at the uplink's 2.5GbE", e)
+	}
+	if e["comment"] != "WAN" {
+		t.Errorf("comment = %v, want the port label", e["comment"])
+	}
+	if pp, _ := e["physical_ports"].([]any); len(pp) != 1 || pp[0] != float64(1) {
+		t.Errorf("physical_ports = %v, want [1]", e["physical_ports"])
+	}
+	if gw, _ := e["gateways"].([]any); len(gw) == 0 {
+		t.Errorf("uplink entry carries no gateways: %v", e)
+	}
+	if _, ok := e["rx_multicast"]; !ok {
+		t.Errorf("entry lacks rx_multicast, one of the counters the controller copies")
+	}
+}
+
+// A switch reports one interface, its management interface, and says how
+// many ports sit behind it: a real 32-port aggregation switch sends a single
+// eth0 row with num_port 32, not thirty-two rows. One row per port would be
+// thirty-two interfaces that all share one address.
+func TestSwitchIfTableIsTheManagementInterface(t *testing.T) {
+	d := uswDesc()
+	d.Ports = []Port{
+		{IfName: "eth0", Name: "Port 1", PortIdx: 1, Media: "SFP+", IsUplink: true},
+		{IfName: "eth1", Name: "Port 2", PortIdx: 2, Media: "GE"},
+		{IfName: "eth2", Name: "Port 3", PortIdx: 3, Media: "GE"},
+		{IfName: "eth3", Name: "Port 4", PortIdx: 4, Media: "GE"},
+	}
+	s := NewSession(d, testInformURL, testClock)
+	adopt(s)
+	m := decode(t, s)
+
+	ift := m["if_table"].([]any)
+	if len(ift) != 1 {
+		t.Fatalf("if_table has %d entries, want the one management interface", len(ift))
+	}
+	e := ift[0].(map[string]any)
+	if e["name"] != "eth0" || e["num_port"] != float64(4) || e["speed"] != float64(10000) {
+		t.Errorf("management entry = %v, want eth0, num_port 4, at the uplink's 10GbE", e)
+	}
+	// The route fields belong to a gateway's WAN interface; a switch
+	// does not send them.
+	for _, k := range []string{"gateways", "nameservers", "comment", "physical_ports"} {
+		if _, present := e[k]; present {
+			t.Errorf("switch interface carries %s, a gateway WAN field", k)
 		}
+	}
+}
+
+// network_table is the gateway's view of its networks, keyed by interface
+// as a real one keys them: a row per WAN interface, named after it, and the
+// LAN as the bridge br0 with CIDR addresses. The controller reads br0's
+// addresses as the device's IPv6 list. Switches and APs do not send it.
+func TestGatewayReportsNetworkTable(t *testing.T) {
+	s := NewSession(uxgDesc(), testInformURL, testClock)
+	adopt(s)
+	m := decode(t, s)
+
+	nt, ok := m["network_table"].([]any)
+	if !ok || len(nt) != 2 {
+		t.Fatalf("network_table = %v, want a WAN row and br0", m["network_table"])
+	}
+	rows := map[string]map[string]any{}
+	for _, r := range nt {
+		e := r.(map[string]any)
+		rows[e["name"].(string)] = e
+	}
+	if _, ok := rows["eth0"]; !ok {
+		t.Errorf("no row named after the uplink interface: %v", rows)
+	}
+	lan, ok := rows["br0"]
+	if !ok {
+		t.Fatalf("no br0 bridge row: %v", rows)
+	}
+	addrs, _ := lan["addresses"].([]any)
+	if len(addrs) == 0 || !strings.Contains(addrs[0].(string), "/") {
+		t.Errorf("br0 addresses = %v, want CIDR strings", lan["addresses"])
+	}
+	// Link fields are strings on the wire, as a real gateway sends them.
+	for _, k := range []string{"speed", "mtu", "autoneg", "duplex"} {
+		if _, isString := lan[k].(string); !isString {
+			t.Errorf("br0 %s = %v (%T), want a string", k, lan[k], lan[k])
+		}
+	}
+	for name, desc := range map[string]Descriptor{"switch": uswDesc(), "ap": uapDesc()} {
+		s := NewSession(desc, testInformURL, testClock)
+		adopt(s)
+		if _, present := decode(t, s)["network_table"]; present {
+			t.Errorf("%s sends network_table, a gateway table", name)
+		}
+	}
+}
+
+// A gateway claims its features twice, as a real one does: as usg_caps and
+// as the has_* booleans the controller ORs back into the bitmap. It claims
+// only what it honours -- a default route distance and a disableable SSH
+// server -- since every claimed feature is offered against the device.
+func TestGatewayReportsUSGCapsAndTheMatchingFlags(t *testing.T) {
+	d := uxgDesc()
+	d.USGCaps = USGCapDefaultRouteDistance | USGCapSSHDisable
+	s := NewSession(d, testInformURL, testClock)
+	adopt(s)
+	m := decode(t, s)
+	if m["usg_caps"] != float64(USGCapDefaultRouteDistance|USGCapSSHDisable) {
+		t.Errorf("usg_caps = %v, want %d", m["usg_caps"], USGCapDefaultRouteDistance|USGCapSSHDisable)
+	}
+	if m["has_default_route_distance"] != true || m["has_ssh_disable"] != true {
+		t.Errorf("has_default_route_distance = %v, has_ssh_disable = %v; want both true to match the bitmap",
+			m["has_default_route_distance"], m["has_ssh_disable"])
+	}
+
+	// Zero means none of the three keys, not three false claims.
+	s = NewSession(uxgDesc(), testInformURL, testClock)
+	adopt(s)
+	m = decode(t, s)
+	for _, k := range []string{"usg_caps", "has_default_route_distance", "has_ssh_disable"} {
+		if _, present := m[k]; present {
+			t.Errorf("%s present on a gateway claiming no usg caps", k)
+		}
+	}
+	// And it is a gateway field: a switch given one does not send it.
+	sw := uswDesc()
+	sw.USGCaps = USGCapSSHDisable
+	s = NewSession(sw, testInformURL, testClock)
+	adopt(s)
+	if _, present := decode(t, s)["usg_caps"]; present {
+		t.Error("switch sends usg_caps, a gateway bitmap")
+	}
+}
+
+// hw_caps is what the device physically has, and the controller reads it on
+// every path. It used to go out only with the power tables, so a gateway
+// with a screen or a switch with an RPS port never said so.
+func TestHardwareCapsReportedOnEveryType(t *testing.T) {
+	gw := uxgDesc()
+	gw.HWCaps = HWCapLCM
+	sw := uswDesc()
+	sw.HWCaps = HWCapRPS
+	ap := uapDesc()
+	ap.HWCaps = 2048 // 802.3af, the class of power an AP takes
+	for name, tc := range map[string]struct {
+		desc Descriptor
+		want int
+	}{"gateway": {gw, HWCapLCM}, "switch": {sw, HWCapRPS}, "ap": {ap, 2048}} {
+		s := NewSession(tc.desc, testInformURL, testClock)
+		adopt(s)
+		if got := decode(t, s)["hw_caps"]; got != float64(tc.want) {
+			t.Errorf("%s hw_caps = %v, want %d", name, got, tc.want)
+		}
+	}
+	s := NewSession(uxgDesc(), testInformURL, testClock)
+	adopt(s)
+	if _, present := decode(t, s)["hw_caps"]; present {
+		t.Error("hw_caps present on a device with no hardware bits; zero should be omitted")
 	}
 }
 
@@ -85,6 +240,13 @@ func TestGatewayAlwaysReportsWANConfig(t *testing.T) {
 	}
 	if wan["type"] != "dhcp" {
 		t.Errorf("config_network_wan type = %v, want dhcp", wan["type"])
+	}
+	// The link settings a real gateway reports alongside the type.
+	if wan["autoneg"] != true || wan["full_duplex"] != true || wan["speed"] != "auto" {
+		t.Errorf("config_network_wan link settings = %v, want autoneg, full duplex, speed auto", wan)
+	}
+	if opts, ok := wan["dhcp_options"].([]any); !ok || len(opts) != 0 {
+		t.Errorf("dhcp_options = %v, want present and empty", wan["dhcp_options"])
 	}
 }
 

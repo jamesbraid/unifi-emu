@@ -143,6 +143,23 @@ func TestGeneratedModelRegistryMatchesControllerMetadata(t *testing.T) {
 			}
 		}
 	}
+	// hw_caps as real units report it. Each of these was captured from the
+	// model on its shipping firmware; the derivation alone knows only the
+	// outlet bit, so a dropped override reads as hardware going missing.
+	for model, want := range map[string]int{
+		"USPPDUP":  136,  // outlet + LCM
+		"USAGGPRO": 24,   // LCM + RPS
+		"US648P":   24,   // LCM + RPS
+		"USL8A":    8,    // LCM
+		"USF5P":    8192, // takes 802.3bt type 3
+		"U6ENT":    4608, // takes 802.3at; accelerometer
+		"U7PG2":    2048, // takes 802.3af
+		"UAP6MP":   2562, // takes 802.3af; accelerometer; LED bar
+	} {
+		if got := modelRegistry[model].HWCaps; got != want {
+			t.Errorf("%s hw_caps = %d, want %d", model, got, want)
+		}
+	}
 	if got := modelRegistry["USWF07D"].Ports[31].Media; got != "QSFP28" {
 		t.Errorf("USWF07D port 32 media = %q, want QSFP28", got)
 	}

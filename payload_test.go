@@ -145,6 +145,39 @@ func TestOtherUXGReportUDAPIVersionButNoCaps(t *testing.T) {
 	}
 }
 
+// Every gateway claims the same two usg features, the ones it honours and
+// a real gateway on current firmware claims -- and nothing that would make
+// the controller offer DPI, port assignment or RADIUS against a device that
+// answers none of them. The has_* booleans go out alongside, agreeing.
+func TestGatewaysClaimOnlyTheFeaturesTheyHonour(t *testing.T) {
+	const want = usgCapDefaultRouteDistance | usgCapSSHDisable
+	for model, p := range modelRegistry {
+		if p.Type != "ugw" && p.Type != "uxg" {
+			if p.USGCaps != 0 {
+				t.Errorf("%s (%s) carries usg_caps %d; only gateways have them", model, p.Type, p.USGCaps)
+			}
+			continue
+		}
+		t.Run(model, func(t *testing.T) {
+			d := mustDevice(t, DeviceSpec{MAC: "00:27:22:e0:00:05", Model: model, IP: "10.0.0.5"})
+			markAdopted(d)
+			m := decodePayload(t, d)
+			if m["usg_caps"] != float64(want) {
+				t.Errorf("usg_caps = %v, want %d", m["usg_caps"], want)
+			}
+			if m["has_default_route_distance"] != true || m["has_ssh_disable"] != true {
+				t.Errorf("has_* flags = %v / %v, want both true", m["has_default_route_distance"], m["has_ssh_disable"])
+			}
+		})
+	}
+}
+
+// usg_caps bits, spelled out for the same reason udapiCapRoutesBGP is.
+const (
+	usgCapDefaultRouteDistance = 4
+	usgCapSSHDisable           = 8
+)
+
 // The legacy USG line (ugw) is not on the UniFiOS capability path and has no
 // udapi_version gate, so it reports neither key -- sending them would be a
 // claim the classic firmware never makes.

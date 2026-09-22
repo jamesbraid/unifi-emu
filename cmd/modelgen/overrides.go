@@ -57,7 +57,13 @@ type modelOverride struct {
 	// wrongly described as unpowered only understates it.
 	PoEPorts string         `json:"poe_ports,omitempty"`
 	UDAPI    *udapiOverride `json:"udapi,omitempty"`
-	Source   string         `json:"source,omitempty"`
+	// HWCaps restates the hardware bitmap as a real unit of the model
+	// reports it, for the models somebody has captured. The derivation
+	// otherwise knows only the outlet bit, so a screen, an RPS port or the
+	// PoE class an AP takes go unclaimed. A pointer, because a captured
+	// zero is a fact worth stating and an absent key is not one.
+	HWCaps *int   `json:"hw_caps,omitempty"`
+	Source string `json:"source,omitempty"`
 }
 
 // udapiOverride is what a model reports for the UDAPI config plane.
@@ -120,6 +126,12 @@ func applyOverride(m *catalogModel, o modelOverride) {
 				PortIdx: i, Media: o.Eth.Media, IsUplink: i == 1,
 			})
 		}
+	}
+	// The outlet bit is kept whatever the override says: a model with
+	// outlets needs it for the controller to keep its outlet table, and a
+	// capture that includes it agrees anyway.
+	if o.HWCaps != nil {
+		m.HWCaps = *o.HWCaps | (m.HWCaps & hwCapOutlet)
 	}
 	for band, ro := range o.Radios {
 		for i := range m.Radios {

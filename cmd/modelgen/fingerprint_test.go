@@ -250,3 +250,25 @@ func TestPoEPortsRestrictsWhichPortsDeliverPower(t *testing.T) {
 		t.Error("an unparseable poe_ports was accepted")
 	}
 }
+
+// A captured hw_caps replaces the derived one, except that the outlet bit
+// the derivation set stays set: an outlet model that lost it would adopt,
+// report its outlets on every inform, and show none of them.
+func TestHWCapsOverrideKeepsTheOutletBit(t *testing.T) {
+	lcm, poePlus := 8, 4096
+	m := catalogModel{HWCaps: hwCapOutlet}
+	applyOverride(&m, modelOverride{HWCaps: &lcm})
+	if m.HWCaps != lcm|hwCapOutlet {
+		t.Errorf("outlet model with a captured LCM bit = %d, want %d (LCM plus the outlet bit)", m.HWCaps, lcm|hwCapOutlet)
+	}
+	m = catalogModel{}
+	applyOverride(&m, modelOverride{HWCaps: &poePlus})
+	if m.HWCaps != poePlus {
+		t.Errorf("non-outlet model = %d, want the captured %d untouched", m.HWCaps, poePlus)
+	}
+	m = catalogModel{HWCaps: hwCapOutlet}
+	applyOverride(&m, modelOverride{})
+	if m.HWCaps != hwCapOutlet {
+		t.Errorf("no override changed hw_caps to %d", m.HWCaps)
+	}
+}

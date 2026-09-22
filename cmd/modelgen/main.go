@@ -43,6 +43,7 @@ type catalogModel struct {
 	Outlets        []catalogOutlet `json:"outlets,omitempty"`
 	SmartPowerCaps int             `json:"smart_power_caps,omitempty"`
 	HWCaps         int             `json:"hw_caps,omitempty"`
+	USGCaps        int             `json:"usg_caps,omitempty"`
 }
 
 type catalogOutlet struct {
@@ -281,6 +282,16 @@ func deriveLayout(m *catalogModel, meta deviceDBModel, o modelOverride) error {
 	if len(m.Outlets) > 0 {
 		m.HWCaps |= hwCapOutlet
 	}
+	// A gateway claims the two features every one of them honours, which
+	// the controller also learns from booleans in the same inform: a
+	// default route distance and a disableable SSH server. Nothing else --
+	// not DPI, not port assignment -- because the controller offers every
+	// claimed feature against the device, and a gateway on current firmware
+	// claims neither of those either.
+	switch m.Type {
+	case "ugw", "uxg":
+		m.USGCaps = usgCapDefaultRouteDistance | usgCapSSHDisable
+	}
 	return nil
 }
 
@@ -298,6 +309,9 @@ const (
 	smartPowerCapBuzzer               = 4
 
 	hwCapOutlet = 128
+
+	usgCapDefaultRouteDistance = 4
+	usgCapSSHDisable           = 8
 )
 
 func hasCapability(meta deviceDBModel, want string) bool {

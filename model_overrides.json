@@ -32,7 +32,8 @@
           "nss": 4
         }
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Enterprise); nss from techspecs.ui.com/unifi/wifi/u6-enterprise (6 and 5 GHz 4x4, 2.4 GHz 2x2)"
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Enterprise); nss from techspecs.ui.com/unifi/wifi/u6-enterprise (6 and 5 GHz 4x4, 2.4 GHz 2x2) | hw_caps 4608 (802.3at plus accelerometer) as a U6ENT on firmware 6.8.2.15592 reports it to a Network 10.6.106 controller",
+      "hw_caps": 4608
     },
     "U6ENTIW": {
       "eth": {
@@ -167,7 +168,8 @@
           "nss": 3
         }
       },
-      "source": "https://techspecs.ui.com/unifi/wifi/uap-ac-mesh-pro"
+      "source": "https://techspecs.ui.com/unifi/wifi/uap-ac-mesh-pro | hw_caps 2048 (802.3af) as a U7MP on firmware 6.8.2.15592 reports it to a Network 10.6.106 controller",
+      "hw_caps": 2048
     },
     "U7NHD": {
       "eth": {
@@ -202,7 +204,8 @@
           "nss": 3
         }
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-AC-Pro); nss from techspecs.ui.com/unifi/wifi/uap-ac-pro (3x3 on both bands, 6 spatial streams)"
+      "source": "techspecs.ui.com networking-interface (fingerprint sku UAP-AC-Pro); nss from techspecs.ui.com/unifi/wifi/uap-ac-pro (3x3 on both bands, 6 spatial streams) | hw_caps 2048 (802.3af) as a U7PG2 on firmware 6.8.2.15592 reports it to a Network 10.6.106 controller",
+      "hw_caps": 2048
     },
     "U7PIW": {
       "eth": {
@@ -305,7 +308,8 @@
           "nss": 4
         }
       },
-      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Pro); nss from techspecs.ui.com/unifi/wifi/u6-pro (5 GHz 4x4, 2.4 GHz 2x2)"
+      "source": "techspecs.ui.com networking-interface (fingerprint sku U6-Pro); nss from techspecs.ui.com/unifi/wifi/u6-pro (5 GHz 4x4, 2.4 GHz 2x2) | hw_caps 2562 (802.3af plus accelerometer and LED bar) as a UAP6MP on firmware 6.8.2.15592 reports it to a Network 10.6.106 controller",
+      "hw_caps": 2562
     },
     "UAPA693": {
       "eth": {
@@ -523,7 +527,8 @@
           "indexes": "1-48"
         }
       },
-      "source": "https://techspecs.ui.com/unifi/switching/usw-enterprise-48-poe: 48x 2.5GbE RJ45 (all PoE+) + 4x 10G SFP+ = 52 ports. The bundle says plus 49-54, contradicting its own numberOfPorts of 52 | https://techspecs.ui.com/unifi/switching/usw-enterprise-48-poe: all 48 copper ports are 2.5GbE, not gigabit"
+      "source": "https://techspecs.ui.com/unifi/switching/usw-enterprise-48-poe: 48x 2.5GbE RJ45 (all PoE+) + 4x 10G SFP+ = 52 ports. The bundle says plus 49-54, contradicting its own numberOfPorts of 52 | https://techspecs.ui.com/unifi/switching/usw-enterprise-48-poe: all 48 copper ports are 2.5GbE, not gigabit | hw_caps 24 (LCM + RPS) as a US648P on firmware 7.5.15.17146 reports it to a Network 10.6.106 controller",
+      "hw_caps": 24
     },
     "US68P": {
       "ports": {
@@ -552,6 +557,10 @@
       "poe_ports": "5-8",
       "source": "https://techspecs.ui.com/unifi/switching/us-8-60w: powers ports 5-8 of 8. Port Layout: '8 (4 PoE)'. The port-layout diagram labels ports 1-4 '(4) GbE RJ45 ports' and ports 5-8 '(4) GbE PoE RJ45 ports' under the silkscreened 'PoE OUT' band. PoE is on the HIGH four, not the low four."
     },
+    "USAGGPRO": {
+      "hw_caps": 24,
+      "source": "hw_caps 24 (LCM + RPS) as a USAGGPRO on firmware 7.5.15.17146 reports it to a Network 10.6.106 controller"
+    },
     "USC8": {
       "poe_ports": "8",
       "source": "https://techspecs.ui.com/unifi/switching/us-8: powers ports 8 of 8. PoE OUTPUT ON ONE PORT ONLY. The official port-layout diagram on the techspecs page labels port 1 'GbE, PoE+ in RJ45 port' (silkscreened PoE IN) and port 8 'GbE, PoE RJ45 port' (silkscreened PoE OUT, 12W total PoE supply). Ports 2-7 are plain GbE. Port 1 is a PoE INPUT and must not be flagged as delivering PoE."
@@ -566,7 +575,8 @@
     },
     "USF5P": {
       "poe_ports": "2-5",
-      "source": "https://techspecs.ui.com/unifi/switching/usw-flex: powers ports 2-5 of 5. PORT 1 IS A PoE++ INPUT, NOT AN OUTPUT. Port-layout diagram: port 1 = 'GbE, PoE++ in RJ45 port', ports 2-5 = '(4) GbE, PoE+ out WAN/LAN RJ45 ports'. The status-LED silkscreen labels port 1 plain and 2-5 with the PoE+ bolt. Datasheet PoE interface row: '(4) PoE+'."
+      "source": "https://techspecs.ui.com/unifi/switching/usw-flex: powers ports 2-5 of 5. PORT 1 IS A PoE++ INPUT, NOT AN OUTPUT. Port-layout diagram: port 1 = 'GbE, PoE++ in RJ45 port', ports 2-5 = '(4) GbE, PoE+ out WAN/LAN RJ45 ports'. The status-LED silkscreen labels port 1 plain and 2-5 with the PoE+ bolt. Datasheet PoE interface row: '(4) PoE+'. | hw_caps 8192 (802.3bt type 3, the class of power the switch takes) as a USF5P on firmware 7.5.15.17146 reports it to a Network 10.6.106 controller",
+      "hw_caps": 8192
     },
     "USFXG": {
       "ports": {
@@ -607,6 +617,10 @@
     "USL48PB": {
       "poe_ports": "1-32",
       "source": "https://techspecs.ui.com/unifi/switching/usw-48-poe: powers ports 1-32 of 48. Port Layout: '48 (32 PoE+)'. Datasheet PoE Interfaces row: 'Ports 1-32  PoE+ IEEE 802.3af/at'."
+    },
+    "USL8A": {
+      "hw_caps": 8,
+      "source": "hw_caps 8 (LCM) as a USL8A on firmware 7.5.15.17146 reports it to a Network 10.6.106 controller"
     },
     "USL8LP": {
       "poe_ports": "1-4",
@@ -650,6 +664,10 @@
     "USPM48": {
       "poe": false,
       "source": "https://techspecs.ui.com/unifi/switching/usw-pro-max-48 lists no PoE row at all; the PSE is on the separate USW-Pro-Max-48-PoE SKU (USPM48P). The bundle and the fingerprint DB both mark this one PoE-capable"
+    },
+    "USPPDUP": {
+      "hw_caps": 136,
+      "source": "hw_caps 136 (outlet + LCM) as a USPPDUP on firmware 7.2.123.16565 reports it to a Network 10.6.106 controller"
     },
     "USWED05": {
       "poe_ports": "1-8",

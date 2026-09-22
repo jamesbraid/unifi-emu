@@ -1623,7 +1623,8 @@
           "radio_caps": 0,
           "antenna_gain": 6
         }
-      ]
+      ],
+      "hw_caps": 4608
     },
     {
       "model": "U6ENTIW",
@@ -2107,7 +2108,8 @@
           "radio_caps": 0,
           "antenna_gain": 8
         }
-      ]
+      ],
+      "hw_caps": 2048
     },
     {
       "model": "U7MSH",
@@ -2261,7 +2263,8 @@
           "radio_caps": 0,
           "antenna_gain": 3
         }
-      ]
+      ],
+      "hw_caps": 2048
     },
     {
       "model": "U7PIW",
@@ -2744,7 +2747,8 @@
           "radio_caps": 0,
           "antenna_gain": 6
         }
-      ]
+      ],
+      "hw_caps": 2562
     },
     {
       "model": "UAPA693",
@@ -4076,7 +4080,8 @@
           "port_idx": 3,
           "media": "GE"
         }
-      ]
+      ],
+      "usg_caps": 12
     },
     {
       "model": "UGW4",
@@ -4110,7 +4115,8 @@
           "port_idx": 4,
           "media": "GE"
         }
-      ]
+      ],
+      "usg_caps": 12
     },
     {
       "model": "UGWXG",
@@ -4173,7 +4179,8 @@
           "port_idx": 9,
           "media": "SFP+"
         }
-      ]
+      ],
+      "usg_caps": 12
     },
     {
       "model": "UHDIW",
@@ -8248,7 +8255,8 @@
           "port_idx": 52,
           "media": "SFP+"
         }
-      ]
+      ],
+      "hw_caps": 24
     },
     {
       "model": "US68P",
@@ -8771,7 +8779,8 @@
           "port_idx": 32,
           "media": "SFP28"
         }
-      ]
+      ],
+      "hw_caps": 24
     },
     {
       "model": "USC8",
@@ -9087,7 +9096,8 @@
           "media": "GE",
           "poe_caps": 7
         }
-      ]
+      ],
+      "hw_caps": 8192
     },
     {
       "model": "USFXG",
@@ -11699,7 +11709,8 @@
           "port_idx": 8,
           "media": "SFP+"
         }
-      ]
+      ],
+      "hw_caps": 8
     },
     {
       "model": "USL8LP",
@@ -14629,7 +14640,7 @@
           "outlet_caps": 3
         }
       ],
-      "hw_caps": 128
+      "hw_caps": 136
     },
     {
       "model": "USPRPS",
@@ -21261,7 +21272,8 @@
           "port_idx": 2,
           "media": "GE"
         }
-      ]
+      ],
+      "usg_caps": 12
     },
     {
       "model": "UXGA6AA",
@@ -21314,7 +21326,8 @@
           "port_idx": 7,
           "media": "10GbE"
         }
-      ]
+      ],
+      "usg_caps": 12
     },
     {
       "model": "UXGB",
@@ -21355,7 +21368,8 @@
           "port_idx": 5,
           "media": "2.5GbE"
         }
-      ]
+      ],
+      "usg_caps": 12
     },
     {
       "model": "UXGENT",
@@ -21402,7 +21416,8 @@
           "port_idx": 6,
           "media": "SFP28"
         }
-      ]
+      ],
+      "usg_caps": 12
     },
     {
       "model": "UXGPRO",
@@ -21437,7 +21452,8 @@
           "port_idx": 4,
           "media": "10GbE"
         }
-      ]
+      ],
+      "usg_caps": 12
     },
     {
       "model": "UXSDM",

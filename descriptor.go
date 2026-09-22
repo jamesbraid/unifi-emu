@@ -30,6 +30,7 @@ func buildDescriptor(spec DeviceSpec, profile ModelProfile) inform.Descriptor {
 		PSUs:           profile.PSUs,
 		SmartPowerCaps: profile.SmartPowerCaps,
 		HWCaps:         profile.HWCaps,
+		USGCaps:        profile.USGCaps,
 	}
 }
 

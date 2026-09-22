@@ -44,6 +44,9 @@ type ModelProfile struct {
 	// HWCaps describes the hardware the model physically has. The outlet
 	// bit is what makes a controller accept an outlet table.
 	HWCaps int `json:"hw_caps,omitempty"`
+	// USGCaps is the gateway feature bitmap: the two features every
+	// gateway honours and a real one claims. Zero for everything else.
+	USGCaps int `json:"usg_caps,omitempty"`
 }
 
 // modelRegistry is loaded from the embedded model_profiles.json. That

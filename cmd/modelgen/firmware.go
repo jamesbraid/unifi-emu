@@ -17,6 +17,10 @@ var perTypeFirmwareDefault = map[string]string{
 	"uxg": "5.0.16.30689",
 	"usw": "7.3.109.16640",
 	"uap": "8.6.11.18870",
+	// The battery-backed power devices are the only models typed usp; they
+	// share the switch train, which is what the catalogue has always given
+	// the rest of the power lineup.
+	"usp": "7.3.109.16640",
 }
 
 type fwResponse struct {

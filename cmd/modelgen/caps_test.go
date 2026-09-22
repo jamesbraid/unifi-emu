@@ -76,15 +76,20 @@ func TestCheckedInCapsCarryTheClaimedBits(t *testing.T) {
 			continue
 		}
 		if o.UDAPI.Version == "" {
-			t.Errorf("%s: udapi override has no version; the controller drops a bitmap sent without one", model)
+			t.Errorf("%s: udapi override has no version; the controller drops the whole payload without one", model)
 		}
 		mask, err := caps.udapiMask(model, o.UDAPI.Caps)
 		if err != nil {
 			t.Errorf("%s: %v", model, err)
 			continue
 		}
-		if mask == 0 {
-			t.Errorf("%s: udapi override resolves to an empty bitmap", model)
+		// A version-only override (empty caps) is legitimate and expected:
+		// every uxg needs a udapi_version to clear the UniFiOS whole-payload
+		// drop, but only the one that actually routes claims a capability.
+		// The regeneration guard applies only where caps are claimed -- a
+		// vocabulary that lost a claimed bit would resolve it to zero.
+		if len(o.UDAPI.Caps) > 0 && mask == 0 {
+			t.Errorf("%s: claims udapi caps %v but they resolve to an empty bitmap", model, o.UDAPI.Caps)
 		}
 	}
 }

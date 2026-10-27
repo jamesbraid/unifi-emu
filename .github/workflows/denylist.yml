@@ -1,0 +1,43 @@
+# Fails a pull request whose history carries a private homelab identifier,
+# so none reaches the public mirror. The patterns are a gitleaks config held
+# in a private org variable; this file names none of them.
+#
+# Lives in .github/ because Forgejo reads only one workflow directory and
+# this repo's other Forgejo jobs are here; the job is skipped on github.com,
+# where the variable does not exist.
+---
+name: denylist
+on: pull_request
+
+jobs:
+  denylist:
+    if: github.server_url != 'https://github.com'
+    runs-on: podman-general
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: v8.30.1 # renovate: datasource=github-releases depName=gitleaks/gitleaks
+          # Moves with GITLEAKS_VERSION: linux_x64 asset of that release.
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          set -eu
+          mkdir -p /tmp/gitleaks
+          curl -fsSL -o /tmp/gitleaks/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION#v}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks/gitleaks.tar.gz -C /tmp/gitleaks gitleaks
+      - name: Scan history against the denylist
+        env:
+          DENYLIST: ${{ vars.HOMELAB_DENYLIST }}
+        run: |
+          set -eu
+          if [ -z "$DENYLIST" ]; then
+            echo "::error::HOMELAB_DENYLIST is not set"
+            exit 1
+          fi
+          cfg=$(mktemp)
+          printf '%s\n' "$DENYLIST" > "$cfg"
+          /tmp/gitleaks/gitleaks git --no-banner --redact --config "$cfg" --log-opts="--all" .

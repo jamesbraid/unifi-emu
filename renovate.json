@@ -5,6 +5,7 @@
   ],
   "enabledManagers": [
     "gomod",
-    "github-actions"
+    "github-actions",
+    "custom.regex"
   ]
 }

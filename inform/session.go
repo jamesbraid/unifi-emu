@@ -30,6 +30,10 @@ type Session struct {
 	// state into the device config and expects to read it back in the
 	// next inform's outlet_table.
 	outletRelay map[int]bool
+	// cmdReply is the answer to a command that wants one, held until the
+	// next inform carries it. Most commands are acknowledged by the state
+	// the controller reads back; a few are answered by a notification.
+	cmdReply map[string]any
 }
 
 // NewSession starts a device on the default adoption key, pending, informing at
@@ -202,6 +206,14 @@ func (s *Session) BuildPayload(now time.Time) []byte {
 	for k, v := range s.setstate {
 		m[k] = v
 	}
+	// A command's answer rides the next inform as a notification, once.
+	// A lost inform loses the answer, and the controller asks again.
+	if s.cmdReply != nil {
+		m["inform_as_notif"] = true
+		m["notif_reason"] = "cmd"
+		m["notif_payload"] = s.cmdReply
+		s.cmdReply = nil
+	}
 	b, err := json.Marshal(m)
 	if err != nil {
 		return nil // unreachable: only JSON-safe values above
@@ -234,6 +246,9 @@ type informResponse struct {
 	} `json:"outlet_table"`
 	Cfgversion string `json:"cfgversion"`
 	Version    string `json:"version"` // upgrade target firmware version
+	// RequestID identifies a command that expects an answer; the answer
+	// echoes it so the controller can pair the two.
+	RequestID string `json:"request_id"`
 }
 
 // EffectKind names what Apply did, so a runtime can drive its own state and
@@ -252,11 +267,12 @@ const (
 	EffectUnknownType // Text = the ignored _type
 	EffectDecodeError // Text = the decode error
 	// Appended at the end so the existing values never shift.
-	EffectOutletState     // Text = "outlet <n> on|off", from a config push
-	EffectPowerCycle      // Text = the port being cycled
-	EffectRelayCtl        // relay control command, no argument
-	EffectRPSPortRecovery // Text = the RPS port being recovered
-	EffectSpeedTest       // Text = the source interface, "" if none
+	EffectOutletState      // Text = "outlet <n> on|off", from a config push
+	EffectPowerCycle       // Text = the port being cycled
+	EffectRelayCtl         // relay control command, no argument
+	EffectRPSPortRecovery  // Text = the RPS port being recovered
+	EffectSpeedTest        // Text = the source interface, "" if none
+	EffectWireGuardKeypair // Text = the request id being answered
 )
 
 // Effect is one thing Apply did. Text and Interval carry the kind's payload.
@@ -320,6 +336,7 @@ func (s *Session) applyCmd(now time.Time, r informResponse) []Effect {
 		s.useAESGCM = false
 		s.setstate = nil
 		s.outletRelay = nil
+		s.cmdReply = nil
 		return []Effect{{Kind: EffectFactoryReset}}
 	case "reboot":
 		s.bootTime = now
@@ -343,6 +360,21 @@ func (s *Session) applyCmd(now time.Time, r informResponse) []Effect {
 		return []Effect{{Kind: EffectRPSPortRecovery, Text: strconv.Itoa(r.Port)}}
 	case "speed-test":
 		return []Effect{{Kind: EffectSpeedTest, Text: r.SourceInterface}}
+	case "wg-genkeypair":
+		// Sent to an adopted gateway about once a minute until it is
+		// answered, and the gateway stays unprovisioned meanwhile. The
+		// answer is a fresh WireGuard keypair, carried as a notification
+		// on the next inform.
+		priv, pub, err := wireGuardKeypair()
+		if err != nil {
+			return []Effect{{Kind: EffectDecodeError, Text: "wg-genkeypair: " + err.Error()}}
+		}
+		s.cmdReply = map[string]any{
+			"event_string": r.Cmd,
+			"request_id":   r.RequestID,
+			"params":       map[string]any{"private_key": priv, "public_key": pub},
+		}
+		return []Effect{{Kind: EffectWireGuardKeypair, Text: r.RequestID}}
 	default:
 		return []Effect{{Kind: EffectUnknownCmd, Text: r.Cmd}}
 	}

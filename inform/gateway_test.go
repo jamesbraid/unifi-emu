@@ -1,6 +1,8 @@
 package inform
 
 import (
+	"crypto/ecdh"
+	"encoding/base64"
 	"strings"
 	"testing"
 )
@@ -316,5 +318,57 @@ func TestAccessPointsHaveNoInterfaceTable(t *testing.T) {
 	m := decode(t, s)
 	if _, present := m["if_table"]; present {
 		t.Errorf("if_table present on an access point")
+	}
+}
+
+// An adopted gateway is asked for a WireGuard keypair about once a minute
+// and stays unprovisioned until it answers. The answer is a notification on
+// the next inform that echoes the request id and carries a real keypair --
+// and it goes out once, not on every inform after.
+func TestGatewayAnswersWireGuardKeypairRequest(t *testing.T) {
+	s := NewSession(uxgDesc(), testInformURL, testClock)
+	adopt(s)
+	effects := s.Apply(testClock, []byte(`{"_type":"cmd","cmd":"wg-genkeypair","request_id":"req-1"}`))
+	if len(effects) != 1 || effects[0].Kind != EffectWireGuardKeypair || effects[0].Text != "req-1" {
+		t.Fatalf("effects = %+v, want one keypair effect naming the request", effects)
+	}
+
+	m := decode(t, s)
+	if m["inform_as_notif"] != true || m["notif_reason"] != "cmd" {
+		t.Fatalf("inform_as_notif = %v, notif_reason = %v; want a cmd notification", m["inform_as_notif"], m["notif_reason"])
+	}
+	payload, ok := m["notif_payload"].(map[string]any)
+	if !ok {
+		t.Fatalf("notif_payload = %v, want an object", m["notif_payload"])
+	}
+	if payload["event_string"] != "wg-genkeypair" || payload["request_id"] != "req-1" {
+		t.Errorf("notif_payload = %v, want the command name and its request id echoed", payload)
+	}
+	params, _ := payload["params"].(map[string]any)
+	priv, err := base64.StdEncoding.DecodeString(params["private_key"].(string))
+	if err != nil || len(priv) != 32 {
+		t.Fatalf("private_key is not 32 base64 bytes: %v (%d)", err, len(priv))
+	}
+	pub, err := base64.StdEncoding.DecodeString(params["public_key"].(string))
+	if err != nil || len(pub) != 32 {
+		t.Fatalf("public_key is not 32 base64 bytes: %v (%d)", err, len(pub))
+	}
+	if priv[0]&7 != 0 || priv[31]&128 != 0 || priv[31]&64 == 0 {
+		t.Errorf("private key is not clamped")
+	}
+	key, err := ecdh.X25519().NewPrivateKey(priv)
+	if err != nil {
+		t.Fatalf("private key rejected: %v", err)
+	}
+	if string(key.PublicKey().Bytes()) != string(pub) {
+		t.Errorf("public key is not the private key's public half")
+	}
+
+	// Answered once: the next inform is an ordinary one.
+	m = decode(t, s)
+	for _, k := range []string{"inform_as_notif", "notif_reason", "notif_payload"} {
+		if _, present := m[k]; present {
+			t.Errorf("%s still present on the inform after the answer", k)
+		}
 	}
 }

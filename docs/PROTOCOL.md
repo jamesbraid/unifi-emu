@@ -1147,6 +1147,28 @@ is rejected before it reaches the wire. A module's locate state comes back as
 | `force-update-neighbors` | `neighbors` (array) | Adopt the supplied neighbour list. |
 | `pcap-start` | `duration` (int seconds), `upload_url`, `auth_token`, `target_interfaces` (array), `max_size` (bytes) | Capture on the named interfaces, capped at `max_size`, and upload to `upload_url` with `auth_token`. |
 | `pcap-stop` | no parameters | End an in-flight capture. |
+| `wg-genkeypair` | `request_id` (string) | Generate a WireGuard keypair and answer with a notification inform that echoes `request_id` (below). |
+
+`wg-genkeypair` is the one gateway command that has to be answered for the
+gateway to finish provisioning. A controller on Network 10.6.106 has been
+reported to send it to a freshly adopted gateway about once a minute, and to
+keep the device unprovisioned until it is answered — `default` stays true and
+`setup_provision_completed` is never set ([report](https://github.com/jamesbraid/unifi-emu/issues/6#issuecomment-6266565972)).
+The answer goes on the next inform:
+
+```json
+"inform_as_notif": true,
+"notif_reason": "cmd",
+"notif_payload": {
+  "event_string": "wg-genkeypair",
+  "request_id": "<the request_id from the command>",
+  "params": {"private_key": "<base64, 32 bytes>", "public_key": "<base64, 32 bytes>"}
+}
+```
+
+The pair is a fresh Curve25519 keypair with the private key clamped, as
+WireGuard keys are. Whether the controller asks again after a successful
+answer is **unconfirmed**.
 
 ### Commands common to all three families
 
@@ -1181,6 +1203,7 @@ controller's side, identical to one that ignored the command.
 | `setdefault` | `default` and `_default_key` both true again, on the default key |
 | `speed-test` | `speedtest-status.status_summary` plus a newer `rundate` |
 | `send-crashlog` / `-trace` / `-recovery` | a notification inform whose `notif_reason` matches |
+| `wg-genkeypair` | a notification inform with `notif_reason: "cmd"` echoing the `request_id` |
 | a `setparam` carrying `system_cfg` | the pushed `cfgversion`, echoed back unchanged |
 
 ### Device-initiated informs

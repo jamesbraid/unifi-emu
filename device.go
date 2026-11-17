@@ -228,6 +228,8 @@ func (d *device) applyResponse(body []byte) {
 			}
 		case inform.EffectRPSPortRecovery:
 			logs = append(logs, fmt.Sprintf("%s: RPS port %s recovery requested (emulated)", d.spec.MAC, e.Text))
+		case inform.EffectWireGuardKeypair:
+			logs = append(logs, fmt.Sprintf("%s: WireGuard keypair requested (%s), answering on the next inform", d.spec.MAC, e.Text))
 		case inform.EffectSpeedTest:
 			if e.Text != "" {
 				logs = append(logs, fmt.Sprintf("%s: speed-test requested via %s (emulated)", d.spec.MAC, e.Text))

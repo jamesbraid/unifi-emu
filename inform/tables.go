@@ -33,6 +33,12 @@ func portTable(desc Descriptor) []map[string]any {
 			"full_duplex": true,
 			"rx_bytes":    0,
 			"tx_bytes":    0,
+			// The controller's power-cycle command checks this, not
+			// poe_caps, and refuses a port without it. poe_caps is the
+			// port's ability to source power, so a PoE input port (the
+			// USW-Ultra's port 8) has none and reports false. is_uplink
+			// is no guide: it marks port 1 on every model.
+			"poe_enable": p.PoECaps > 0,
 		})
 	}
 	return table

@@ -88,6 +88,31 @@ func TestAdoptedPayloadUSW(t *testing.T) {
 	}
 }
 
+// The controller refuses power-cycle (api.err.InvalidTargetPort) on any
+// port whose stored entry lacks poe_enable=true, so every port that can
+// source power must report it, uplink or not. A port with no PoE caps, such
+// as a PoE input, cannot.
+func TestPortTableReportsPoEEnabledOnPoweredPorts(t *testing.T) {
+	desc := uswDesc()
+	desc.Ports = []Port{
+		{IfName: "eth0", Name: "Port 1", PortIdx: 1, Media: "GE", PoECaps: 7, IsUplink: true},
+		{IfName: "eth1", Name: "Port 2", PortIdx: 2, Media: "GE", PoECaps: 7},
+		{IfName: "eth2", Name: "Port 3", PortIdx: 3, Media: "SFP+"},
+	}
+	s := NewSession(desc, testInformURL, testClock)
+	adopt(s)
+	pt, ok := decode(t, s)["port_table"].([]any)
+	if !ok || len(pt) != 3 {
+		t.Fatalf("port_table = %v, want 3 entries", pt)
+	}
+	for i, want := range []bool{true, true, false} {
+		entry := pt[i].(map[string]any)
+		if got := entry["poe_enable"]; got != want {
+			t.Errorf("port %v poe_enable = %v, want %v", entry["port_idx"], got, want)
+		}
+	}
+}
+
 func TestAdoptedPayloadUAPEmptyVaps(t *testing.T) {
 	s := NewSession(uapDesc(), testInformURL, testClock)
 	adopt(s)

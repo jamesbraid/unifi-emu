@@ -28,6 +28,10 @@ const dockerFailureLimit = 3
 // force-remove that follows a timed-out stop still has room to run.
 const cleanupSlack = 30 * time.Second
 
+// logDrainTimeout bounds how long finish waits, after cleanup, for the
+// device log streams to deliver a removed container's last lines.
+const logDrainTimeout = 5 * time.Second
+
 // errStopped reports that a signal or caller cancellation ended the run
 // cleanly. It is not a *Failure: there is nothing to report but the stop.
 var errStopped = errors.New("herder: stopped")
@@ -121,9 +125,11 @@ type run struct {
 	redact *redactor
 	phase  Phase
 
-	// logCtx outlives the startup deadline: device output is evidence for
-	// the whole run, not only for its first five minutes.
-	logCtx context.Context
+	// logCtx outlives the startup deadline and the stop signal: device
+	// output is evidence for the whole run, including what a device prints
+	// while it is being stopped. finish cancels it once the streams drain.
+	logCtx   context.Context
+	stopLogs context.CancelFunc
 
 	mu sync.Mutex
 	// stopped records that a signal or cancellation asked for a clean stop.
@@ -147,7 +153,8 @@ func (r *run) execute(parent context.Context) int {
 	// validation, pulls, creation, start and readiness.
 	signalCtx, stopSignals := context.WithCancel(parent)
 	defer stopSignals()
-	r.logCtx = signalCtx
+	r.logCtx, r.stopLogs = context.WithCancel(context.WithoutCancel(parent))
+	defer r.stopLogs()
 	go r.watchSignals(signalCtx, stopSignals)
 
 	startCtx, cancelStart := context.WithTimeout(signalCtx, r.opts.StartupTimeout)
@@ -283,7 +290,7 @@ func (r *run) start(ctx context.Context, plan Plan) error {
 	for _, res := range results {
 		if res.inst != nil {
 			r.addUnit(&live{unit: res.unit, inst: res.inst})
-			go r.logs.follow(r.logCtx, res.unit.DeviceIndices(), res.inst)
+			r.logs.start(r.logCtx, res.unit.DeviceIndices(), res.inst)
 		}
 		if res.err != nil && first == nil {
 			first = r.classifyUnit(ctx, res.err, CodeContainerStartFailed, PhaseStart, res.unit)
@@ -393,6 +400,15 @@ func (r *run) finish(parent context.Context, cause error) int {
 	}
 
 	complete, dockerLost := r.cleanup(ctx)
+	// The containers are gone, so their streams are ending. Wait for the
+	// tail before the terminal event, which is the caller's cue that the
+	// herder is done writing.
+	if r.stopLogs != nil {
+		if !r.logs.drain(logDrainTimeout) {
+			r.diagf("device log streams did not finish within %s after cleanup", logDrainTimeout)
+		}
+		r.stopLogs()
+	}
 
 	switch {
 	case !complete:

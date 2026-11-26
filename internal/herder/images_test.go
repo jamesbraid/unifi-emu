@@ -128,6 +128,10 @@ func (f *fakeDocker) ContainerRemove(ctx context.Context, id string, _ client.Co
 	return client.ContainerRemoveResult{}, nil
 }
 
+func (f *fakeDocker) ContainerLogs(context.Context, string, client.ContainerLogsOptions) (client.ContainerLogsResult, error) {
+	return io.NopCloser(strings.NewReader("")), nil
+}
+
 var errNoSuchNetwork = errors.New("network not found")
 
 type fakePull struct{}

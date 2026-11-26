@@ -508,6 +508,38 @@ func TestDockerSignalRemovesEveryRunLabelledContainer(t *testing.T) {
 	// survival of the caller's network.
 }
 
+// Device logs must cover the whole run, not what the container had printed
+// by the time it was launched. The emulator writes "signal received,
+// stopping" only after the herder's SIGTERM reaches it, well after ready:
+// a stream read once at launch, or one cancelled by the signal, loses it.
+func TestDockerDeviceLogsFollowTheWholeRun(t *testing.T) {
+	it := newDockerITest(t)
+	signals := make(chan os.Signal, 4)
+	exit, events, stderr := it.runHerder(
+		`{"version":1,"devices":[{"model":"USM8P"},{"model":"U7PRO"}]}`,
+		stopAfterReady(signals, syscall.SIGTERM))
+	if exit != 0 {
+		t.Fatalf("exit = %d, want 0 (%s)", exit, stderr)
+	}
+	if terminalEvent(t, events)["event"] != "stopped" {
+		t.Fatalf("terminal = %#v", terminalEvent(t, events))
+	}
+	// Both devices share the one synthetic container, whose prefix is the
+	// request index set.
+	for _, want := range []string{"informing http://", "signal received, stopping"} {
+		found := false
+		for _, line := range strings.Split(stderr, "\n") {
+			if strings.HasPrefix(line, "[0,1] ") && strings.Contains(line, want) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("stderr has no [0,1] line containing %q; stderr:\n%s", want, stderr)
+		}
+	}
+}
+
 // Repeated stop signals during STOPPING must leave the cleanup sequence and
 // its timeout alone.
 func TestDockerRepeatedSignalsDuringStoppingChangeNothing(t *testing.T) {

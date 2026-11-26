@@ -6,6 +6,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/moby/moby/api/pkg/stdcopy"
 	"github.com/moby/moby/client"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -98,7 +99,7 @@ func (b *dockerBackend) Launch(ctx context.Context, plan Plan, unit Unit) (Insta
 	})
 	var inst Instance
 	if created != nil {
-		inst = &dockerInstance{container: created}
+		inst = &dockerInstance{container: created, api: b.api}
 	}
 	if err != nil {
 		// A nil handle does not mean nothing was created. The library creates
@@ -216,6 +217,7 @@ func (b *dockerBackend) removeUnitContainers(parent context.Context, runID strin
 // dockerInstance is one testcontainers-managed device container.
 type dockerInstance struct {
 	container testcontainers.Container
+	api       DockerAPI
 }
 
 func (d *dockerInstance) ID() string { return d.container.GetContainerID() }
@@ -227,6 +229,37 @@ func (d *dockerInstance) Terminate(ctx context.Context, stopTimeout time.Duratio
 	return d.container.Terminate(ctx, testcontainers.StopTimeout(stopTimeout))
 }
 
+// Logs follows the container's stdout and stderr until it exits. Not
+// testcontainers' Container.Logs: that returns what was written so far and
+// ends, which, read right after start, is almost nothing.
 func (d *dockerInstance) Logs(ctx context.Context) (io.ReadCloser, error) {
-	return d.container.Logs(ctx)
+	rc, err := d.api.ContainerLogs(ctx, d.ID(), client.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Follow:     true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	// Device containers run without a TTY, so the stream is multiplexed.
+	// Both halves go to the one sink, as the device wrote them.
+	pr, pw := io.Pipe()
+	go func() {
+		_, err := stdcopy.StdCopy(pw, pw, rc)
+		_ = rc.Close()
+		pw.CloseWithError(err)
+	}()
+	return followedLogs{PipeReader: pr, src: rc}, nil
+}
+
+// followedLogs closes the Docker stream along with the demultiplexed pipe,
+// so a reader that stops early does not leave the copy goroutine blocked.
+type followedLogs struct {
+	*io.PipeReader
+	src io.Closer
+}
+
+func (f followedLogs) Close() error {
+	_ = f.src.Close()
+	return f.PipeReader.Close()
 }

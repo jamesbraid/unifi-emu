@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"sync"
+	"time"
 )
 
 // logSink serializes device output onto one stderr stream. Every device
@@ -14,6 +15,9 @@ type logSink struct {
 	mu     sync.Mutex
 	dst    io.Writer
 	redact *redactor
+	// streams counts the followers still copying, so the run can wait for
+	// a stopped container's last lines before it exits.
+	streams sync.WaitGroup
 }
 
 func newLogSink(dst io.Writer, redact *redactor) *logSink {
@@ -54,7 +58,33 @@ func (s *logSink) stream(prefix string, src io.Reader) {
 	}
 }
 
-// follow streams inst's output in the background until it closes or ctx ends.
+// start follows inst's output in the background. The stream ends on its own
+// when the container exits, or when ctx is cancelled.
+func (s *logSink) start(ctx context.Context, prefix string, inst Instance) {
+	s.streams.Add(1)
+	go func() {
+		defer s.streams.Done()
+		s.follow(ctx, prefix, inst)
+	}()
+}
+
+// drain waits up to timeout for every follower to reach the end of its
+// container's output, and reports whether they all did.
+func (s *logSink) drain(timeout time.Duration) bool {
+	done := make(chan struct{})
+	go func() {
+		s.streams.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
+}
+
+// follow copies inst's output until it closes or ctx ends.
 func (s *logSink) follow(ctx context.Context, prefix string, inst Instance) {
 	body, err := inst.Logs(ctx)
 	if err != nil {

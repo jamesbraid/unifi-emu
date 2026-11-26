@@ -22,9 +22,9 @@ import (
 const minAPIVersion = "1.44"
 
 // DockerAPI is the slice of the official Moby client the herder uses. It
-// covers the all-images-before-create preflight and the inspection loop only:
-// container creation, health waits, logs and termination stay with stock
-// testcontainers-go, and this preflight does not replace any of that.
+// covers the all-images-before-create preflight, the inspection loop and the
+// followed device logs: container creation, health waits and termination
+// stay with stock testcontainers-go.
 type DockerAPI interface {
 	ServerVersion(context.Context, client.ServerVersionOptions) (client.ServerVersionResult, error)
 	NetworkInspect(context.Context, string, client.NetworkInspectOptions) (client.NetworkInspectResult, error)
@@ -33,6 +33,7 @@ type DockerAPI interface {
 	ContainerInspect(context.Context, string, client.ContainerInspectOptions) (client.ContainerInspectResult, error)
 	ContainerList(context.Context, client.ContainerListOptions) (client.ContainerListResult, error)
 	ContainerRemove(context.Context, string, client.ContainerRemoveOptions) (client.ContainerRemoveResult, error)
+	ContainerLogs(context.Context, string, client.ContainerLogsOptions) (client.ContainerLogsResult, error)
 }
 
 // CheckDocker confirms the daemon answers and is new enough.

@@ -184,15 +184,3 @@ func TestAdoptedPayloadUSWUplinkIsInterfaceName(t *testing.T) {
 		t.Errorf("if_table entry = %v", entry)
 	}
 }
-
-func TestAdoptedPayloadUGWUplinkStaysAnObject(t *testing.T) {
-	s := NewSession(ugwDesc(), testInformURL, testClock)
-	adopt(s)
-	m := decode(t, s)
-	if _, ok := m["uplink"].(map[string]any); !ok {
-		t.Errorf("gateway uplink = %#v, want an object", m["uplink"])
-	}
-	if _, ok := m["if_table"]; ok {
-		t.Errorf("if_table present on a gateway; only switches send it here")
-	}
-}

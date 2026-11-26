@@ -309,3 +309,51 @@ func TestValidateModelRejectsInvalidHardwareFacts(t *testing.T) {
 		})
 	}
 }
+
+// Where the hardware DB disagrees with a product's published port layout, an
+// override restates it: a category's connector, the port numbers a category
+// covers, whether the SKU has a PSE at all, and the retail name. The fixture
+// switch is 4 copper + 1 SFP with PoE; the override turns it into 3 copper +
+// 1 SFP28 + 1 SFP+ with no PoE, exercising all four in one pass.
+func TestHarvestBundleOverridesRestateSwitchPorts(t *testing.T) {
+	bundle, err := os.ReadFile("testdata/bundle.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	noPoE := false
+	ov := overrides{Models: map[string]modelOverride{"USTEST": {
+		Display: "Test Switch Renamed",
+		Ports: map[string]portOverride{
+			"standard": {Indexes: "1-3"},
+			"sfp":      {Media: "SFP+"},
+			"sfp28":    {Indexes: "4"},
+		},
+		PoE: &noPoE,
+	}}}
+	cat, err := harvestBundle(bundle, map[string]string{"USTEST": "Test Switch"},
+		firmwareIndex{}, ov, testCaps(), "10.4.57")
+	if err != nil {
+		t.Fatalf("harvest: %v", err)
+	}
+	var sw catalogModel
+	for _, m := range cat.Models {
+		if m.Model == "USTEST" {
+			sw = m
+		}
+	}
+	if sw.ModelDisplay != "Test Switch Renamed" {
+		t.Errorf("display override lost to the bundle name: %q", sw.ModelDisplay)
+	}
+	want := []string{"GE", "GE", "GE", "SFP28", "SFP+"}
+	if len(sw.Ports) != len(want) {
+		t.Fatalf("got %d ports, want %d: %+v", len(sw.Ports), len(want), sw.Ports)
+	}
+	for i, media := range want {
+		if sw.Ports[i].PortIdx != i+1 || sw.Ports[i].Media != media {
+			t.Errorf("port %d = %+v, want idx %d media %s", i+1, sw.Ports[i], i+1, media)
+		}
+		if sw.Ports[i].PoECaps != 0 {
+			t.Errorf("port %d kept poe_caps %d despite the non-PoE override", i+1, sw.Ports[i].PoECaps)
+		}
+	}
+}

@@ -60,6 +60,11 @@ func newDockerITest(t *testing.T) *dockerITest {
 	t.Helper()
 	ctx := context.Background()
 
+	// The same selection NewDockerBackend makes, so these tests reach the
+	// daemon the binary would rather than skipping on a context-only host.
+	if _, err := selectDocker(ctx, processDockerEnv()); err != nil {
+		t.Skipf("no Docker daemon available: %v", err)
+	}
 	api, err := testcontainers.NewDockerClientWithOpts(ctx)
 	if err != nil {
 		t.Skipf("no Docker daemon available: %v", err)

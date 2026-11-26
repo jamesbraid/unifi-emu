@@ -29,6 +29,27 @@ devices it starts come from one commit. A `go install ...@vX.Y.Z` binary reads
 that tag from the version the Go command records. A build from a working tree has
 no tag and asks for `--synthetic-image`.
 
+### How the herder finds Docker
+
+The herder talks to the daemon `docker` itself would use, in the CLI's order:
+
+1. `DOCKER_HOST`, if set.
+2. The context named by `DOCKER_CONTEXT`.
+3. `currentContext` in `$DOCKER_CONFIG/config.json`, or `~/.docker/config.json`.
+4. Testcontainers' own discovery: `/var/run/docker.sock`, then the rootless socket.
+
+So colima and Docker Desktop, which install a context instead of
+`/var/run/docker.sock`, need no extra setup. When the daemon runs in a VM, the
+host-side socket path does not exist inside it, so the herder also sets
+`TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock` unless you set it
+yourself.
+
+A context whose endpoint does not answer fails the run with `docker_unavailable`.
+The detail on stderr names the context and the endpoint it tried. The herder
+reads only a context's Docker host, not its TLS material, so a TLS endpoint
+still needs `DOCKER_HOST` with `DOCKER_TLS_VERIFY` and `DOCKER_CERT_PATH`.
+A `tc.host` entry in `~/.testcontainers.properties` overrides all of the above.
+
 ## Configuring a fleet
 
 Three ways to say what devices to run, in increasing order of control.

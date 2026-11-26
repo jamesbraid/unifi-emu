@@ -1,6 +1,8 @@
 package emu_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -96,39 +98,56 @@ func TestEmulatorAdoptRequestSingleDevice(t *testing.T) {
 	}
 }
 
+func noEnv(string) string { return "" }
+
 func TestDiscoverDockerHostPreservesExplicitHost(t *testing.T) {
-	got := discoverDockerHost(
-		"unix:///explicit/docker.sock",
-		"/Users/test",
+	got, err := discoverDockerHost(
+		func(k string) string {
+			if k == "DOCKER_HOST" {
+				return "unix:///explicit/docker.sock"
+			}
+			return ""
+		},
+		t.TempDir(),
 		func(string) bool { return true },
 	)
-	if got != "unix:///explicit/docker.sock" {
-		t.Fatalf("discoverDockerHost() = %q", got)
+	if err != nil || got != "unix:///explicit/docker.sock" {
+		t.Fatalf("discoverDockerHost() = %q, %v", got, err)
+	}
+}
+
+func TestDiscoverDockerHostFollowsTheCurrentContext(t *testing.T) {
+	home := t.TempDir()
+	const ctxHost = "unix:///Users/test/.docker/run/docker.sock"
+	sum := sha256.Sum256([]byte("desktop-linux"))
+	meta := filepath.Join(home, ".docker", "contexts", "meta", hex.EncodeToString(sum[:]))
+	if err := os.MkdirAll(meta, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".docker", "config.json"),
+		[]byte(`{"currentContext":"desktop-linux"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(meta, "meta.json"),
+		[]byte(`{"Name":"desktop-linux","Endpoints":{"docker":{"Host":"`+ctxHost+`"}}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// The colima socket exists too; the context still wins, as with the CLI.
+	got, err := discoverDockerHost(noEnv, home, func(string) bool { return true })
+	if err != nil || got != ctxHost {
+		t.Fatalf("discoverDockerHost() = %q, %v; want %q", got, err, ctxHost)
 	}
 }
 
 func TestDiscoverDockerHostFindsColima(t *testing.T) {
-	home := "/Users/test"
+	home := t.TempDir()
 	colima := filepath.Join(home, ".colima", "default", "docker.sock")
-	got := discoverDockerHost("", home, func(path string) bool {
+	got, err := discoverDockerHost(noEnv, home, func(path string) bool {
 		return path == colima
 	})
 	want := "unix://" + colima
-	if got != want {
-		t.Fatalf("discoverDockerHost() = %q, want %q", got, want)
-	}
-}
-
-func TestContainerRuntimeSocketOverrideForColima(t *testing.T) {
-	host := "unix:///Users/test/.colima/default/docker.sock"
-	if got := containerRuntimeSocketOverride(host); got != "/var/run/docker.sock" {
-		t.Fatalf("containerRuntimeSocketOverride() = %q", got)
-	}
-}
-
-func TestContainerRuntimeSocketOverrideLeavesOtherHostsAlone(t *testing.T) {
-	if got := containerRuntimeSocketOverride("unix:///var/run/docker.sock"); got != "" {
-		t.Fatalf("containerRuntimeSocketOverride() = %q, want no override", got)
+	if err != nil || got != want {
+		t.Fatalf("discoverDockerHost() = %q, %v; want %q", got, err, want)
 	}
 }
 

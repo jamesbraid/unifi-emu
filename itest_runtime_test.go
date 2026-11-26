@@ -15,6 +15,7 @@ import (
 
 	emu "github.com/jamesbraid/unifi-emu"
 	"github.com/jamesbraid/unifi-emu/internal/adopt"
+	"github.com/jamesbraid/unifi-emu/internal/dockerhost"
 	"github.com/testcontainers/testcontainers-go"
 	tcnetwork "github.com/testcontainers/testcontainers-go/network"
 )
@@ -100,16 +101,19 @@ func configureContainerRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve home directory for container runtime discovery: %v", err)
 	}
-	host := discoverDockerHost(os.Getenv("DOCKER_HOST"), home, func(path string) bool {
+	host, err := discoverDockerHost(os.Getenv, home, func(path string) bool {
 		info, statErr := os.Stat(path)
 		return statErr == nil && info.Mode()&os.ModeSocket != 0
 	})
+	if err != nil {
+		t.Fatalf("find the container runtime: %v", err)
+	}
 	if host != "" && os.Getenv("DOCKER_HOST") == "" {
 		if err := os.Setenv("DOCKER_HOST", host); err != nil {
 			t.Fatalf("select discovered container runtime %s: %v", host, err)
 		}
 	}
-	if override := containerRuntimeSocketOverride(host); override != "" &&
+	if override := dockerhost.SocketOverride(host); override != "" &&
 		os.Getenv("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE") == "" {
 		if err := os.Setenv("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE", override); err != nil {
 			t.Fatalf("configure container runtime socket override %s: %v", override, err)

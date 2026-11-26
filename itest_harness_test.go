@@ -11,6 +11,7 @@ import (
 	"time"
 
 	emu "github.com/jamesbraid/unifi-emu"
+	"github.com/jamesbraid/unifi-emu/internal/dockerhost"
 	"github.com/moby/moby/api/types/container"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -59,22 +60,21 @@ func evidenceDir(testName string) string {
 	return filepath.Join("tmp", "itest", strings.Trim(normalized.String(), "_"))
 }
 
-func discoverDockerHost(current, home string, socketExists func(string) bool) string {
-	if current != "" {
-		return current
+// discoverDockerHost finds the daemon the docker CLI would use, then falls
+// back to colima's default socket for a colima host with no context set.
+func discoverDockerHost(getenv func(string) string, home string, socketExists func(string) bool) (string, error) {
+	ep, err := dockerhost.Resolve(getenv, home)
+	if err != nil {
+		return "", err
+	}
+	if ep.Host != "" {
+		return ep.Host, nil
 	}
 	colima := filepath.Join(home, ".colima", "default", "docker.sock")
 	if socketExists(colima) {
-		return "unix://" + colima
+		return "unix://" + colima, nil
 	}
-	return ""
-}
-
-func containerRuntimeSocketOverride(host string) string {
-	if strings.Contains(host, "/.colima/") {
-		return "/var/run/docker.sock"
-	}
-	return ""
+	return "", nil
 }
 
 func writeJSON(path string, value any) error {

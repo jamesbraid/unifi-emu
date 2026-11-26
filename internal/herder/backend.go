@@ -29,12 +29,18 @@ var newContainer = testcontainers.GenericContainer
 // here and are never parsed for progress.
 func healthWait() wait.Strategy { return wait.ForHealthCheck() }
 
-// NewDockerBackend connects to the Docker daemon the way Testcontainers does,
-// so the preflight and the lifecycle always talk to the same host.
+// NewDockerBackend connects to the Docker daemon the docker CLI would use
+// (see selectDocker), through Testcontainers, so the preflight and the
+// lifecycle always talk to the same host.
 func NewDockerBackend(ctx context.Context) (Backend, error) {
+	ep, err := selectDocker(ctx, processDockerEnv())
+	if err != nil {
+		return nil, err
+	}
 	api, err := testcontainers.NewDockerClientWithOpts(ctx)
 	if err != nil {
-		return nil, wrapf(err, CodeDockerUnavailable, PhaseValidate, "connect to Docker: %v", err)
+		return nil, wrapf(err, CodeDockerUnavailable, PhaseValidate,
+			"connect to Docker%s: %v", describeEndpoint(ep), err)
 	}
 	return &dockerBackend{api: api}, nil
 }

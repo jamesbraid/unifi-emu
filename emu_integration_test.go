@@ -136,6 +136,29 @@ func TestUOSAPUpgradeLive(t *testing.T) {
 		spec.MAC, device.State, device.Adopted, device.Version)
 }
 
+// TestUOSNetwork11AdoptLive adopts a switch and an AP on Network 11, which
+// runs only inside UniFi OS Server 6 and keeps devices in PostgreSQL. The
+// emulator's serial is the MAC in hex, which fits the 12-character serial
+// column there; a longer one fails the adopt with HTTP 500.
+func TestUOSNetwork11AdoptLive(t *testing.T) {
+	h := startUOSHarnessWith(t, loadITestImages().network11)
+	specs := []emu.DeviceSpec{
+		{MAC: "00:27:22:e0:00:51", Model: "USM8P", IP: "192.168.1.248"},
+		{MAC: "00:27:22:e0:00:52", Model: "U7PRO", IP: "192.168.1.249"},
+	}
+	h.startEmulator(specs)
+
+	client := adopt.New(h.apiURL, adopt.UniFiOS)
+	if err := client.Login(h.ctx, itestControllerUser, itestControllerPassword); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	for _, spec := range specs {
+		device := adoptAndWaitConnected(t, h.ctx, h, client, spec.Model, spec.MAC)
+		t.Logf("%s %s on Network 11: state=%d adopted=%v",
+			spec.MAC, spec.Model, device.State, device.Adopted)
+	}
+}
+
 // adopter is the controller-side surface shared by the classic Network
 // application and UniFi OS clients.
 type adopter interface {

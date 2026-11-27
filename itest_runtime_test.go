@@ -61,8 +61,15 @@ func startClassicHarness(t *testing.T) *itestHarness {
 
 func startUOSHarness(t *testing.T) *itestHarness {
 	t.Helper()
+	return startUOSHarnessWith(t, loadITestImages().uos)
+}
+
+// startUOSHarnessWith boots a UniFi OS Server image other than the default,
+// such as the Network 11 one.
+func startUOSHarnessWith(t *testing.T, image string) *itestHarness {
+	t.Helper()
 	h := newITestHarness(t, 15*time.Minute)
-	h.startController(uosContainerRequest(h.network.Name, loadITestImages().uos), "443/tcp")
+	h.startController(uosContainerRequest(h.network.Name, image), "443/tcp")
 	h.waitUOSReady()
 	return h
 }

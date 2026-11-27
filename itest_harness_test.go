@@ -20,19 +20,25 @@ import (
 const (
 	defaultClassicImage = "ghcr.io/jamesbraid/unifi-network:sim"
 	defaultUOSImage     = "ghcr.io/jamesbraid/unifi-os-server:seeded"
+	// Network 11 ships only inside UniFi OS Server 6. Pinned by digest:
+	// the tag slides with each release candidate.
+	defaultNetwork11Image = "ghcr.io/jamesbraid/unifi-os-server:6.0.21-rc-seeded" +
+		"@sha256:7311cdf67992168d9d5352ec423e9d5fe4306dba1ae1395ea6ff3e5283d07891"
 )
 
 type itestImages struct {
-	classic  string
-	uos      string
-	emulator string
+	classic   string
+	uos       string
+	network11 string
+	emulator  string
 }
 
 func loadITestImages() itestImages {
 	return itestImages{
-		classic:  envOrDefault("UNIFI_EMU_ITEST_CLASSIC_IMAGE", defaultClassicImage),
-		uos:      envOrDefault("UNIFI_EMU_ITEST_UOS_IMAGE", defaultUOSImage),
-		emulator: os.Getenv("UNIFI_EMU_ITEST_EMULATOR_IMAGE"),
+		classic:   envOrDefault("UNIFI_EMU_ITEST_CLASSIC_IMAGE", defaultClassicImage),
+		uos:       envOrDefault("UNIFI_EMU_ITEST_UOS_IMAGE", defaultUOSImage),
+		network11: envOrDefault("UNIFI_EMU_ITEST_NETWORK11_IMAGE", defaultNetwork11Image),
+		emulator:  os.Getenv("UNIFI_EMU_ITEST_EMULATOR_IMAGE"),
 	}
 }
 
@@ -259,7 +265,12 @@ func applyUOSHostConfig(cfg *container.HostConfig) {
 		"DAC_OVERRIDE", "DAC_READ_SEARCH", "FOWNER", "CHOWN",
 		"SETUID", "SETGID", "KILL", "SYS_CHROOT", "SYS_PTRACE",
 		"SYS_RESOURCE", "AUDIT_WRITE", "MKNOD",
+		// UniFi OS Server 6 needs SETPCAP and the unconfined AppArmor
+		// profile below to boot. 5.x runs the same either way. Both come
+		// from the image's org.unifi-containers.runtime label.
+		"SETPCAP",
 	}
+	cfg.SecurityOpt = []string{"apparmor=unconfined"}
 	cfg.Tmpfs = map[string]string{
 		"/run":               "exec",
 		"/run/lock":          "",
@@ -272,13 +283,15 @@ func applyUOSHostConfig(cfg *container.HostConfig) {
 func TestLoadITestImagesUsesOverrides(t *testing.T) {
 	t.Setenv("UNIFI_EMU_ITEST_CLASSIC_IMAGE", "example/classic:test")
 	t.Setenv("UNIFI_EMU_ITEST_UOS_IMAGE", "example/uos:test")
+	t.Setenv("UNIFI_EMU_ITEST_NETWORK11_IMAGE", "example/network11:test")
 	t.Setenv("UNIFI_EMU_ITEST_EMULATOR_IMAGE", "example/emu:test")
 
 	got := loadITestImages()
 	want := itestImages{
-		classic:  "example/classic:test",
-		uos:      "example/uos:test",
-		emulator: "example/emu:test",
+		classic:   "example/classic:test",
+		uos:       "example/uos:test",
+		network11: "example/network11:test",
+		emulator:  "example/emu:test",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("loadITestImages() = %#v, want %#v", got, want)
@@ -288,6 +301,7 @@ func TestLoadITestImagesUsesOverrides(t *testing.T) {
 func TestLoadITestImagesUsesDefaults(t *testing.T) {
 	t.Setenv("UNIFI_EMU_ITEST_CLASSIC_IMAGE", "")
 	t.Setenv("UNIFI_EMU_ITEST_UOS_IMAGE", "")
+	t.Setenv("UNIFI_EMU_ITEST_NETWORK11_IMAGE", "")
 	t.Setenv("UNIFI_EMU_ITEST_EMULATOR_IMAGE", "")
 
 	got := loadITestImages()
@@ -296,6 +310,9 @@ func TestLoadITestImagesUsesDefaults(t *testing.T) {
 	}
 	if got.uos != "ghcr.io/jamesbraid/unifi-os-server:seeded" {
 		t.Fatalf("UOS image = %q", got.uos)
+	}
+	if !strings.Contains(got.network11, "6.0.21-rc-seeded@sha256:") {
+		t.Fatalf("Network 11 image = %q, want the pinned 6.0.21 RC digest", got.network11)
 	}
 	if got.emulator != "" {
 		t.Fatalf("emulator image = %q, want source build", got.emulator)
@@ -321,10 +338,14 @@ func TestApplyUOSHostConfig(t *testing.T) {
 		"SYS_ADMIN", "NET_ADMIN", "NET_RAW", "NET_BIND_SERVICE",
 		"DAC_OVERRIDE", "DAC_READ_SEARCH", "FOWNER", "CHOWN",
 		"SETUID", "SETGID", "KILL", "SYS_CHROOT", "SYS_PTRACE",
-		"SYS_RESOURCE", "AUDIT_WRITE", "MKNOD",
+		"SYS_RESOURCE", "AUDIT_WRITE", "MKNOD", "SETPCAP",
 	}
 	if !reflect.DeepEqual([]string(cfg.CapAdd), wantAdd) {
 		t.Fatalf("cap add = %#v, want %#v", cfg.CapAdd, wantAdd)
+	}
+	wantSecurity := []string{"apparmor=unconfined"}
+	if !reflect.DeepEqual(cfg.SecurityOpt, wantSecurity) {
+		t.Fatalf("security opts = %#v, want %#v", cfg.SecurityOpt, wantSecurity)
 	}
 	wantTmpfs := map[string]string{
 		"/run":               "exec",

@@ -193,6 +193,10 @@ func runAdopt(parent context.Context, cfg adoptConfig, macs []string) error {
 	err := adopt.Fleet(ctx, client, cfg.site, macs, adopt.Options{
 		OnPending:   func(d adopt.Device) { log.Printf("adopt: %s pending on the controller", d.MAC) },
 		OnConnected: func(d adopt.Device) { log.Printf("adopt: %s connected (model %s)", d.MAC, d.Model) },
+		OnReset: func(d adopt.Device, attempt int) {
+			log.Printf("adopt: %s adopted but stuck in INFORM_ERROR (state %d), re-sending adopt (%d)",
+				d.MAC, d.State, attempt)
+		},
 	})
 	if err != nil {
 		// When the failure is the interrupt, nobody is going to read a

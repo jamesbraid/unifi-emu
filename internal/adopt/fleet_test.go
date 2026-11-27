@@ -243,3 +243,91 @@ func equalStrings(got, want []string) bool {
 	}
 	return true
 }
+
+// stuckOptions re-sends a stuck device's adopt after a few polls rather than
+// the production minute.
+func stuckOptions() Options {
+	opts := fastOptions()
+	opts.StuckAfter = 30 * time.Millisecond
+	opts.MaxResets = 2
+	return opts
+}
+
+// A device the controller holds in INFORM_ERROR after an accepted adopt must
+// not keep the rest of the fleet from connecting, and the failure must name
+// it with its state and how often its adopt was re-sent.
+func TestFleetDoesNotLetAStuckDeviceStarveTheOthers(t *testing.T) {
+	const stuck, fine = "00:15:6d:00:00:01", "00:15:6d:00:00:02"
+	f := newFakeClassic(t, stuck, fine)
+	f.stick(stuck, 1000)
+	c := loginTo(t, f.server.URL)
+
+	var connected []string
+	opts := stuckOptions()
+	opts.OnConnected = func(d Device) { connected = append(connected, d.MAC) }
+
+	err := Fleet(waitCtx(t, 5*time.Second), c, "default", []string{stuck, fine}, opts)
+	if err == nil {
+		t.Fatal("Fleet succeeded with a device stuck in state 9")
+	}
+	if !equalStrings(connected, []string{fine}) {
+		t.Errorf("OnConnected saw %v, want only %s", connected, fine)
+	}
+	for _, want := range []string{"1 of 2", stuck + " state=9 adopted=true resets=2"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not mention %q", err, want)
+		}
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("error %q blames the deadline; the re-sends ran out first", err)
+	}
+	// One adopt per device, plus the two bounded re-sends for the stuck one.
+	if saw := f.sawAdopts(); !equalStrings(saw, []string{stuck, fine, stuck, stuck}) {
+		t.Errorf("controller saw adopts %v", saw)
+	}
+}
+
+// A re-sent adopt that gets the device moving again is a success.
+func TestFleetResendsTheAdoptOfADeviceStuckInInformError(t *testing.T) {
+	const mac = "00:15:6d:00:00:01"
+	f := newFakeClassic(t, mac)
+	f.stick(mac, 1)
+	c := loginTo(t, f.server.URL)
+
+	var resets []int
+	opts := stuckOptions()
+	opts.OnReset = func(_ Device, attempt int) { resets = append(resets, attempt) }
+
+	if err := Fleet(waitCtx(t, 5*time.Second), c, "default", []string{mac}, opts); err != nil {
+		t.Fatalf("Fleet: %v", err)
+	}
+	if len(resets) != 1 || resets[0] != 1 {
+		t.Errorf("OnReset saw attempts %v, want [1]", resets)
+	}
+	if saw := f.sawAdopts(); len(saw) != 2 {
+		t.Errorf("controller saw %d adopts, want the first plus one re-send", len(saw))
+	}
+}
+
+// When the deadline ends the wait, the error still names every device that
+// had not connected, with its last state.
+func TestFleetTimeoutNamesEveryUnconnectedDevice(t *testing.T) {
+	const a, b = "00:15:6d:00:00:01", "00:15:6d:00:00:02"
+	f := newFakeClassic(t, a, b)
+	f.stick(a, 1000)
+	f.stick(b, 1000)
+	c := loginTo(t, f.server.URL)
+
+	opts := fastOptions()
+	opts.StuckAfter = time.Hour // never re-send: the deadline must end it
+
+	err := Fleet(waitCtx(t, 300*time.Millisecond), c, "default", []string{a, b}, opts)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("error = %v, want the deadline", err)
+	}
+	for _, want := range []string{"2 of 2", a + " state=9", b + " state=9"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not mention %q", err, want)
+		}
+	}
+}

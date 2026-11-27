@@ -95,6 +95,31 @@ type fakeClassic struct {
 	// forceState, when non-zero, replaces the pending/adopted flip, so a
 	// test can present a controller verdict such as 7 (adopt-failed).
 	forceState int
+	// stuckAdopts maps a MAC to how many of its adopts leave it adopted but
+	// held in INFORM_ERROR (state 9), the way a freshly booted controller
+	// sometimes does. The adopt after that many connects it.
+	stuckAdopts map[string]int
+}
+
+// stick holds mac in INFORM_ERROR for its first n adopts.
+func (f *fakeClassic) stick(mac string, n int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.stuckAdopts == nil {
+		f.stuckAdopts = map[string]int{}
+	}
+	f.stuckAdopts[mac] = n
+}
+
+// adoptsOf counts the adopt commands seen for mac. Callers hold f.mu.
+func (f *fakeClassic) adoptsOf(mac string) int {
+	n := 0
+	for _, m := range f.sawAdopt {
+		if m == mac {
+			n++
+		}
+	}
+	return n
 }
 
 // setState makes the fake report state unconditionally.
@@ -196,6 +221,9 @@ func (f *fakeClassic) handleStatDevice(w http.ResponseWriter, r *http.Request) {
 		state, adopted := 2, false
 		if f.adopted[mac] {
 			state, adopted = 1, true
+			if n := f.stuckAdopts[mac]; n > 0 && f.adoptsOf(mac) <= n {
+				state = 9
+			}
 		}
 		if f.forceState != 0 {
 			state, adopted = f.forceState, false

@@ -117,9 +117,15 @@ controller behind a proxy.
 
 ### Adoption behaviour
 
-Devices adopt one at a time. Controllers reject bursts and reject documents that
-are only seconds old, so adopting in sequence finishes sooner than adopting in
-parallel.
+Adopt commands go out one device at a time, each once its device is pending.
+Controllers reject bursts and reject documents that are only seconds old, so
+adopting in sequence finishes sooner than adopting in parallel. The wait for
+each device to connect is shared, so one slow device doesn't hold up the rest.
+
+A controller can accept an adopt and then hold the device in state 9
+(INFORM_ERROR), adopted but answering every inform 404 without sending the new
+key. This has been seen on a console adopted the moment it reported healthy. A
+device held there for a minute has its adopt sent again, up to three times.
 
 The container tolerates a controller that is still booting. Informing retries
 forever, and login retries for as long as `-adopt-timeout` allows. A service that
@@ -135,7 +141,7 @@ immediately rather than waiting, because that mistake reaches a controller that
 answers, and a controller that answers answers in JSON.
 
 Failure is fatal and loud. When a device never reaches connected inside
-`-adopt-timeout`, the container reports what the controller thought of every
+`-adopt-timeout`, or runs out of re-sent adopts, the container reports what the controller thought of every
 device, stops the fleet, and exits non-zero. Success is quiet: the container
 keeps running and informing until you stop it.
 

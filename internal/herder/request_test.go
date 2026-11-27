@@ -16,7 +16,7 @@ func TestDecodeRequestAcceptsTheDocumentedShape(t *testing.T) {
 	  "devices": [
 	    {"model": "USM8P"},
 	    {"model": "UXGENT", "mac": "02:00:00:00:10:01",
-	     "serial": "EMU020000001001", "name": "gateway-under-test"}
+	     "serial": "020000001001", "name": "gateway-under-test"}
 	  ]
 	}`)
 	if err != nil {
@@ -25,7 +25,7 @@ func TestDecodeRequestAcceptsTheDocumentedShape(t *testing.T) {
 	if got.Version != 1 || len(got.Devices) != 2 {
 		t.Fatalf("request = %#v", got)
 	}
-	if got.Devices[1].Serial != "EMU020000001001" || got.Devices[1].Name != "gateway-under-test" {
+	if got.Devices[1].Serial != "020000001001" || got.Devices[1].Name != "gateway-under-test" {
 		t.Fatalf("second device = %#v", got.Devices[1])
 	}
 }

@@ -38,7 +38,7 @@ func TestAllocateDerivesEveryFieldFromAGeneratedMAC(t *testing.T) {
 	}
 	want := Identity{
 		Index: 0, Model: "USM8P", MAC: "02:11:22:33:44:55",
-		Serial: "EMU021122334455", Name: "emu-usm8p-021122334455",
+		Serial: "021122334455", Name: "emu-usm8p-021122334455",
 	}
 	if got[0] != want {
 		t.Fatalf("identity = %#v, want %#v", got[0], want)
@@ -112,7 +112,7 @@ func TestSuppliedMACIsCanonicalizedNotRegenerated(t *testing.T) {
 	if got[0].MAC != "02:00:00:00:10:01" {
 		t.Fatalf("MAC = %s, want lowercase colon-separated canonical form", got[0].MAC)
 	}
-	if got[0].Serial != "EMU020000001001" {
+	if got[0].Serial != "020000001001" {
 		t.Fatalf("serial = %s, want it derived from the canonical MAC", got[0].Serial)
 	}
 }
@@ -178,7 +178,7 @@ func TestDuplicateSuppliedNamesAreRejected(t *testing.T) {
 // different MAC than the caller asked for.
 func TestSuppliedMACWithCollidingDerivedSerialIsRejected(t *testing.T) {
 	_, err := Allocate([]RequestDevice{
-		{Model: "USM8P", MAC: "02:00:00:00:10:02", Serial: "EMU020000001001"},
+		{Model: "USM8P", MAC: "02:00:00:00:10:02", Serial: "020000001001"},
 		{Model: "UXGENT", MAC: "02:00:00:00:10:01"},
 	}, failingRand{})
 	assertFailure(t, err, CodeInvalidRequest, PhaseValidate)
@@ -194,12 +194,12 @@ func TestSuppliedMACWithCollidingDerivedNameIsRejected(t *testing.T) {
 
 func TestSuppliedSerialAcceptsPrintableASCII(t *testing.T) {
 	got, err := Allocate([]RequestDevice{
-		{Model: "USM8P", MAC: "02:00:00:00:10:01", Serial: " ~printable/serial "},
+		{Model: "USM8P", MAC: "02:00:00:00:10:01", Serial: " ~print/ser "},
 	}, failingRand{})
 	if err != nil {
 		t.Fatalf("Allocate: %v", err)
 	}
-	if got[0].Serial != " ~printable/serial " {
+	if got[0].Serial != " ~print/ser " {
 		t.Fatalf("serial = %q, want it preserved verbatim", got[0].Serial)
 	}
 }
@@ -213,7 +213,7 @@ func TestSuppliedSerialRejectsControlCharacters(t *testing.T) {
 
 func TestSuppliedSerialRejectsOverlongValue(t *testing.T) {
 	_, err := Allocate([]RequestDevice{
-		{Model: "USM8P", MAC: "02:00:00:00:10:01", Serial: strings.Repeat("A", 33)},
+		{Model: "USM8P", MAC: "02:00:00:00:10:01", Serial: strings.Repeat("A", serialMax+1)},
 	}, failingRand{})
 	assertFailure(t, err, CodeInvalidRequest, PhaseValidate)
 }
@@ -226,7 +226,7 @@ func TestSuppliedSerialRejectsEmptyString(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Allocate: %v", err)
 	}
-	if got[0].Serial != "EMU020000001001" {
+	if got[0].Serial != "020000001001" {
 		t.Fatalf("serial = %q, want the derived value", got[0].Serial)
 	}
 }

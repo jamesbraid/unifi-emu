@@ -86,14 +86,14 @@ func TestReadyEventCarriesRequiredDeviceIP(t *testing.T) {
 	mustStart(t, w)
 	err := w.Ready("7f8b1ab4", []ReadyDevice{{
 		Identity: Identity{Index: 0, Model: "USM8P", MAC: "02:11:22:33:44:55",
-			Serial: "EMU021122334455", Name: "emu-usm8p-021122334455"},
+			Serial: "021122334455", Name: "emu-usm8p-021122334455"},
 		IP: "172.28.0.4",
 	}})
 	if err != nil {
 		t.Fatalf("Ready: %v", err)
 	}
 	want := `{"protocol":1,"event":"ready","run_id":"7f8b1ab4","devices":` +
-		`[{"index":0,"model":"USM8P","mac":"02:11:22:33:44:55","serial":"EMU021122334455",` +
+		`[{"index":0,"model":"USM8P","mac":"02:11:22:33:44:55","serial":"021122334455",` +
 		`"name":"emu-usm8p-021122334455","ip":"172.28.0.4"}]}` + "\n"
 	if got := lastLine(buf.String()); got != want {
 		t.Fatalf("ready event = %q, want %q", got, want)
@@ -108,7 +108,7 @@ func TestFailedEventOmitsDeviceIPAndCause(t *testing.T) {
 		RunID: "7f8b1ab4", Phase: PhaseHealth, Code: CodeDeviceUnhealthy,
 		CleanupComplete: true,
 		Devices: []Identity{{Index: 1, Model: "UXGENT", MAC: "02:00:00:00:10:01",
-			Serial: "EMU020000001001", Name: "gateway-under-test"}},
+			Serial: "020000001001", Name: "gateway-under-test"}},
 	})
 	if err != nil {
 		t.Fatalf("Failed: %v", err)
@@ -123,7 +123,7 @@ func TestFailedEventOmitsDeviceIPAndCause(t *testing.T) {
 	want := `{"protocol":1,"event":"failed","run_id":"7f8b1ab4","phase":"health",` +
 		`"code":"device_unhealthy","message":"` + CodeDeviceUnhealthy.Message() + `",` +
 		`"cleanup_complete":true,"devices":[{"index":1,"model":"UXGENT",` +
-		`"mac":"02:00:00:00:10:01","serial":"EMU020000001001","name":"gateway-under-test"}]}` + "\n"
+		`"mac":"02:00:00:00:10:01","serial":"020000001001","name":"gateway-under-test"}]}` + "\n"
 	if line != want {
 		t.Fatalf("failed event = %q, want %q", line, want)
 	}

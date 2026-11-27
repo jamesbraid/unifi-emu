@@ -428,7 +428,7 @@ func TestDockerReadyIdentitiesMatchTheRequestAfterCanonicalization(t *testing.T)
 	signals := make(chan os.Signal, 4)
 	exit, events, stderr := it.runHerder(
 		`{"version":1,"devices":[{"model":"UXGENT","mac":"02-00-00-00-10-01",`+
-			`"serial":"EMU020000001001","name":"gateway-under-test"}]}`,
+			`"serial":"020000001001","name":"gateway-under-test"}]}`,
 		func(o *Options) { o.RuntimeConfigPath = config },
 		stopAfterReady(signals, syscall.SIGTERM))
 	if exit != 0 {
@@ -438,7 +438,7 @@ func TestDockerReadyIdentitiesMatchTheRequestAfterCanonicalization(t *testing.T)
 	if device["mac"] != "02:00:00:00:10:01" {
 		t.Fatalf("mac = %v, want the canonical form", device["mac"])
 	}
-	if device["serial"] != "EMU020000001001" || device["name"] != "gateway-under-test" {
+	if device["serial"] != "020000001001" || device["name"] != "gateway-under-test" {
 		t.Fatalf("device = %#v, want the supplied identities preserved", device)
 	}
 }

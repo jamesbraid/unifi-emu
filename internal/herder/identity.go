@@ -9,8 +9,11 @@ import (
 )
 
 const (
-	// serialMax and nameMax bound an explicit serial and name.
-	serialMax = 32
+	// serialMax and nameMax bound an explicit serial and name. A real
+	// UniFi serial is 12 characters, and Network 11 stores it in a
+	// varchar(12) column, so a longer one fails every adoption with a
+	// database error instead of at request time.
+	serialMax = 12
 	nameMax   = 63
 	// macRetries bounds the collision retry. Each attempt draws 48 random
 	// bits, so exhausting this many means the random source is broken, not
@@ -205,8 +208,8 @@ func canonicalMAC(s string) (string, error) {
 // macHex is the MAC as 12 hexadecimal digits with no separators.
 func macHex(mac string) string { return strings.ReplaceAll(mac, ":", "") }
 
-// derivedSerial is EMU followed by the MAC in uppercase hexadecimal.
-func derivedSerial(hex string) string { return "EMU" + strings.ToUpper(hex) }
+// derivedSerial is the MAC in uppercase hexadecimal, as on real hardware.
+func derivedSerial(hex string) string { return strings.ToUpper(hex) }
 
 // derivedName is emu-<normalized-model>-<mac-hex>. Only the model is
 // truncated, so the MAC suffix -- the part that makes the name unique --
@@ -267,7 +270,7 @@ func checkModel(model string) error {
 	return nil
 }
 
-// checkSerial accepts 1-32 printable ASCII bytes. Control characters are out:
+// checkSerial accepts 1-12 printable ASCII bytes. Control characters are out:
 // a serial travels through container environment, JSON payloads and
 // controller state, and none of those survive one intact.
 func checkSerial(serial string) error {
